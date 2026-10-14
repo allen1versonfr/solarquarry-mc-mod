@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "PPP",
+    "ICI",
+    "III"
+  ],
+  "key": {
+    "P": "solarquarry:photovoltaic_cell",
+    "I": "minecraft:iron_ingot",
+    "C": "solarquarry:circuit_board"
+  },
+  "result": {
+    "id": "solarquarry:solar_panel_basic",
+    "count": 1
+  }
+}

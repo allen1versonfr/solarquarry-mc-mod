@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "GGG",
+    "LRL",
+    "III"
+  ],
+  "key": {
+    "G": "minecraft:glass_pane",
+    "L": "minecraft:lapis_lazuli",
+    "R": "minecraft:redstone",
+    "I": "minecraft:iron_ingot"
+  },
+  "result": {
+    "id": "solarquarry:photovoltaic_cell",
+    "count": 2
+  }
+}

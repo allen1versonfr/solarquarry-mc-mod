@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "GBG",
+    "BAB",
+    "GBG"
+  ],
+  "key": {
+    "G": "minecraft:gold_ingot",
+    "B": "solarquarry:battery_basic",
+    "A": "solarquarry:advanced_circuit"
+  },
+  "result": {
+    "id": "solarquarry:battery_advanced",
+    "count": 1
+  }
+}

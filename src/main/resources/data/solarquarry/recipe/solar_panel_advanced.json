@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "BGB",
+    "GAG",
+    "BGB"
+  ],
+  "key": {
+    "B": "solarquarry:solar_panel_basic",
+    "G": "minecraft:gold_ingot",
+    "A": "solarquarry:advanced_circuit"
+  },
+  "result": {
+    "id": "solarquarry:solar_panel_advanced",
+    "count": 1
+  }
+}

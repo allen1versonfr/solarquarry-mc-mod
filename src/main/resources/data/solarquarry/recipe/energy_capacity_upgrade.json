@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "RCR",
+    "CBC",
+    "RCR"
+  ],
+  "key": {
+    "R": "minecraft:redstone_block",
+    "C": "minecraft:copper_ingot",
+    "B": "solarquarry:upgrade_base"
+  },
+  "result": {
+    "id": "solarquarry:energy_capacity_upgrade",
+    "count": 1
+  }
+}

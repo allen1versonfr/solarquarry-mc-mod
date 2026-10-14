@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "solarquarry:item_pipe",
+    "solarquarry:circuit_board",
+    "minecraft:comparator"
+  ],
+  "result": {
+    "id": "solarquarry:filter_pipe",
+    "count": 1
+  }
+}

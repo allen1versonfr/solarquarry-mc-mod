@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "solarquarry:block/solar_panel_basic"
+  }
+}

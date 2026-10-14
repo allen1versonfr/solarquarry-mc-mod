@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "LDL",
+    "EBE",
+    "LDL"
+  ],
+  "key": {
+    "L": "minecraft:lapis_block",
+    "D": "minecraft:diamond",
+    "E": "minecraft:emerald",
+    "B": "solarquarry:upgrade_base"
+  },
+  "result": {
+    "id": "solarquarry:fortune_upgrade",
+    "count": 1
+  }
+}

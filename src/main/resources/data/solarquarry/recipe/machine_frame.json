@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "IBI",
+    "BCB",
+    "IBI"
+  ],
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "B": "minecraft:iron_bars",
+    "C": "solarquarry:circuit_board"
+  },
+  "result": {
+    "id": "solarquarry:machine_frame",
+    "count": 1
+  }
+}

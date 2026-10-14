@@ -1,0 +1,32 @@
+{
+  "quarry_drill": {
+    "sounds": [
+      "solarquarry:quarry_drill"
+    ],
+    "subtitle": "subtitles.solarquarry.quarry_drill"
+  },
+  "machine_start": {
+    "sounds": [
+      "solarquarry:machine_start"
+    ],
+    "subtitle": "subtitles.solarquarry.machine_start"
+  },
+  "power_down": {
+    "sounds": [
+      "solarquarry:power_down"
+    ],
+    "subtitle": "subtitles.solarquarry.power_down"
+  },
+  "pipe_deliver": {
+    "sounds": [
+      "solarquarry:pipe_deliver"
+    ],
+    "subtitle": "subtitles.solarquarry.pipe_deliver"
+  },
+  "wrench": {
+    "sounds": [
+      "solarquarry:wrench"
+    ],
+    "subtitle": "subtitles.solarquarry.wrench"
+  }
+}

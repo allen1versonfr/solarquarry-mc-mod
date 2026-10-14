@@ -1,0 +1,14 @@
+{
+	"schemaVersion": 1,
+	"id": "solarquarry-gametest",
+	"version": "1.0.0",
+	"name": "Solar Quarry Game Tests",
+	"environment": "client",
+	"entrypoints": {
+		"fabric-client-gametest": ["com.solarquarry.gametest.SolarQuarryClientGameTest"]
+	},
+	"depends": {
+		"solarquarry": "*",
+		"fabric-api": "*"
+	}
+}

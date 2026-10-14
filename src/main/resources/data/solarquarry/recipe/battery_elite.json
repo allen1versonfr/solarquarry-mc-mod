@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "DBD",
+    "BAB",
+    "DBD"
+  ],
+  "key": {
+    "D": "minecraft:diamond",
+    "B": "solarquarry:battery_advanced",
+    "A": "solarquarry:advanced_circuit"
+  },
+  "result": {
+    "id": "solarquarry:battery_elite",
+    "count": 1
+  }
+}

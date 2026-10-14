@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "solarquarry:block/battery_advanced_side",
+    "north": "solarquarry:block/battery_advanced_front_1",
+    "south": "solarquarry:block/battery_advanced_side",
+    "east": "solarquarry:block/battery_advanced_side",
+    "west": "solarquarry:block/battery_advanced_side",
+    "up": "solarquarry:block/battery_top",
+    "down": "solarquarry:block/battery_top"
+  }
+}

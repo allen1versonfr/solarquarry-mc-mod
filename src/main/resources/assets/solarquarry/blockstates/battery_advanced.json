@@ -1,0 +1,79 @@
+{
+  "variants": {
+    "charge=0,facing=north": {
+      "model": "solarquarry:block/battery_advanced_0"
+    },
+    "charge=1,facing=north": {
+      "model": "solarquarry:block/battery_advanced_1"
+    },
+    "charge=2,facing=north": {
+      "model": "solarquarry:block/battery_advanced_2"
+    },
+    "charge=3,facing=north": {
+      "model": "solarquarry:block/battery_advanced_3"
+    },
+    "charge=4,facing=north": {
+      "model": "solarquarry:block/battery_advanced_4"
+    },
+    "charge=0,facing=east": {
+      "model": "solarquarry:block/battery_advanced_0",
+      "y": 90
+    },
+    "charge=1,facing=east": {
+      "model": "solarquarry:block/battery_advanced_1",
+      "y": 90
+    },
+    "charge=2,facing=east": {
+      "model": "solarquarry:block/battery_advanced_2",
+      "y": 90
+    },
+    "charge=3,facing=east": {
+      "model": "solarquarry:block/battery_advanced_3",
+      "y": 90
+    },
+    "charge=4,facing=east": {
+      "model": "solarquarry:block/battery_advanced_4",
+      "y": 90
+    },
+    "charge=0,facing=south": {
+      "model": "solarquarry:block/battery_advanced_0",
+      "y": 180
+    },
+    "charge=1,facing=south": {
+      "model": "solarquarry:block/battery_advanced_1",
+      "y": 180
+    },
+    "charge=2,facing=south": {
+      "model": "solarquarry:block/battery_advanced_2",
+      "y": 180
+    },
+    "charge=3,facing=south": {
+      "model": "solarquarry:block/battery_advanced_3",
+      "y": 180
+    },
+    "charge=4,facing=south": {
+      "model": "solarquarry:block/battery_advanced_4",
+      "y": 180
+    },
+    "charge=0,facing=west": {
+      "model": "solarquarry:block/battery_advanced_0",
+      "y": 270
+    },
+    "charge=1,facing=west": {
+      "model": "solarquarry:block/battery_advanced_1",
+      "y": 270
+    },
+    "charge=2,facing=west": {
+      "model": "solarquarry:block/battery_advanced_2",
+      "y": 270
+    },
+    "charge=3,facing=west": {
+      "model": "solarquarry:block/battery_advanced_3",
+      "y": 270
+    },
+    "charge=4,facing=west": {
+      "model": "solarquarry:block/battery_advanced_4",
+      "y": 270
+    }
+  }
+}

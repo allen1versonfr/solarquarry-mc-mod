@@ -1,0 +1,15 @@
+{
+  "replace": false,
+  "values": [
+    "solarquarry:quarry",
+    "solarquarry:solar_panel_basic",
+    "solarquarry:solar_panel_advanced",
+    "solarquarry:solar_panel_elite",
+    "solarquarry:battery_basic",
+    "solarquarry:battery_advanced",
+    "solarquarry:battery_elite",
+    "solarquarry:energy_cable",
+    "solarquarry:item_pipe",
+    "solarquarry:filter_pipe"
+  ]
+}

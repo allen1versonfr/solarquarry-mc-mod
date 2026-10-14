@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "solarquarry:item/energy_efficiency_upgrade"
+  }
+}

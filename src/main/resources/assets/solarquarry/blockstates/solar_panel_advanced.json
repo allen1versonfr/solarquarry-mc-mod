@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "generating=false": {
+      "model": "solarquarry:block/solar_panel_advanced"
+    },
+    "generating=true": {
+      "model": "solarquarry:block/solar_panel_advanced"
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+	"schemaVersion": 1,
+	"id": "solarquarry",
+	"version": "${version}",
+	"name": "Solar Quarry",
+	"description": "A standalone solar-powered quarry with energy cables, item pipes, filters and upgrades.",
+	"authors": [
+		"Ali"
+	],
+	"license": "CC0-1.0",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.solarquarry.SolarQuarry"
+		],
+		"client": [
+			"com.solarquarry.client.SolarQuarryClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	},
+	"icon": "assets/solarquarry/icon.png",
+	"contact": {}
+}

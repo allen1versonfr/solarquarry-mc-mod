@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "OCO",
+    "CBC",
+    "OCO"
+  ],
+  "key": {
+    "O": "minecraft:obsidian",
+    "C": "minecraft:cactus",
+    "B": "solarquarry:upgrade_base"
+  },
+  "result": {
+    "id": "solarquarry:void_upgrade",
+    "count": 1
+  }
+}

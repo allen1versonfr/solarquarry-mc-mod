@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "GQG",
+    "CDC",
+    "GQG"
+  ],
+  "key": {
+    "G": "minecraft:gold_ingot",
+    "Q": "minecraft:quartz",
+    "C": "solarquarry:circuit_board",
+    "D": "minecraft:diamond"
+  },
+  "result": {
+    "id": "solarquarry:advanced_circuit",
+    "count": 1
+  }
+}

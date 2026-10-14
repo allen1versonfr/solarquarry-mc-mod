@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "IGI",
+    "GCG",
+    "IGI"
+  ],
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "G": "minecraft:gold_nugget",
+    "C": "solarquarry:circuit_board"
+  },
+  "result": {
+    "id": "solarquarry:upgrade_base",
+    "count": 2
+  }
+}

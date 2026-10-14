@@ -1,0 +1,86 @@
+package com.solarquarry.registry;
+
+import com.solarquarry.SolarQuarry;
+import com.solarquarry.block.BatteryBlock;
+import com.solarquarry.block.EnergyCableBlock;
+import com.solarquarry.block.ItemPipeBlock;
+import com.solarquarry.block.QuarryBlock;
+import com.solarquarry.block.SolarPanelBlock;
+import com.solarquarry.energy.BatteryTier;
+import com.solarquarry.energy.SolarTier;
+import com.solarquarry.item.MachineBlockItem;
+import com.solarquarry.quarry.QuarryLamp;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Function;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Rarity;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.material.MapColor;
+
+public final class ModBlocks {
+	public static final List<Item> BLOCK_ITEMS = new ArrayList<>();
+
+	public static final QuarryBlock QUARRY = register("quarry", QuarryBlock::new,
+		BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(5.0F, 8.0F).sound(SoundType.NETHERITE_BLOCK).requiresCorrectToolForDrops()
+			.lightLevel(state -> state.getValue(QuarryBlock.LAMP) == QuarryLamp.OFF ? 0 : 5),
+		"tooltip.solarquarry.quarry", Rarity.UNCOMMON);
+
+	public static final SolarPanelBlock SOLAR_PANEL_BASIC = registerSolar(SolarTier.BASIC, Rarity.COMMON);
+	public static final SolarPanelBlock SOLAR_PANEL_ADVANCED = registerSolar(SolarTier.ADVANCED, Rarity.UNCOMMON);
+	public static final SolarPanelBlock SOLAR_PANEL_ELITE = registerSolar(SolarTier.ELITE, Rarity.RARE);
+
+	public static final BatteryBlock BATTERY_BASIC = registerBattery(BatteryTier.BASIC, Rarity.COMMON);
+	public static final BatteryBlock BATTERY_ADVANCED = registerBattery(BatteryTier.ADVANCED, Rarity.UNCOMMON);
+	public static final BatteryBlock BATTERY_ELITE = registerBattery(BatteryTier.ELITE, Rarity.RARE);
+
+	public static final EnergyCableBlock ENERGY_CABLE = register("energy_cable", EnergyCableBlock::new,
+		BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_ORANGE).strength(0.6F).sound(SoundType.COPPER).noOcclusion(),
+		"tooltip.solarquarry.energy_cable", Rarity.COMMON);
+
+	public static final ItemPipeBlock ITEM_PIPE = register("item_pipe", p -> new ItemPipeBlock(false, p),
+		BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(1.0F).sound(SoundType.COPPER_GRATE).noOcclusion(),
+		"tooltip.solarquarry.item_pipe", Rarity.COMMON);
+
+	public static final ItemPipeBlock FILTER_PIPE = register("filter_pipe", p -> new ItemPipeBlock(true, p),
+		BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(1.0F).sound(SoundType.COPPER_GRATE).noOcclusion(),
+		"tooltip.solarquarry.filter_pipe", Rarity.COMMON);
+
+	private ModBlocks() {
+	}
+
+	private static SolarPanelBlock registerSolar(SolarTier tier, Rarity rarity) {
+		return register("solar_panel_" + tier.id(), p -> new SolarPanelBlock(tier, p),
+			BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_BLUE).strength(3.0F, 6.0F).sound(SoundType.METAL).noOcclusion().requiresCorrectToolForDrops(),
+			"tooltip.solarquarry.solar_panel_" + tier.id(), rarity);
+	}
+
+	private static BatteryBlock registerBattery(BatteryTier tier, Rarity rarity) {
+		return register("battery_" + tier.id(), p -> new BatteryBlock(tier, p),
+			BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(4.0F, 6.0F).sound(SoundType.METAL).requiresCorrectToolForDrops(),
+			"tooltip.solarquarry.battery_" + tier.id(), rarity);
+	}
+
+	private static <T extends Block> T register(String name, Function<BlockBehaviour.Properties, T> factory, BlockBehaviour.Properties properties, String tooltip, Rarity rarity) {
+		ResourceKey<Block> blockKey = ResourceKey.create(Registries.BLOCK, SolarQuarry.id(name));
+		T block = factory.apply(properties.setId(blockKey));
+		Registry.register(BuiltInRegistries.BLOCK, blockKey, block);
+
+		ResourceKey<Item> itemKey = ResourceKey.create(Registries.ITEM, SolarQuarry.id(name));
+		Item.Properties itemProperties = new Item.Properties().setId(itemKey).useBlockDescriptionPrefix().rarity(rarity);
+		MachineBlockItem item = new MachineBlockItem(block, tooltip, itemProperties);
+		item.registerBlocks(Item.BY_BLOCK, item);
+		Registry.register(BuiltInRegistries.ITEM, itemKey, item);
+		BLOCK_ITEMS.add(item);
+		return block;
+	}
+
+	public static void init() {
+	}
+}

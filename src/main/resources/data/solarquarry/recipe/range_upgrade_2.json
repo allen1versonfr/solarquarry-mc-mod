@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "DED",
+    "ERE",
+    "DED"
+  ],
+  "key": {
+    "D": "minecraft:diamond",
+    "E": "minecraft:ender_eye",
+    "R": "solarquarry:range_upgrade"
+  },
+  "result": {
+    "id": "solarquarry:range_upgrade_2",
+    "count": 1
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "QGQ",
+    "GBG",
+    "QGQ"
+  ],
+  "key": {
+    "Q": "minecraft:quartz",
+    "G": "minecraft:gold_ingot",
+    "B": "solarquarry:upgrade_base"
+  },
+  "result": {
+    "id": "solarquarry:energy_efficiency_upgrade",
+    "count": 1
+  }
+}

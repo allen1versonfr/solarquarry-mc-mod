@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "RSR",
+    "GBG",
+    "RSR"
+  ],
+  "key": {
+    "R": "minecraft:redstone",
+    "S": "minecraft:sugar",
+    "G": "minecraft:gold_ingot",
+    "B": "solarquarry:upgrade_base"
+  },
+  "result": {
+    "id": "solarquarry:speed_upgrade",
+    "count": 1
+  }
+}

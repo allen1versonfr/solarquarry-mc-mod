@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "SDS",
+    "EBE",
+    "SDS"
+  ],
+  "key": {
+    "S": "minecraft:slime_ball",
+    "D": "minecraft:diamond",
+    "E": "minecraft:ender_pearl",
+    "B": "solarquarry:upgrade_base"
+  },
+  "result": {
+    "id": "solarquarry:silk_touch_upgrade",
+    "count": 1
+  }
+}

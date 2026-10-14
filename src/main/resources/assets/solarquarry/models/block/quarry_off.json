@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "solarquarry:block/quarry_side",
+    "north": "solarquarry:block/quarry_front_off",
+    "south": "solarquarry:block/quarry_back",
+    "east": "solarquarry:block/quarry_side",
+    "west": "solarquarry:block/quarry_side",
+    "up": "solarquarry:block/quarry_top",
+    "down": "solarquarry:block/quarry_bottom"
+  }
+}

@@ -1,0 +1,135 @@
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+base {
+	archivesName = "solarquarry"
+}
+
+repositories {
+}
+
+loom {
+	splitEnvironmentSourceSets()
+}
+
+sourceSets {
+	// Client game tests (automated in-game checks with screenshots). Never packaged into the mod jar.
+	gametest {
+		compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output + sourceSets.client.compileClasspath + sourceSets.client.output
+		runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output + sourceSets.client.runtimeClasspath + sourceSets.client.output
+	}
+}
+
+loom {
+	mods {
+		"solarquarry" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+		"solarquarry-gametest" {
+			sourceSet sourceSets.gametest
+		}
+	}
+
+	runs {
+		// Dedicated-server self test: builds a test site, exercises every system, logs results and exits.
+		selftest {
+			server()
+			name "Solar Quarry Self Test"
+			vmArg "-Dsolarquarry.selftest=true"
+			runDir "run-selftest"
+			programArgs "--nogui"
+		}
+
+		// Client game test: opens a world, runs the quarry, opens the GUIs and saves screenshots.
+		clientGameTest {
+			client()
+			name "Solar Quarry Client Game Test"
+			source sourceSets.gametest
+			vmArg "-Dfabric.client.gametest"
+			runDir "run-clienttest"
+		}
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+}
+
+processResources {
+	def version = project.version
+	inputs.property "version", version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 25
+	it.options.encoding = "UTF-8"
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+jar {
+	def projectName = project.name
+	inputs.property "projectName", projectName
+
+	from("LICENSE") {
+		rename { "${it}_$projectName" }
+	}
+}
+
+// Copies the Fabric API module sources next to the project so the API surface can be inspected.
+tasks.register("exportRefs") {
+	notCompatibleWithConfigurationCache("resolves artifacts at execution time")
+	doLast {
+		def out = file("_refs/fabric")
+		out.mkdirs()
+		def ids = configurations.runtimeClasspath.incoming.resolutionResult.allComponents
+			.collect { it.id }
+			.findAll { it instanceof org.gradle.api.artifacts.component.ModuleComponentIdentifier }
+		def result = dependencies.createArtifactResolutionQuery()
+			.forComponents(ids)
+			.withArtifacts(JvmLibrary, SourcesArtifact)
+			.execute()
+		result.resolvedComponents.each { c ->
+			c.getArtifacts(SourcesArtifact).each { a ->
+				if (a instanceof org.gradle.api.artifacts.result.ResolvedArtifactResult) {
+					def f = a.file
+					if (f.name.startsWith("fabric-")) {
+						copy { from f; into out }
+					}
+				}
+			}
+		}
+		configurations.runtimeClasspath.files.findAll { it.name.startsWith("fabric-") }.each { f ->
+			copy { from f; into file("_refs/fabric-bin") }
+		}
+	}
+}
+
+// Copies the compile classpath (Minecraft, Fabric and libraries) into _refs/cp for offline API inspection.
+tasks.register("exportCompileJars") {
+	notCompatibleWithConfigurationCache("copies resolved artifacts")
+	doLast {
+		def out = file("_refs/cp")
+		delete(out)
+		out.mkdirs()
+		def jars = (sourceSets.main.compileClasspath + sourceSets.client.compileClasspath + sourceSets.gametest.compileClasspath).files
+			.findAll { it.isFile() && it.name.endsWith(".jar") }
+		def names = []
+		jars.each { f ->
+			copy { from f; into out }
+			names << f.name
+		}
+		file("_refs/cp/classpath.txt").text = names.join("\n")
+	}
+}
