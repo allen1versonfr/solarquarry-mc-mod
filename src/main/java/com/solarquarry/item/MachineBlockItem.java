@@ -25,6 +25,10 @@ public class MachineBlockItem extends BlockItem implements TooltipLines {
 	public void addTooltipLines(ItemStack itemStack, Consumer<Component> builder) {
 		if (this.tooltipKey != null) {
 			builder.accept(Component.translatable(this.tooltipKey).withStyle(ChatFormatting.GRAY));
+			double solar = com.solarquarry.config.SolarQuarryConfig.get().solarOutputMultiplier();
+			if (this.tooltipKey.contains("solar_panel") && solar != 1.0) {
+				builder.accept(Component.translatable("tooltip.solarquarry.solar_multiplier", String.format(java.util.Locale.ROOT, "%.2f", solar)).withStyle(ChatFormatting.DARK_GRAY));
+			}
 		}
 
 		TypedEntityData<BlockEntityType<?>> data = itemStack.get(DataComponents.BLOCK_ENTITY_DATA);

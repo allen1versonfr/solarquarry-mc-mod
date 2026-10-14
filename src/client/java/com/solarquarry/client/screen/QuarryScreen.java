@@ -439,6 +439,12 @@ public class QuarryScreen extends AbstractContainerScreen<QuarryMenu> {
 			lines.add(Component.translatable("gui.solarquarry.upgrades.void"));
 		}
 
+		if (this.menu.hasChunkLoader()) {
+			lines.add(this.menu.isChunkLoadingDisabled() ? Component.translatable("gui.solarquarry.upgrades.chunk_loader.disabled").withStyle(ChatFormatting.RED)
+				: this.menu.isChunkLoadingActive() ? Component.translatable("gui.solarquarry.upgrades.chunk_loader.active").withStyle(ChatFormatting.GREEN)
+				: Component.translatable("gui.solarquarry.upgrades.chunk_loader.idle"));
+		}
+
 		lines.add(Component.translatable("gui.solarquarry.upgrades.rules").withStyle(ChatFormatting.DARK_GRAY));
 		return lines;
 	}

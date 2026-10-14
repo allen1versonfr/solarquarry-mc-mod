@@ -73,6 +73,14 @@ final class SelfTestModes {
 		this.scenarios.add(Scenario.timed("presets: filter settings round trip", s -> { }, 1, this::verifyFilterPreset));
 		this.scenarios.add(Scenario.timed("terminal: finds quarries on its cable network", this::setupTerminal, 5, this::verifyTerminal));
 		this.scenarios.add(Scenario.timed("storage scan: counts connected inventories", this::setupStorage, 2, this::verifyStorage));
+		this.scenarios.add(new Scenario("protection: claimed blocks are skipped (owner offline)", this::setupProtection, QuarryBlockEntity::isFinished, 2000, this::verifyProtection));
+		this.scenarios.add(Scenario.timed("prospector: exact ore count of the remaining volume", this::setupProspector, 1, this::verifyProspector));
+		this.scenarios.add(Scenario.timed("config: command, sync codec and multipliers", s -> { }, 1, this::verifyConfig));
+		this.scenarios.add(Scenario.timed("chunk loader: set up a quarry far from everything", this::setupChunkLoader, 40, this::releaseForcedChunk));
+		this.scenarios.add(Scenario.timed("chunk loader: keeps its own chunks running", s -> { }, 120, this::verifyChunkLoaderRunning));
+		this.scenarios.add(Scenario.timed("chunk loader: loads the chunks it mines", s -> { }, 600, this::verifyChunkLoaderFinished));
+		this.scenarios.add(Scenario.timed("chunk loader: chunks unload after it stops", s -> { }, 500, this::verifyChunkLoaderUnloaded));
+		this.scenarios.add(Scenario.timed("chunk loader: remembered quarries get their chunks back", this::restoreChunkLoader, 80, this::verifyChunkLoaderRestored));
 	}
 
 	static void forceChunks(ServerLevel level) {
@@ -724,6 +732,15 @@ final class SelfTestModes {
 		level.setBlock(Q.east(3), Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
 		com.solarquarry.energy.EnergyNetwork.markTopologyChanged();
 		SelfTest.check(terminal.findQuarries().size() == 1, "terminal: a disconnected quarry drops off the list");
+		// Reconnect quarry 2 only through a battery: the link passes through energy machines.
+		level.setBlock(Q2.north(), ModBlocks.BATTERY_BASIC.defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(Q2.north().west(), ModBlocks.ENERGY_CABLE.defaultBlockState(), Block.UPDATE_ALL);
+		com.solarquarry.energy.EnergyNetwork.markTopologyChanged();
+		SelfTest.check(terminal.findQuarries().size() == 2, "terminal: the link passes through a battery in the middle of the run");
+		level.setBlock(Q2.north(), Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+		com.solarquarry.energy.EnergyNetwork.markTopologyChanged();
+		SelfTest.check(terminal.findQuarries().size() == 1, "terminal: removing that battery cuts the link again");
+		level.setBlock(Q2.north().west(), Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
 		level.setBlock(Q2, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
 	}
 
@@ -819,5 +836,163 @@ final class SelfTestModes {
 		quarry.setOresOnly(false);
 		quarry.getSkipFilter().clearContent();
 		quarry.getOreFilter().clearContent();
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// 2.1: protection, prospector, config, chunk loading
+	// ---------------------------------------------------------------------------------------------
+
+	private static final java.util.UUID TEST_OWNER = java.util.UUID.fromString("5a1a0000-0000-4000-8000-000000000001");
+	private static final java.util.Set<BlockPos> PROTECTED = new java.util.HashSet<>();
+	private static final List<String> PROBE_ACTORS = new ArrayList<>();
+
+	/** A stand-in claim mod: refuses breaks at {@link #PROTECTED} positions through Fabric's standard break event. */
+	static void registerProtectionProbe() {
+		net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents.BEFORE.register((level, player, pos, state, blockEntity) -> {
+			if (PROTECTED.contains(pos)) {
+				PROBE_ACTORS.add((player instanceof net.fabricmc.fabric.api.entity.FakePlayer ? "fake:" : "real:") + player.getUUID());
+				return false;
+			}
+
+			return true;
+		});
+	}
+
+	private void setupProtection(ServerLevel level) {
+		fill(level, 99, 200, 101, 101, 200, 103, Blocks.STONE.defaultBlockState());
+		PROTECTED.clear();
+		PROBE_ACTORS.clear();
+		PROTECTED.add(cell(0, 0, 2));
+		QuarryBlockEntity quarry = quarry(level);
+		quarry.setOwner(TEST_OWNER, "OfflineOwner");
+		configure(quarry, QuarryMode.STRIP_MINE, 3, 3, 1, 200);
+		quarry.resetProgress();
+		quarry.start();
+	}
+
+	private void verifyProtection(ServerLevel level) {
+		SelfTest.check(level.getBlockState(cell(0, 0, 2)).is(Blocks.STONE), "protection: the claimed block was not broken");
+		SelfTest.check(countBlocks(level, 99, 200, 101, 101, 200, 103, Blocks.STONE) == 1, "protection: every unclaimed block was mined");
+		SelfTest.check(level.getServer().getPlayerList().getPlayer(TEST_OWNER) == null, "protection: the owner is offline during the test");
+		SelfTest.check(!PROBE_ACTORS.isEmpty() && PROBE_ACTORS.stream().allMatch(a -> a.equals("fake:" + TEST_OWNER)),
+			"protection: the claim check saw a fake player carrying the owner's id " + PROBE_ACTORS);
+		PROTECTED.clear();
+	}
+
+	private void setupProspector(ServerLevel level) {
+		fill(level, 99, 197, 101, 102, 200, 104, Blocks.STONE.defaultBlockState());
+		level.setBlock(new BlockPos(100, 200, 102), Blocks.IRON_ORE.defaultBlockState(), Block.UPDATE_CLIENTS);
+		level.setBlock(new BlockPos(101, 198, 104), Blocks.IRON_ORE.defaultBlockState(), Block.UPDATE_CLIENTS);
+		level.setBlock(new BlockPos(99, 197, 101), Blocks.DEEPSLATE_IRON_ORE.defaultBlockState(), Block.UPDATE_CLIENTS);
+		level.setBlock(new BlockPos(102, 199, 103), Blocks.COAL_ORE.defaultBlockState(), Block.UPDATE_CLIENTS);
+		level.setBlock(new BlockPos(102, 197, 104), Blocks.DIAMOND_ORE.defaultBlockState(), Block.UPDATE_CLIENTS);
+		// Outside the area: must not be counted.
+		level.setBlock(new BlockPos(103, 199, 102), Blocks.GOLD_ORE.defaultBlockState(), Block.UPDATE_CLIENTS);
+		QuarryBlockEntity quarry = quarry(level);
+		configure(quarry, QuarryMode.STRIP_MINE, 4, 4, 1, 197);
+		quarry.resetProgress();
+	}
+
+	private void verifyProspector(ServerLevel level) {
+		List<net.minecraft.network.chat.Component> lines = new ArrayList<>();
+		long[] result = com.solarquarry.item.ProspectorScans.scanNow(level, quarry(level), lines);
+		lines.forEach(line -> SolarQuarry.LOGGER.info("[SelfTest] prospector: {}", line.getString()));
+		SelfTest.check(result[0] == 5, "prospector: counted exactly the 5 ores inside the quarry volume (" + result[0] + ")");
+		SelfTest.check(result[1] == 0, "prospector: nothing was in unloaded chunks (" + result[1] + ")");
+		SelfTest.check(com.solarquarry.item.ProspectorScans.BLOCKS_PER_TICK * 25L >= 64L * 64 * 384,
+			"prospector: a 64x64 quarry from build height to bedrock is scanned in about 25 ticks or less");
+	}
+
+	private void verifyConfig(ServerLevel level) {
+		var dispatcher = level.getServer().getCommands().getDispatcher();
+		var root = dispatcher.getRoot().getChild("solarquarry");
+		SelfTest.check(root != null && root.getChild("config") != null && root.getChild("reload") != null, "config: /solarquarry config and reload are registered");
+		var original = com.solarquarry.config.SolarQuarryConfig.get();
+		var custom = new com.solarquarry.config.SolarQuarryConfig(1.5, 0.5, 1, false, 20, true, 300, 10, 0.5);
+		io.netty.buffer.ByteBuf buf = io.netty.buffer.Unpooled.buffer();
+		com.solarquarry.network.ConfigSyncPayload.CONFIG_CODEC.encode(buf, custom);
+		SelfTest.check(com.solarquarry.network.ConfigSyncPayload.CONFIG_CODEC.decode(buf).equals(custom), "config: settings survive the network round trip");
+		level.getServer().getCommands().performPrefixedCommand(level.getServer().createCommandSourceStack(), "time set noon");
+		BlockPos sky = new BlockPos(95, 250, 95);
+		long before = com.solarquarry.quarry.QuarryUpgrades.NONE.energyPerBlock(1.5F);
+		com.solarquarry.config.SolarQuarryConfig.setActiveForTesting(custom);
+		long after = com.solarquarry.quarry.QuarryUpgrades.NONE.energyPerBlock(1.5F);
+		int panelBasic = com.solarquarry.blockentity.SolarPanelBlockEntity.computeGeneration(level, sky, com.solarquarry.energy.SolarTier.ADVANCED);
+		com.solarquarry.config.SolarQuarryConfig.setActiveForTesting(original);
+		int panelNormal = com.solarquarry.blockentity.SolarPanelBlockEntity.computeGeneration(level, sky, com.solarquarry.energy.SolarTier.ADVANCED);
+		SolarQuarry.LOGGER.info("[SelfTest] config: energy per block {} -> {}, advanced panel {} -> {}", before, after, panelNormal, panelBasic);
+		SelfTest.check(Math.abs(after - Math.round(before * 1.5)) <= 1, "config: energyCostMultiplier scales the energy per block");
+		SelfTest.check(panelNormal > 0 && Math.abs(panelBasic - Math.round(panelNormal * 0.5)) <= 1, "config: solarOutputMultiplier scales panel output");
+		SelfTest.check(com.solarquarry.config.SolarQuarryConfig.get().equals(original), "config: the active settings are restored afterwards");
+	}
+
+	private static final BlockPos FAR = new BlockPos(1000, 200, 1000);
+
+	private static QuarryBlockEntity farQuarry(ServerLevel level) {
+		return level.isLoaded(FAR) && level.getBlockEntity(FAR) instanceof QuarryBlockEntity q ? q : null;
+	}
+
+	private void setupChunkLoader(ServerLevel level) {
+		net.minecraft.world.level.ChunkPos chunk = net.minecraft.world.level.ChunkPos.containing(FAR);
+		level.setChunkForced(chunk.x(), chunk.z(), true);
+		level.getChunk(chunk.x(), chunk.z());
+		level.setBlock(FAR, ModBlocks.QUARRY.defaultBlockState().setValue(QuarryBlock.FACING, Direction.NORTH), Block.UPDATE_ALL);
+		// 3 wide, 1 high, 40 long tunnel south: 21 stone blocks in this chunk, then air in chunks nobody has loaded.
+		for (int z = FAR.getZ() + 1; z <= 1007; z++) {
+			for (int x = FAR.getX() - 1; x <= FAR.getX() + 1; x++) {
+				level.setBlock(new BlockPos(x, FAR.getY(), z), Blocks.STONE.defaultBlockState(), Block.UPDATE_CLIENTS);
+			}
+		}
+
+		QuarryBlockEntity quarry = farQuarry(level);
+		quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS, new ItemStack(com.solarquarry.registry.ModItems.CHUNK_LOADER_UPGRADE));
+		for (int i = 0; i < 200 && quarry.insertEnergy(Long.MAX_VALUE, true) > 0; i++) {
+			quarry.insertEnergy(Long.MAX_VALUE, false);
+		}
+
+		configure(quarry, QuarryMode.TUNNEL_BORE, 3, 40, 1, 199);
+		quarry.start();
+	}
+
+	private void releaseForcedChunk(ServerLevel level) {
+		QuarryBlockEntity quarry = farQuarry(level);
+		SelfTest.check(quarry != null && quarry.isChunkLoadingActive(), "chunk loader: active while running with the upgrade and power");
+		net.minecraft.world.level.ChunkPos chunk = net.minecraft.world.level.ChunkPos.containing(FAR);
+		level.setChunkForced(chunk.x(), chunk.z(), false);
+		SelfTest.check(level.getServer().getPlayerList().getPlayerCount() == 0, "chunk loader: no player is online to keep chunks loaded");
+	}
+
+	private void verifyChunkLoaderRunning(ServerLevel level) {
+		QuarryBlockEntity quarry = farQuarry(level);
+		SelfTest.check(quarry != null, "chunk loader: the quarry's chunk is still loaded 120 ticks after the forced chunk was released");
+		if (quarry != null) {
+			SolarQuarry.LOGGER.info("[SelfTest] chunk loader: status {}, mined {}", quarry.getStatus(), quarry.getBlocksMined());
+			SelfTest.check(quarry.getStatus().isWorking() && quarry.getBlocksMined() >= 10, "chunk loader: the quarry kept mining (" + quarry.getBlocksMined() + " blocks)");
+			SelfTest.check(com.solarquarry.quarry.QuarryChunkLoading.isRegistered(level, FAR), "chunk loader: the dimension remembers the loading quarry");
+		}
+	}
+
+	private void verifyChunkLoaderFinished(ServerLevel level) {
+		QuarryBlockEntity quarry = farQuarry(level);
+		SelfTest.check(quarry != null && quarry.isFinished(), "chunk loader: the tunnel was finished through chunks no player loaded ("
+			+ (quarry == null ? "unloaded" : quarry.getStatus() + ", step " + quarry.getStep()) + ")");
+		SelfTest.check(quarry != null && quarry.getBlocksMined() == 21, "chunk loader: mined the 21 stone blocks (" + (quarry == null ? -1 : quarry.getBlocksMined()) + ")");
+		SelfTest.check(level.getBlockState(new BlockPos(FAR.getX(), FAR.getY(), FAR.getZ() + 40)).isAir(), "chunk loader: the far end of the tunnel was reached");
+		SelfTest.check(quarry != null && !quarry.isChunkLoadingActive(), "chunk loader: switches itself off when the work is complete");
+		SelfTest.check(!com.solarquarry.quarry.QuarryChunkLoading.isRegistered(level, FAR), "chunk loader: forgotten by the dimension once it stops");
+	}
+
+	private void verifyChunkLoaderUnloaded(ServerLevel level) {
+		SelfTest.check(!level.isLoaded(FAR), "chunk loader: its chunks unloaded on their own after it stopped");
+		SelfTest.check(!level.isLoaded(new BlockPos(FAR.getX(), FAR.getY(), FAR.getZ() + 40)), "chunk loader: the mined chunks unloaded too");
+	}
+
+	private void restoreChunkLoader(ServerLevel level) {
+		com.solarquarry.quarry.QuarryChunkLoading.register(level, FAR);
+		com.solarquarry.quarry.QuarryChunkLoading.restoreAll(level.getServer());
+	}
+
+	private void verifyChunkLoaderRestored(ServerLevel level) {
+		SelfTest.check(level.isLoaded(FAR) && farQuarry(level) != null, "chunk loader: a remembered quarry's chunk is loaded again at server start");
 	}
 }

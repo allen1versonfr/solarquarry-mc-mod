@@ -132,6 +132,20 @@ public class SolarQuarryClientGameTest implements FabricClientGameTest {
 				if (!text.contains(net.minecraft.network.chat.Component.translatable("tooltip.solarquarry.wrench").getString())) {
 					throw new AssertionError("wrench tooltip line missing: " + text);
 				}
+
+				// The server sent its settings on join; the chunk loader tooltip shows the server's upkeep.
+				if (!com.solarquarry.config.SolarQuarryConfig.isFromServer()) {
+					throw new AssertionError("the client never received the server's Solar Quarry settings");
+				}
+
+				var loader = new ItemStack(ModItems.CHUNK_LOADER_UPGRADE).getTooltipLines(net.minecraft.world.item.Item.TooltipContext.of(client.level), client.player,
+					net.minecraft.world.item.TooltipFlag.NORMAL);
+				String loaderText = loader.stream().map(net.minecraft.network.chat.Component::getString).reduce("", (a, b) -> a + "\n" + b);
+				String upkeep = net.minecraft.network.chat.Component.translatable("tooltip.solarquarry.upgrade.chunk_loader.upkeep",
+					com.solarquarry.config.SolarQuarryConfig.get().chunkLoaderUpkeep()).getString();
+				if (!loaderText.contains(upkeep)) {
+					throw new AssertionError("chunk loader tooltip is missing the upkeep line: " + loaderText);
+				}
 			});
 
 			// Tunnel Bore: the gantry should follow the tunnel volume, not the old square area.
@@ -188,6 +202,7 @@ public class SolarQuarryClientGameTest implements FabricClientGameTest {
 			quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS, new ItemStack(ModItems.SPEED_UPGRADE, 2));
 			quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS + 1, new ItemStack(ModItems.ENERGY_CAPACITY_UPGRADE, 1));
 			quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS + 2, new ItemStack(ModItems.FORTUNE_UPGRADE, 2));
+			quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS + 3, new ItemStack(ModItems.CHUNK_LOADER_UPGRADE, 1));
 			quarry.start();
 		}
 	}

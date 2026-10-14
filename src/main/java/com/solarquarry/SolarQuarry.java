@@ -1,6 +1,15 @@
 package com.solarquarry;
 
+import com.solarquarry.config.SolarQuarryCommand;
+import com.solarquarry.config.SolarQuarryConfig;
 import com.solarquarry.energy.EnergyNetwork;
+import com.solarquarry.item.ProspectorScans;
+import com.solarquarry.network.ConfigSyncPayload;
+import com.solarquarry.quarry.QuarryChunkLoading;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.fabricmc.loader.api.FabricLoader;
 import com.solarquarry.network.FilterConfigPayload;
 import com.solarquarry.network.QuarryConfigPayload;
 import com.solarquarry.network.TerminalActionPayload;
@@ -30,12 +39,14 @@ public class SolarQuarry implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
+		SolarQuarryConfig.load(FabricLoader.getInstance().getConfigDir());
 		ModSounds.init();
 		ModBlocks.init();
 		ModItems.init();
 		ModBlockEntities.init();
 		ModMenus.init();
 		ModCreativeTab.init();
+		QuarryChunkLoading.init();
 
 		PayloadTypeRegistry.serverboundPlay().register(QuarryConfigPayload.TYPE, QuarryConfigPayload.STREAM_CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(QuarryConfigPayload.TYPE, QuarryConfigPayload::handle);
@@ -44,10 +55,19 @@ public class SolarQuarry implements ModInitializer {
 		PayloadTypeRegistry.serverboundPlay().register(TerminalActionPayload.TYPE, TerminalActionPayload.STREAM_CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(TerminalActionPayload.TYPE, TerminalActionPayload::handle);
 		PayloadTypeRegistry.clientboundPlay().register(TerminalSnapshotPayload.TYPE, TerminalSnapshotPayload.STREAM_CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(ConfigSyncPayload.TYPE, ConfigSyncPayload.STREAM_CODEC);
+		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> SolarQuarryCommand.sync(handler.getPlayer()));
+		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> SolarQuarryCommand.register(dispatcher));
+		ServerLifecycleEvents.SERVER_STARTED.register(QuarryChunkLoading::restoreAll);
+		ServerTickEvents.END_SERVER_TICK.register(server -> {
+			ProspectorScans.tick(server);
+			QuarryChunkLoading.prune(server);
+		});
 		// Route caches hold level references: drop them when a server stops.
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
 			PipeRouter.invalidateCache();
 			EnergyNetwork.markTopologyChanged();
+			ProspectorScans.clear();
 		});
 
 		if (Boolean.getBoolean("solarquarry.selftest")) {

@@ -1,5 +1,6 @@
 package com.solarquarry.item;
 
+import com.solarquarry.config.SolarQuarryConfig;
 import com.solarquarry.quarry.UpgradeType;
 import java.util.function.Consumer;
 import net.minecraft.ChatFormatting;
@@ -30,6 +31,13 @@ public class UpgradeItem extends Item implements TooltipLines {
 	public void addTooltipLines(ItemStack itemStack, Consumer<Component> builder) {
 		String key = this.type == UpgradeType.RANGE ? "tooltip.solarquarry.upgrade.range_" + this.tier : "tooltip.solarquarry.upgrade." + this.type.id();
 		builder.accept(Component.translatable(key).withStyle(ChatFormatting.GRAY));
+		if (this.type == UpgradeType.CHUNK_LOADER) {
+			SolarQuarryConfig config = SolarQuarryConfig.get();
+			builder.accept(config.allowChunkLoading()
+				? Component.translatable("tooltip.solarquarry.upgrade.chunk_loader.upkeep", config.chunkLoaderUpkeep()).withStyle(ChatFormatting.DARK_GRAY)
+				: Component.translatable("tooltip.solarquarry.upgrade.chunk_loader.disabled").withStyle(ChatFormatting.RED));
+		}
+
 		if (this.type.maxStack() > 1) {
 			builder.accept(Component.translatable("tooltip.solarquarry.upgrade.stack", this.type.maxStack()).withStyle(ChatFormatting.DARK_GRAY));
 		}

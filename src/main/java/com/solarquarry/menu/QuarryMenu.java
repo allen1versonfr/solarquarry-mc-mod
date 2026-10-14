@@ -221,6 +221,18 @@ public class QuarryMenu extends AbstractContainerMenu {
 		return this.flag(16);
 	}
 
+	public boolean hasChunkLoader() {
+		return this.flag(32);
+	}
+
+	public boolean isChunkLoadingActive() {
+		return this.flag(64);
+	}
+
+	public boolean isChunkLoadingDisabled() {
+		return this.flag(128);
+	}
+
 	public int getMinY() {
 		return this.signed(18);
 	}

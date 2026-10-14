@@ -1,5 +1,6 @@
 package com.solarquarry.blockentity;
 
+import com.solarquarry.config.SolarQuarryConfig;
 import com.solarquarry.energy.EnergyNetwork;
 import com.solarquarry.menu.TerminalMenu;
 import com.solarquarry.registry.ModBlockEntities;
@@ -18,12 +19,13 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Remote terminal. Connection rule: it sees every quarry reachable through energy cables from the terminal
- * (same dimension, loaded chunks, up to {@link EnergyNetwork#MAX_CABLES} cables), nearest first, at most {@link #MAX_MACHINES}.
+ * Remote terminal. Connection rule: it sees every quarry connected to it through energy cables and energy machines
+ * (batteries and panels pass the link on; same dimension, loaded chunks), nearest first, at most
+ * {@code terminalMaxQuarries} (config, up to {@link #MAX_MACHINES}).
  * Control is limited to quarries the player placed (or any quarry for operators); everything is validated on the server.
  */
 public class TerminalBlockEntity extends BlockEntity implements ExtendedMenuProvider<BlockPos> {
-	public static final int MAX_MACHINES = 32;
+	public static final int MAX_MACHINES = 64;
 
 	public TerminalBlockEntity(BlockPos pos, BlockState state) {
 		super(ModBlockEntities.TERMINAL, pos, state);
@@ -35,14 +37,15 @@ public class TerminalBlockEntity extends BlockEntity implements ExtendedMenuProv
 			return result;
 		}
 
-		for (BlockPos pos : EnergyNetwork.discoverEndpoints(this.level, this.worldPosition)) {
+		for (BlockPos pos : EnergyNetwork.discoverLinked(this.level, this.worldPosition)) {
 			if (EnergyNetwork.resolve(this.level, pos) instanceof QuarryBlockEntity quarry) {
 				result.add(quarry);
 			}
 		}
 
 		result.sort(Comparator.comparingDouble(q -> q.getBlockPos().distSqr(this.worldPosition)));
-		return result.size() > MAX_MACHINES ? new ArrayList<>(result.subList(0, MAX_MACHINES)) : result;
+		int max = Math.min(MAX_MACHINES, SolarQuarryConfig.get().terminalMaxQuarries());
+		return result.size() > max ? new ArrayList<>(result.subList(0, max)) : result;
 	}
 
 	public @Nullable QuarryBlockEntity findQuarry(BlockPos pos) {

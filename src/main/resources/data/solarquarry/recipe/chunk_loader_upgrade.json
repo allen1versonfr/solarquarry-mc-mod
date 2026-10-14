@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "OEO",
+    "ABA",
+    "OEO"
+  ],
+  "key": {
+    "O": "minecraft:obsidian",
+    "E": "minecraft:ender_pearl",
+    "A": "solarquarry:advanced_circuit",
+    "B": "solarquarry:upgrade_base"
+  },
+  "result": {
+    "id": "solarquarry:chunk_loader_upgrade",
+    "count": 1
+  }
+}

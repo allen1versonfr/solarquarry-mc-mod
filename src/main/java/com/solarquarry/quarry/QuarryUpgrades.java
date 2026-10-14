@@ -1,12 +1,13 @@
 package com.solarquarry.quarry;
 
+import com.solarquarry.config.SolarQuarryConfig;
 import com.solarquarry.item.UpgradeItem;
 import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
 
 /** Snapshot of the upgrades installed in a quarry and the machine stats they produce. */
-public record QuarryUpgrades(int speed, int capacity, int efficiency, int fortune, boolean silkTouch, int rangeTier, boolean voiding) {
-	public static final QuarryUpgrades NONE = new QuarryUpgrades(0, 0, 0, 0, false, 0, false);
+public record QuarryUpgrades(int speed, int capacity, int efficiency, int fortune, boolean silkTouch, int rangeTier, boolean voiding, boolean chunkLoader) {
+	public static final QuarryUpgrades NONE = new QuarryUpgrades(0, 0, 0, 0, false, 0, false, false);
 	public static final long BASE_CAPACITY = 100_000L;
 	private static final int[] INTERVALS = {10, 6, 4, 2, 1};
 
@@ -18,6 +19,7 @@ public record QuarryUpgrades(int speed, int capacity, int efficiency, int fortun
 		boolean silk = false;
 		int range = 0;
 		boolean voiding = false;
+		boolean chunkLoader = false;
 
 		for (int i = first; i < first + count; i++) {
 			ItemStack stack = upgrades.getItem(i);
@@ -34,6 +36,7 @@ public record QuarryUpgrades(int speed, int capacity, int efficiency, int fortun
 				case SILK_TOUCH -> silk = true;
 				case RANGE -> range = Math.max(range, upgrade.tier());
 				case VOID -> voiding = true;
+				case CHUNK_LOADER -> chunkLoader = true;
 			}
 		}
 
@@ -48,13 +51,15 @@ public record QuarryUpgrades(int speed, int capacity, int efficiency, int fortun
 			Math.min(fortune, UpgradeType.FORTUNE.maxStack()),
 			silk,
 			Math.min(range, 2),
-			voiding
+			voiding,
+			chunkLoader
 		);
 	}
 
-	/** Largest allowed width/length of the mining area: 16, 32 or 64 (range upgrade tier 0, 1, 2). */
+	/** Largest allowed width/length of the mining area: 16, 32 or 64 (range upgrade tier 0, 1, 2, capped by the server config). */
 	public int maxAreaSize() {
-		return 16 << Math.max(0, Math.min(2, this.rangeTier));
+		int cap = SolarQuarryConfig.get().maxRangeTier();
+		return 16 << Math.max(0, Math.min(Math.min(2, cap), this.rangeTier));
 	}
 
 	public int ticksPerOperation() {
@@ -81,8 +86,7 @@ public record QuarryUpgrades(int speed, int capacity, int efficiency, int fortun
 
 	public long energyPerBlock(float hardness) {
 		double base = 60.0 + 15.0 * Math.max(0.0F, Math.min(hardness, 50.0F));
-		double multiplier = (1.0 + 0.25 * this.speed) * (1.0 - 0.15 * this.efficiency) * (this.silkTouch ? 1.25 : 1.0) * (1.0 + 0.2 * this.fortune);
-		return Math.max(1L, Math.round(base * multiplier));
+		return Math.max(1L, Math.round(base * this.costMultiplier()));
 	}
 
 	/** Typical energy per block for stone, used for display. */
@@ -95,8 +99,9 @@ public record QuarryUpgrades(int speed, int capacity, int efficiency, int fortun
 		return Math.max(1L, this.typicalEnergyPerBlock() * this.blocksPerOperation() / this.ticksPerOperation());
 	}
 
-	/** Combined energy-cost multiplier from speed, efficiency, silk touch and fortune (for display). */
+	/** Combined energy-cost multiplier from speed, efficiency, silk touch, fortune and the server's energyCostMultiplier. */
 	public double costMultiplier() {
-		return (1.0 + 0.25 * this.speed) * (1.0 - 0.15 * this.efficiency) * (this.silkTouch ? 1.25 : 1.0) * (1.0 + 0.2 * this.fortune);
+		return (1.0 + 0.25 * this.speed) * (1.0 - 0.15 * this.efficiency) * (this.silkTouch ? 1.25 : 1.0) * (1.0 + 0.2 * this.fortune)
+			* SolarQuarryConfig.get().energyCostMultiplier();
 	}
 }

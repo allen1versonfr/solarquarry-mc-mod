@@ -21,6 +21,11 @@ public final class ModSounds {
 		return Registry.register(BuiltInRegistries.SOUND_EVENT, id, SoundEvent.createVariableRangeEvent(id));
 	}
 
+	/** Machine sound volume scaled by the server's machineSoundVolume setting (0 = silent). */
+	public static float volume(float base) {
+		return (float) (base * com.solarquarry.config.SolarQuarryConfig.get().machineSoundVolume());
+	}
+
 	public static void init() {
 	}
 }

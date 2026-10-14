@@ -79,7 +79,8 @@ public class SolarPanelBlockEntity extends BlockEntity implements EnergyNode {
 	 * where it actually rains (not in deserts) and drops to the tier's night output after sunset.
 	 */
 	public static int computeGeneration(Level level, BlockPos pos, SolarTier tier) {
-		return tier.generation(sunFactor(level, pos), level.canSeeSky(pos.above()), level.isRainingAt(pos.above()), level.isThundering() && level.isRainingAt(pos.above()));
+		int base = tier.generation(sunFactor(level, pos), level.canSeeSky(pos.above()), level.isRainingAt(pos.above()), level.isThundering() && level.isRainingAt(pos.above()));
+		return (int) Math.round(base * com.solarquarry.config.SolarQuarryConfig.get().solarOutputMultiplier());
 	}
 
 	/** 0..1, how high the sun is (1 at noon). */
@@ -111,7 +112,7 @@ public class SolarPanelBlockEntity extends BlockEntity implements EnergyNode {
 			reason = "solarquarry.solar.sun";
 		}
 
-		return Component.translatable("solarquarry.solar.status", now, tier.peakGeneration(), Component.translatable(reason, Math.round(sun * 100)));
+		return Component.translatable("solarquarry.solar.status", now, Math.round(tier.peakGeneration() * com.solarquarry.config.SolarQuarryConfig.get().solarOutputMultiplier()), Component.translatable(reason, Math.round(sun * 100)));
 	}
 
 	@Override

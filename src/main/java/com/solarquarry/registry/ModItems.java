@@ -39,6 +39,7 @@ public final class ModItems {
 	public static final Item RANGE_UPGRADE = upgrade("range_upgrade", UpgradeType.RANGE, 1, Rarity.UNCOMMON);
 	public static final Item RANGE_UPGRADE_2 = upgrade("range_upgrade_2", UpgradeType.RANGE, 2, Rarity.RARE);
 	public static final Item VOID_UPGRADE = upgrade("void_upgrade", UpgradeType.VOID, 0, Rarity.UNCOMMON);
+	public static final Item CHUNK_LOADER_UPGRADE = upgrade("chunk_loader_upgrade", UpgradeType.CHUNK_LOADER, 0, Rarity.RARE);
 
 	private ModItems() {
 	}

@@ -72,6 +72,41 @@ public final class EnergyNetwork {
 		}
 	}
 
+	/**
+	 * Remote-terminal link: everything connected through cables <em>and</em> through any energy machine (batteries,
+	 * panels, quarries, terminals), so a battery in the middle of a cable run does not cut the link. Bounded by
+	 * {@link #MAX_CABLES} visited cables plus machines. Returns machine positions (excluding the origin), nearest hops first.
+	 */
+	public static List<BlockPos> discoverLinked(Level level, BlockPos origin) {
+		List<BlockPos> machines = new ArrayList<>();
+		Set<BlockPos> visited = new HashSet<>();
+		ArrayDeque<BlockPos> queue = new ArrayDeque<>();
+		visited.add(origin.immutable());
+		queue.add(origin.immutable());
+		int expanded = 0;
+		while (!queue.isEmpty() && expanded < MAX_CABLES * 2) {
+			BlockPos node = queue.poll();
+			expanded++;
+			for (Direction dir : Direction.values()) {
+				BlockPos next = node.relative(dir);
+				if (visited.contains(next) || !level.isLoaded(next)) {
+					continue;
+				}
+
+				if (level.getBlockState(next).getBlock() instanceof EnergyCableBlock) {
+					visited.add(next);
+					queue.add(next);
+				} else if (level.getBlockEntity(next) instanceof EnergyNode) {
+					visited.add(next);
+					machines.add(next);
+					queue.add(next);
+				}
+			}
+		}
+
+		return machines;
+	}
+
 	/** Resolves a cached endpoint position to a live node, or null if it is gone or unloaded. */
 	public static EnergyNode resolve(Level level, BlockPos pos) {
 		if (!level.isLoaded(pos)) {

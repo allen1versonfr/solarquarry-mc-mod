@@ -7,9 +7,12 @@ import com.solarquarry.block.QuarryBlock;
 import com.solarquarry.energy.EnergyNode;
 import com.solarquarry.item.UpgradeItem;
 import com.solarquarry.menu.QuarryMenu;
+import com.solarquarry.config.SolarQuarryConfig;
 import com.solarquarry.quarry.MiningPattern;
+import com.solarquarry.quarry.QuarryChunkLoading;
 import com.solarquarry.quarry.QuarryLamp;
 import com.solarquarry.quarry.QuarryMode;
+import com.solarquarry.quarry.QuarryProtection;
 import com.solarquarry.quarry.QuarryStatus;
 import com.solarquarry.quarry.QuarryUpgrades;
 import com.solarquarry.quarry.UpgradeType;
@@ -153,7 +156,12 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	private int avgInput;
 	private int avgUse;
 	private boolean outputConnected;
-	private @Nullable ServerPlayer ownerThisTick;
+	/** The fake player standing in for the owner during protection checks (created lazily, once per tick). */
+	private @Nullable ServerPlayer actorThisTick;
+	/** True while this quarry holds chunk tickets (Chunk Loader Upgrade, running, powered, allowed by the config). */
+	private boolean chunkLoadingActive;
+	/** Area limit the current width/length were last checked against (-1 = not yet since loading). */
+	private int appliedMaxArea = -1;
 
 	// ---- client animation state (client only) ----
 	public float clientHeadX = Float.NaN;
@@ -187,7 +195,8 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 				case 15 -> (int) (q.blocksMined & 0xFFFF);
 				case 16 -> (int) ((q.blocksMined >>> 16) & 0xFFFF);
 				case 17 -> (q.upgrades.voiding() ? 1 : 0) | (q.oresOnly ? 2 : 0) | (q.outputConnected ? 4 : 0)
-					| (q.upgrades.silkTouch() ? 8 : 0) | (q.scanComplete ? 16 : 0);
+					| (q.upgrades.silkTouch() ? 8 : 0) | (q.scanComplete ? 16 : 0) | (q.upgrades.chunkLoader() ? 32 : 0)
+					| (q.chunkLoadingActive ? 64 : 0) | (SolarQuarryConfig.get().allowChunkLoading() ? 0 : 128);
 				case 18 -> q.level != null ? q.level.getMinY() : -64;
 				case 19 -> q.upgrades.maxAreaSize();
 				case 20 -> q.upgrades.blocksPerMinute();
@@ -253,8 +262,8 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	private void tickServer(ServerLevel level, BlockState state) {
 		this.ticks++;
 		this.energyReceivedThisTick = 0;
-		this.ownerThisTick = this.owner != null ? level.getServer().getPlayerList().getPlayer(this.owner) : null;
 		this.refreshUpgrades();
+		this.updateChunkLoading(level);
 
 		QuarryStatus previous = this.status;
 		QuarryStatus next;
@@ -287,7 +296,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		if (this.status.isWorking()) {
 			if (this.ticks % 40 == 0) {
 				BlockPos head = this.lastTarget != null ? this.lastTarget : this.worldPosition;
-				level.playSound(null, head.getX() + 0.5, head.getY() + 0.5, head.getZ() + 0.5, ModSounds.QUARRY_DRILL, SoundSource.BLOCKS, 0.55F, 0.9F + level.getRandom().nextFloat() * 0.2F);
+				level.playSound(null, head.getX() + 0.5, head.getY() + 0.5, head.getZ() + 0.5, ModSounds.QUARRY_DRILL, SoundSource.BLOCKS, ModSounds.volume(0.55F), 0.9F + level.getRandom().nextFloat() * 0.2F);
 			}
 
 			if (this.ticks % 20 == 0) {
@@ -303,31 +312,86 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 			level.sendBlockUpdated(this.worldPosition, state, state, Block.UPDATE_CLIENTS);
 		}
 
-		this.ownerThisTick = null;
+		this.actorThisTick = null;
 	}
 
-	/** Recomputes the upgrade snapshot and adapts the area when the range limit changes. */
+	/** Recomputes the upgrade snapshot and adapts the area when the range limit changes (upgrades or server config). */
 	private void refreshUpgrades() {
 		QuarryUpgrades newUpgrades = QuarryUpgrades.of(this, BUFFER_SLOTS, UPGRADE_SLOTS);
-		if (newUpgrades.equals(this.upgrades)) {
+		if (!newUpgrades.equals(this.upgrades)) {
+			this.upgrades = newUpgrades;
+			this.cachedTool = null;
+			this.syncDirty = true;
+		}
+
+		int newMax = this.upgrades.maxAreaSize();
+		if (newMax == this.appliedMaxArea || this.level == null || this.level.isClientSide()) {
 			return;
 		}
 
-		int oldMax = this.upgrades.maxAreaSize();
-		this.upgrades = newUpgrades;
-		this.cachedTool = null;
-		this.syncDirty = true;
-		int newMax = newUpgrades.maxAreaSize();
-		if (oldMax != newMax && this.level != null && !this.level.isClientSide()) {
-			boolean followMax = this.width == oldMax && this.length == oldMax;
-			int newWidth = followMax ? newMax : Math.min(this.width, newMax);
-			int newLength = followMax ? newMax : Math.min(this.length, this.maxLength(newMax));
-			if (newWidth != this.width || newLength != this.length) {
-				this.width = newWidth;
-				this.length = newLength;
-				this.resetProgress();
+		int oldMax = this.appliedMaxArea;
+		this.appliedMaxArea = newMax;
+		boolean followMax = oldMax > 0 && this.width == oldMax && this.length == oldMax;
+		int newWidth = followMax ? newMax : Math.min(this.width, newMax);
+		int newLength = followMax ? newMax : Math.min(this.length, this.maxLength(newMax));
+		if (newWidth != this.width || newLength != this.length) {
+			this.width = newWidth;
+			this.length = newLength;
+			this.resetProgress();
+		}
+	}
+
+	/**
+	 * Chunk Loader Upgrade: while the quarry is running (not paused or finished), the upgrade is installed, chunk loading
+	 * is allowed by the server config and the upkeep can be paid, the quarry keeps its own 3 x 3 chunks ticking and the
+	 * chunk it is mining loaded. Tickets time out after 5 seconds, so they vanish on their own when any condition fails.
+	 */
+	private void updateChunkLoading(ServerLevel level) {
+		SolarQuarryConfig config = SolarQuarryConfig.get();
+		boolean wanted = this.upgrades.chunkLoader() && config.allowChunkLoading() && this.mode == Mode.RUNNING && !this.finished;
+		long upkeep = config.chunkLoaderUpkeep();
+		boolean active = wanted && this.energy >= upkeep;
+		if (active) {
+			this.useEnergy(upkeep);
+			if (this.ticks % 20 == 0 || !this.chunkLoadingActive) {
+				QuarryChunkLoading.keepMachineLoaded(level, this.worldPosition);
+				if (this.lastTarget != null) {
+					QuarryChunkLoading.loadTarget(level, this.lastTarget);
+				}
+
+				QuarryChunkLoading.register(level, this.worldPosition);
 			}
 		}
+
+		if (active != this.chunkLoadingActive) {
+			this.chunkLoadingActive = active;
+			this.syncDirty = true;
+			if (!active) {
+				QuarryChunkLoading.unregister(level, this.worldPosition);
+			}
+		}
+	}
+
+	/** The next block is in an unloaded chunk: request it if chunk loading is active, and wait either way. */
+	private StepResult waitForChunk(ServerLevel level, BlockPos pos) {
+		if (this.chunkLoadingActive) {
+			QuarryChunkLoading.loadTarget(level, pos);
+		}
+
+		return StepResult.UNLOADED;
+	}
+
+	public boolean isChunkLoadingActive() {
+		return this.chunkLoadingActive;
+	}
+
+	@Override
+	public void preRemoveSideEffects(BlockPos pos, BlockState state) {
+		if (this.level instanceof ServerLevel serverLevel) {
+			QuarryChunkLoading.unregister(serverLevel, pos);
+		}
+
+		super.preRemoveSideEffects(pos, state);
 	}
 
 	private void onStatusChanged(ServerLevel level, BlockState state, QuarryStatus previous, QuarryStatus next) {
@@ -337,9 +401,9 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		}
 
 		if (next.isWorking() && !previous.isWorking()) {
-			level.playSound(null, this.worldPosition, ModSounds.MACHINE_START, SoundSource.BLOCKS, 0.7F, 1.0F);
+			level.playSound(null, this.worldPosition, ModSounds.MACHINE_START, SoundSource.BLOCKS, ModSounds.volume(0.7F), 1.0F);
 		} else if (previous.isWorking() && (next.isProblem() || next == QuarryStatus.COMPLETE)) {
-			level.playSound(null, this.worldPosition, ModSounds.POWER_DOWN, SoundSource.BLOCKS, 0.6F, next == QuarryStatus.COMPLETE ? 1.2F : 1.0F);
+			level.playSound(null, this.worldPosition, ModSounds.POWER_DOWN, SoundSource.BLOCKS, ModSounds.volume(0.6F), next == QuarryStatus.COMPLETE ? 1.2F : 1.0F);
 		}
 
 		this.syncDirty = true;
@@ -427,7 +491,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		while (!this.oreQueue.isEmpty() && budget-- > 0) {
 			BlockPos pos = BlockPos.of(this.oreQueue.getLong(0));
 			if (!level.isLoaded(pos)) {
-				return StepResult.UNLOADED;
+				return this.waitForChunk(level, pos);
 			}
 
 			BlockState state = level.getBlockState(pos);
@@ -469,7 +533,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 
 			BlockPos pos = this.positionOf(pattern, this.scanStep);
 			if (!level.isLoaded(pos)) {
-				return StepResult.UNLOADED;
+				return this.waitForChunk(level, pos);
 			}
 
 			BlockState state = level.getBlockState(pos);
@@ -511,11 +575,16 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	/** Mines one block if possible. Never advances any cursor itself. */
 	private StepResult tryMine(ServerLevel level, BlockPos pos) {
 		if (!level.isLoaded(pos)) {
-			return StepResult.UNLOADED;
+			return this.waitForChunk(level, pos);
 		}
 
 		BlockState target = level.getBlockState(pos);
 		if (this.shouldSkip(level, pos, target)) {
+			return StepResult.SKIPPED;
+		}
+
+		BlockEntity targetEntity = target.hasBlockEntity() ? level.getBlockEntity(pos) : null;
+		if (!QuarryProtection.mayBreak(level, this.actor(level), pos, target, targetEntity)) {
 			return StepResult.SKIPPED;
 		}
 
@@ -538,7 +607,6 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		}
 
 		ItemStack tool = this.getMiningTool(level);
-		BlockEntity targetEntity = target.hasBlockEntity() ? level.getBlockEntity(pos) : null;
 		List<ItemStack> drops = Block.getDrops(target, level, pos, targetEntity, null, tool);
 		List<ItemStack> kept = new ArrayList<>(drops.size());
 		for (ItemStack drop : drops) {
@@ -574,9 +642,9 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	}
 
 	/**
-	 * Targets the quarry never touches: air, unbreakable blocks, anything outside the world border or the owner's
-	 * build permission (spawn protection), our own machines and cables, data-pack ignored blocks, containers
-	 * (their contents would spill) and blocks on the skip list.
+	 * Targets the quarry never touches: air, unbreakable blocks, anything outside the world border, our own machines
+	 * and cables, data-pack ignored blocks, containers (their contents would spill) and blocks on the skip list.
+	 * Protection (spawn protection, claim mods) is checked separately, right before a block is broken.
 	 */
 	public boolean shouldSkip(Level level, BlockPos pos, BlockState state) {
 		if (state.isAir() || pos.equals(this.worldPosition)) {
@@ -604,12 +672,16 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 			return true;
 		}
 
-		if (this.isListed(this.skipFilter, block.asItem())) {
-			return true;
+		return this.isListed(this.skipFilter, block.asItem());
+	}
+
+	/** The fake player that stands in for the owner (see {@link QuarryProtection}). */
+	private ServerPlayer actor(ServerLevel level) {
+		if (this.actorThisTick == null) {
+			this.actorThisTick = QuarryProtection.actor(level, this.owner, this.ownerName);
 		}
 
-		ServerPlayer ownerPlayer = this.ownerThisTick;
-		return ownerPlayer != null && !level.mayInteract(ownerPlayer, pos);
+		return this.actorThisTick;
 	}
 
 	private boolean isListed(Container list, Item item) {
@@ -879,6 +951,13 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 			this.ownerName = player.getGameProfile().name();
 			this.setChanged();
 		}
+	}
+
+	/** Sets the owner directly (used by the self-test and when restoring an owner by id). */
+	public void setOwner(UUID id, String name) {
+		this.owner = id;
+		this.ownerName = name == null ? "" : name;
+		this.setChanged();
 	}
 
 	public @Nullable UUID getOwner() {

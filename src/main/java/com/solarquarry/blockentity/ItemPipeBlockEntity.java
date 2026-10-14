@@ -445,7 +445,7 @@ public class ItemPipeBlockEntity extends BlockEntity implements ExtendedMenuProv
 		long now = level.getGameTime();
 		if (now - this.lastSoundTick >= 30) {
 			this.lastSoundTick = now;
-			level.playSound(null, this.worldPosition, ModSounds.PIPE_DELIVER, SoundSource.BLOCKS, 0.25F, 0.9F + level.getRandom().nextFloat() * 0.3F);
+			level.playSound(null, this.worldPosition, ModSounds.PIPE_DELIVER, SoundSource.BLOCKS, ModSounds.volume(0.25F), 0.9F + level.getRandom().nextFloat() * 0.3F);
 		}
 	}
 

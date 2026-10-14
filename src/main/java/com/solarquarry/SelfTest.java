@@ -62,6 +62,7 @@ public final class SelfTest {
 	public static void register() {
 		SolarQuarry.LOGGER.info("[SelfTest] enabled");
 		ServerTickEvents.END_SERVER_TICK.register(SelfTest::tick);
+		SelfTestModes.registerProtectionProbe();
 	}
 
 	static void check(boolean condition, String message) {
@@ -392,7 +393,7 @@ public final class SelfTest {
 		long recipes = server.getRecipeManager().getRecipes().stream()
 			.filter(holder -> holder.id().identifier().getNamespace().equals(SolarQuarry.MOD_ID))
 			.count();
-		check(recipes == 28, "all 28 crafting recipes loaded (" + recipes + ")");
+		check(recipes == 29, "all 29 crafting recipes loaded (" + recipes + ")");
 		java.util.Set<String> recipeIds = new java.util.HashSet<>();
 		server.getRecipeManager().getRecipes().forEach(holder -> recipeIds.add(holder.id().identifier().toString()));
 		int uncraftable = 0;

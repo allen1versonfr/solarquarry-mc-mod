@@ -5,7 +5,10 @@ import com.solarquarry.client.render.QuarryRenderer;
 import com.solarquarry.client.screen.FilterPipeScreen;
 import com.solarquarry.client.screen.QuarryScreen;
 import com.solarquarry.client.screen.TerminalScreen;
+import com.solarquarry.config.SolarQuarryConfig;
+import com.solarquarry.network.ConfigSyncPayload;
 import com.solarquarry.network.TerminalSnapshotPayload;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
 import com.solarquarry.item.TooltipLines;
@@ -31,6 +34,9 @@ public class SolarQuarryClient implements ClientModInitializer {
 				screen.accept(payload);
 			}
 		});
+		// The server's settings apply while connected; this machine's own file applies again after leaving.
+		ClientPlayNetworking.registerGlobalReceiver(ConfigSyncPayload.TYPE, (payload, context) -> SolarQuarryConfig.applyFromServer(payload.config()));
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> SolarQuarryConfig.restoreLocal());
 		BlockEntityRenderers.register(ModBlockEntities.QUARRY, QuarryRenderer::new);
 		BlockEntityRenderers.register(ModBlockEntities.ITEM_PIPE, ItemPipeRenderer::new);
 	}
