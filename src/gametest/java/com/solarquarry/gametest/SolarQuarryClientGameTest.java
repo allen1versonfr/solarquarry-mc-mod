@@ -67,6 +67,17 @@ public class SolarQuarryClientGameTest implements FabricClientGameTest {
 			context.waitForScreen(QuarryScreen.class);
 			context.waitTicks(20);
 			context.takeScreenshot("04_quarry_gui");
+			// Upgrade summary shows installed counts against their limits (2 speed upgrades are installed).
+			context.runOnClient(client -> {
+				if (!(client.gui.screen() instanceof QuarryScreen screen)) {
+					throw new AssertionError("quarry screen not open");
+				}
+
+				String summary = screen.upgradeSummary().stream().map(net.minecraft.network.chat.Component::getString).reduce("", (a, b) -> a + "\n" + b);
+				if (!summary.contains("Speed 2/4") || !summary.contains("Efficiency 0/4") || !summary.contains("Slots used: 4/6")) {
+					throw new AssertionError("upgrade summary is missing n/max counts: " + summary);
+				}
+			});
 			context.clickScreenButton("gui.solarquarry.config");
 			context.waitTicks(10);
 			context.takeScreenshot("05_quarry_config");

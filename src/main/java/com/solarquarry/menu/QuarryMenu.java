@@ -269,6 +269,11 @@ public class QuarryMenu extends AbstractContainerMenu {
 		return this.data.get(26);
 	}
 
+	/** Blocks actually mined per second (rolling 10 s), from the server. */
+	public double getMeasuredBlocksPerSecond() {
+		return this.data.get(27) / 100.0;
+	}
+
 	public int getMaxLength() {
 		return this.getQuarryMode() == QuarryMode.TUNNEL_BORE ? this.getMaxAreaSize() * com.solarquarry.quarry.MiningPattern.TUNNEL_LENGTH_FACTOR : this.getMaxAreaSize();
 	}

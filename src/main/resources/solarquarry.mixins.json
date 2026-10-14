@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.solarquarry.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "EntityCollisionMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

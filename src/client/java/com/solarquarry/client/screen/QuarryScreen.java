@@ -312,7 +312,8 @@ public class QuarryScreen extends AbstractContainerScreen<QuarryMenu> {
 			: Component.literal(this.menu.getAreaWidth() + " × " + this.menu.getAreaLength());
 		this.lcdLine(g, lx, ly + 45, "gui.solarquarry.lcd.area", area, GuiDraw.LCD_TEXT);
 		this.lcdLine(g, lx, ly + 54, "gui.solarquarry.lcd.speed",
-			Component.translatable("gui.solarquarry.blocks_per_minute", this.menu.getBlocksPerMinute()), GuiDraw.LCD_TEXT);
+			Component.translatable("gui.solarquarry.lcd.rate", String.format(Locale.ROOT, "%.1f", this.menu.getMeasuredBlocksPerSecond()),
+				String.format(Locale.ROOT, "%.1f", this.menu.getBlocksPerMinute() / 60.0)), GuiDraw.LCD_TEXT);
 		this.lcdLine(g, lx, ly + 63, "gui.solarquarry.lcd.energy",
 			Component.literal(EnergyFormat.format(this.menu.getEnergy()) + " / " + EnergyFormat.format(this.menu.getEnergyCapacity())), 0xFFFFE066);
 		int input = this.menu.getAverageInput();
@@ -414,7 +415,7 @@ public class QuarryScreen extends AbstractContainerScreen<QuarryMenu> {
 	}
 
 	/** Effects of the installed upgrades, shown when hovering the upgrade bay header. */
-	private List<Component> upgradeSummary() {
+	public List<Component> upgradeSummary() {
 		List<Component> lines = new ArrayList<>();
 		lines.add(Component.translatable("gui.solarquarry.upgrades.summary").withStyle(ChatFormatting.GOLD));
 		lines.add(Component.translatable("gui.solarquarry.upgrades.speed", this.menu.getBlocksPerMinute()));
@@ -443,6 +444,26 @@ public class QuarryScreen extends AbstractContainerScreen<QuarryMenu> {
 			lines.add(this.menu.isChunkLoadingDisabled() ? Component.translatable("gui.solarquarry.upgrades.chunk_loader.disabled").withStyle(ChatFormatting.RED)
 				: this.menu.isChunkLoadingActive() ? Component.translatable("gui.solarquarry.upgrades.chunk_loader.active").withStyle(ChatFormatting.GREEN)
 				: Component.translatable("gui.solarquarry.upgrades.chunk_loader.idle"));
+		}
+
+		// Installed counts against each type's limit, and slot use.
+		java.util.EnumMap<com.solarquarry.quarry.UpgradeType, Integer> counts = new java.util.EnumMap<>(com.solarquarry.quarry.UpgradeType.class);
+		int usedSlots = 0;
+		for (int i = 0; i < QuarryBlockEntity.UPGRADE_SLOTS; i++) {
+			ItemStack stack = this.menu.slots.get(QuarryMenu.UPGRADE_START + i).getItem();
+			if (stack.getItem() instanceof com.solarquarry.item.UpgradeItem upgrade) {
+				usedSlots++;
+				int amount = upgrade.type() == com.solarquarry.quarry.UpgradeType.RANGE ? upgrade.tier() : stack.getCount();
+				counts.merge(upgrade.type(), amount, Math::max);
+			}
+		}
+
+		lines.add(Component.translatable("gui.solarquarry.upgrades.installed", usedSlots, QuarryBlockEntity.UPGRADE_SLOTS).withStyle(ChatFormatting.GOLD));
+		for (com.solarquarry.quarry.UpgradeType type : com.solarquarry.quarry.UpgradeType.values()) {
+			int n = counts.getOrDefault(type, 0);
+			int max = type == com.solarquarry.quarry.UpgradeType.RANGE ? 2 : type.maxStack();
+			lines.add(Component.translatable("gui.solarquarry.upgrades.count", Component.translatable("upgrade.solarquarry." + type.id()), n, max)
+				.withStyle(n >= max ? ChatFormatting.GREEN : n > 0 ? ChatFormatting.WHITE : ChatFormatting.DARK_GRAY));
 		}
 
 		lines.add(Component.translatable("gui.solarquarry.upgrades.rules").withStyle(ChatFormatting.DARK_GRAY));

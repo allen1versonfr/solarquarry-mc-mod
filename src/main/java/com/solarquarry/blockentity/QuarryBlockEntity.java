@@ -10,6 +10,8 @@ import com.solarquarry.menu.QuarryMenu;
 import com.solarquarry.config.SolarQuarryConfig;
 import com.solarquarry.quarry.MiningPattern;
 import com.solarquarry.quarry.QuarryChunkLoading;
+import com.solarquarry.quarry.QuarryFrame;
+import com.solarquarry.quarry.QuarryFrames;
 import com.solarquarry.quarry.QuarryLamp;
 import com.solarquarry.quarry.QuarryMode;
 import com.solarquarry.quarry.QuarryProtection;
@@ -80,7 +82,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	public static final int UPGRADE_SLOTS = 6;
 	public static final int FILTER_SLOTS = 9;
 	public static final int TOTAL_SLOTS = BUFFER_SLOTS + UPGRADE_SLOTS;
-	public static final int DATA_COUNT = 27;
+	public static final int DATA_COUNT = 28;
 	public static final int DEFAULT_SIZE = 16;
 	public static final int DEFAULT_HEIGHT = 3;
 	/** Maximum positions examined per tick while skipping air and ignored blocks. */
@@ -164,6 +166,10 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	private boolean upkeepPaid;
 	/** Area limit the current width/length were last checked against (-1 = not yet since loading). */
 	private int appliedMaxArea = -1;
+	/** Frame registered for collision (see {@link QuarryFrames}); compared to avoid re-registering every tick. */
+	private @Nullable MiningPattern framePattern;
+	private @Nullable Direction frameDirection;
+	private final RateWindow mineRate = new RateWindow(10);
 
 	// ---- client animation state (client only) ----
 	public float clientHeadX = Float.NaN;
@@ -208,6 +214,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 				case 24 -> Math.min(q.oreQueue.size(), 0x7FFF);
 				case 25 -> q.level != null ? q.level.getMaxY() : 319;
 				case 26 -> (int) Math.min(q.upgrades.typicalPowerDraw(), 0x7FFF);
+				case 27 -> (int) Math.min(Math.round(q.mineRate.perSecond() * 100.0), 0x7FFF);
 				default -> 0;
 			};
 		}
@@ -266,6 +273,10 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		this.energyReceivedThisTick = 0;
 		this.refreshUpgrades();
 		this.updateChunkLoading(level);
+		this.refreshFrame();
+		if (this.ticks % 20 == 0) {
+			this.mineRate.advance();
+		}
 
 		QuarryStatus previous = this.status;
 		QuarryStatus next;
@@ -636,6 +647,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		}
 
 		this.blocksMined++;
+		this.mineRate.record(1);
 		this.lastTarget = pos.immutable();
 		if (this.upgrades.ticksPerOperation() >= 4 || this.blocksMined % 4 == 0) {
 			level.levelEvent(null, LevelEvent.PARTICLES_DESTROY_BLOCK, pos, Block.getId(target));
@@ -1470,6 +1482,63 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		this.ownerName = input.getStringOr("OwnerName", this.ownerName);
 		this.lastTarget = input.getLong("LastTarget").map(BlockPos::of).orElse(null);
 		this.invalidatePattern();
+		this.refreshFrame();
+	}
+
+	/** Whether the frame is up: the machine was started or has made progress (same rule as the renderer). */
+	public boolean isFrameVisible() {
+		return this.mode != Mode.IDLE || this.step > 0 || this.scanStep > 0;
+	}
+
+	/** Registers the frame's solid boxes for collision when it is shown, and removes them when it is not. */
+	private void refreshFrame() {
+		if (this.level == null || this.isRemoved()) {
+			return;
+		}
+
+		MiningPattern pattern = this.isFrameVisible() ? this.pattern() : null;
+		Direction direction = pattern == null ? null : this.getAreaDirection();
+		if (java.util.Objects.equals(pattern, this.framePattern) && direction == this.frameDirection) {
+			return;
+		}
+
+		this.framePattern = pattern;
+		this.frameDirection = direction;
+		if (pattern == null) {
+			QuarryFrames.remove(this.level, this.worldPosition.asLong());
+		} else {
+			QuarryFrames.put(this.level, this.worldPosition.asLong(), new QuarryFrame(pattern).worldBoxes(this.worldPosition, direction));
+		}
+	}
+
+	@Override
+	public void setLevel(Level level) {
+		super.setLevel(level);
+		this.framePattern = null;
+		this.frameDirection = null;
+		this.refreshFrame();
+	}
+
+	@Override
+	public void setRemoved() {
+		if (this.level != null) {
+			QuarryFrames.remove(this.level, this.worldPosition.asLong());
+		}
+
+		this.framePattern = null;
+		this.frameDirection = null;
+		super.setRemoved();
+	}
+
+	@Override
+	public void clearRemoved() {
+		super.clearRemoved();
+		this.refreshFrame();
+	}
+
+	/** Blocks actually mined per second over the last 10 seconds (fluids, skips and failures are not counted). */
+	public double measuredBlocksPerSecond() {
+		return this.mineRate.perSecond();
 	}
 
 	private static void loadList(ValueInput input, String name, SimpleContainer target) {

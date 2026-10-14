@@ -139,7 +139,7 @@
   "gui.solarquarry.hint.no_output": "No pipe or chest attached: the buffer will fill and mining will stop.",
   "gui.solarquarry.energy.flow": "Last second: in %s E/t, used %s E/t",
   "gui.solarquarry.upgrades.summary": "Installed upgrade effects",
-  "gui.solarquarry.upgrades.speed": "Speed: %s blocks/min at full power",
+  "gui.solarquarry.upgrades.speed": "Speed: up to %s blocks/min at full power",
   "gui.solarquarry.upgrades.cost": "Cost: %s E per stone block (about %s E/t running)",
   "gui.solarquarry.upgrades.capacity": "Energy storage: %s",
   "gui.solarquarry.upgrades.area": "Area limit: %s x %s",
@@ -225,5 +225,16 @@
   "solarquarry.prospector.quarry_exact": "Ores left in quarry at %s, %s, %s (%s blocks scanned):",
   "solarquarry.prospector.unloaded": "%s blocks were in unloaded chunks and not counted",
   "solarquarry.prospector.gone": "The quarry was removed before the scan finished",
-  "tooltip.solarquarry.solar_multiplier": "This server multiplies solar output by %s"
+  "tooltip.solarquarry.solar_multiplier": "This server multiplies solar output by %s",
+  "gui.solarquarry.lcd.rate": "%s b/s (max %s)",
+  "gui.solarquarry.upgrades.installed": "Slots used: %s/%s",
+  "gui.solarquarry.upgrades.count": "%s %s/%s",
+  "upgrade.solarquarry.speed": "Speed",
+  "upgrade.solarquarry.energy_capacity": "Capacity",
+  "upgrade.solarquarry.energy_efficiency": "Efficiency",
+  "upgrade.solarquarry.fortune": "Fortune",
+  "upgrade.solarquarry.silk_touch": "Silk Touch",
+  "upgrade.solarquarry.range": "Range",
+  "upgrade.solarquarry.void": "Void",
+  "upgrade.solarquarry.chunk_loader": "Chunk Loader"
 }

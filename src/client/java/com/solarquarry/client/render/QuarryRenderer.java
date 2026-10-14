@@ -5,6 +5,7 @@ import com.mojang.math.Axis;
 import com.solarquarry.SolarQuarry;
 import com.solarquarry.blockentity.QuarryBlockEntity;
 import com.solarquarry.quarry.MiningPattern;
+import com.solarquarry.quarry.QuarryFrame;
 import com.solarquarry.quarry.QuarryStatus;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
@@ -30,7 +31,6 @@ public class QuarryRenderer implements BlockEntityRenderer<QuarryBlockEntity, Qu
 	private static final Identifier FRAME = SolarQuarry.id("textures/entity/quarry_frame.png");
 	private static final Identifier STEEL = SolarQuarry.id("textures/entity/quarry_steel.png");
 	private static final Identifier DRILL = SolarQuarry.id("textures/entity/quarry_drill.png");
-	private static final float GANTRY_HEIGHT = 3.0F;
 	private static final float HEAD_SPEED = 14.0F;
 
 	public QuarryRenderer(BlockEntityRendererProvider.Context context) {
@@ -49,12 +49,14 @@ public class QuarryRenderer implements BlockEntityRenderer<QuarryBlockEntity, Qu
 		state.status = be.getStatus();
 		state.forward = be.getAreaDirection();
 		MiningPattern pattern = be.pattern();
-		state.lMin = pattern.lateralOffset(0) - 0.5F;
-		state.lMax = pattern.lateralOffset(pattern.width() - 1) + 0.5F;
-		state.fMin = 0.5F;
-		state.fMax = pattern.length() + 0.5F;
-		state.gantryY = pattern.maxDy() + GANTRY_HEIGHT;
-		state.showGantry = be.getMode() != QuarryBlockEntity.Mode.IDLE || be.getStep() > 0 || be.getScanStep() > 0;
+		QuarryFrame frame = new QuarryFrame(pattern);
+		state.frame = frame.structure();
+		state.lMin = frame.lMin();
+		state.lMax = frame.lMax();
+		state.fMin = frame.fMin();
+		state.fMax = frame.fMax();
+		state.gantryY = frame.gantryY();
+		state.showGantry = be.isFrameVisible();
 
 		BlockPos origin = be.getBlockPos();
 		BlockPos target;
@@ -140,22 +142,38 @@ public class QuarryRenderer implements BlockEntityRenderer<QuarryBlockEntity, Qu
 		int frameLight = state.frameLight;
 		int headLight = state.headLight;
 
-		RenderType frameType = RenderTypes.entityCutout(FRAME);
-		collector.submitCustomGeometry(poseStack, frameType, (pose, vc) -> {
-			// Corner posts.
-			float p = 0.15F;
-			for (float l : new float[] {lMin, lMax}) {
-				for (float f : new float[] {fMin, fMax}) {
-					this.localBox(pose, vc, forward, lateral, l - p, l + p, 0.0F, gy + 0.3F, f - p, f + p, frameLight);
+		// Posts, side rails and end beams: the same boxes the collision uses (QuarryFrame).
+		collector.submitCustomGeometry(poseStack, RenderTypes.entityCutout(FRAME), (pose, vc) -> {
+			for (QuarryFrame.Box box : state.frame) {
+				this.localBox(pose, vc, forward, lateral, box.l0(), box.l1(), box.y0(), box.y1(), box.f0(), box.f1(), frameLight);
+			}
+		});
+
+		// Steel joints where the posts meet the rails, base plates and mid-height braces.
+		collector.submitCustomGeometry(poseStack, RenderTypes.entityCutout(STEEL), (pose, vc) -> {
+			for (QuarryFrame.Box post : state.frame) {
+				if (post.part() != QuarryFrame.Part.POST) {
+					continue;
+				}
+
+				float l = (post.l0() + post.l1()) * 0.5F;
+				float f = (post.f0() + post.f1()) * 0.5F;
+				this.localBox(pose, vc, forward, lateral, l - 0.28F, l + 0.28F, gy - 0.2F, gy + 0.42F, f - 0.28F, f + 0.28F, frameLight);
+				this.localBox(pose, vc, forward, lateral, l - 0.3F, l + 0.3F, 0.0F, 0.08F, f - 0.3F, f + 0.3F, frameLight);
+				this.localBox(pose, vc, forward, lateral, l - 0.2F, l + 0.2F, gy * 0.5F - 0.1F, gy * 0.5F + 0.1F, f - 0.2F, f + 0.2F, frameLight);
+			}
+		});
+
+		// Status lights on top of the four posts (full bright, same colour as the machine's lamp).
+		int postLamp = state.status.color() | 0xFF000000;
+		collector.submitCustomGeometry(poseStack, RenderTypes.entityCutout(DRILL), (pose, vc) -> {
+			for (QuarryFrame.Box post : state.frame) {
+				if (post.part() == QuarryFrame.Part.POST) {
+					float l = (post.l0() + post.l1()) * 0.5F;
+					float f = (post.f0() + post.f1()) * 0.5F;
+					this.localBox(pose, vc, forward, lateral, l - 0.1F, l + 0.1F, gy + 0.42F, gy + 0.6F, f - 0.1F, f + 0.1F, postLamp, LightCoordsUtil.FULL_BRIGHT);
 				}
 			}
-
-			// Rails along the forward direction at both lateral edges.
-			this.localBox(pose, vc, forward, lateral, lMin - 0.2F, lMin + 0.2F, gy, gy + 0.3F, fMin, fMax, frameLight);
-			this.localBox(pose, vc, forward, lateral, lMax - 0.2F, lMax + 0.2F, gy, gy + 0.3F, fMin, fMax, frameLight);
-			// End beams closing the frame.
-			this.localBox(pose, vc, forward, lateral, lMin, lMax, gy, gy + 0.2F, fMin - 0.1F, fMin + 0.1F, frameLight);
-			this.localBox(pose, vc, forward, lateral, lMin, lMax, gy, gy + 0.2F, fMax - 0.1F, fMax + 0.1F, frameLight);
 		});
 
 		RenderType steelType = RenderTypes.entityCutout(STEEL);

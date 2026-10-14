@@ -83,7 +83,7 @@ Put them in the six upgrade slots on the quarry's main page. Hover over the **UP
 |---|---|---|
 | Speed | 4 | Faster: 120 → 200 → 300 → 600 → 2400 blocks/min. Each level also costs +25% energy per block, so power draw rises steeply. |
 | Energy Capacity | 4 | +100k E internal storage each. |
-| Energy Efficiency | 3 | −15% energy per block each. |
+| Energy Efficiency | 4 | −15% energy per block each (at most −60%). |
 | Fortune | 3 | Fortune I–III drops (+20% energy per level). |
 | Silk Touch | 1 | Blocks drop themselves (+25% energy). Can't be combined with Fortune. |
 | Range I / Range II | 1 | Area limit 32 × 32 / 64 × 64. |

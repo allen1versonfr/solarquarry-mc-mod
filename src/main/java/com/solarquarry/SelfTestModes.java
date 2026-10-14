@@ -74,6 +74,8 @@ final class SelfTestModes {
 		this.scenarios.add(Scenario.timed("presets: filter settings round trip", s -> { }, 1, this::verifyFilterPreset));
 		this.scenarios.add(Scenario.timed("terminal: finds quarries on its cable network", this::setupTerminal, 5, this::verifyTerminal));
 		this.scenarios.add(Scenario.timed("storage scan: counts connected inventories", this::setupStorage, 2, this::verifyStorage));
+		this.scenarios.add(Scenario.timed("phase 1: frame collision and measured mining rate", this::setupFrame, 200, this::verifyFrame));
+		this.scenarios.add(Scenario.timed("phase 1: upgrade limits and creative tab", s -> { }, 1, this::verifyUpgradeLimits));
 		this.scenarios.add(new Scenario("protection: claimed blocks are skipped (owner offline)", this::setupProtection, QuarryBlockEntity::isFinished, 2000, this::verifyProtection));
 		this.scenarios.add(Scenario.timed("prospector: exact ore count of the remaining volume", this::setupProspector, 1, this::verifyProspector));
 		this.scenarios.add(Scenario.timed("config: command, sync codec and multipliers", s -> { }, 1, this::verifyConfig));
@@ -1051,5 +1053,70 @@ final class SelfTestModes {
 		if (quarry != null) {
 			quarry.pause();
 		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// Phase 1: frame, mining rate, upgrade limits, creative tab
+	// ---------------------------------------------------------------------------------------------
+
+	private void setupFrame(ServerLevel level) {
+		fill(level, 98, 199, 101, 102, 200, 105, Blocks.STONE.defaultBlockState());
+		QuarryBlockEntity quarry = quarry(level);
+		configure(quarry, QuarryMode.STRIP_MINE, 5, 5, 1, 199);
+		quarry.resetProgress();
+		quarry.start();
+	}
+
+	private void verifyFrame(ServerLevel level) {
+		QuarryBlockEntity quarry = quarry(level);
+		// The work area runs south and lateral is west, so the first post stands at x = 103, z = 101.
+		net.minecraft.world.phys.AABB atPost = new net.minecraft.world.phys.AABB(102.9, 201.0, 100.9, 103.1, 202.0, 101.1);
+		SelfTest.check(!com.solarquarry.quarry.QuarryFrames.boxesIntersecting(level, atPost).isEmpty(), "frame: the corner post is registered as solid");
+		SelfTest.check(com.solarquarry.quarry.QuarryFrames.boxesIntersecting(level, new net.minecraft.world.phys.AABB(100.2, 201.0, 102.2, 100.8, 202.0, 102.8)).isEmpty(),
+			"frame: the open work area has no collision");
+
+		net.minecraft.world.entity.decoration.ArmorStand stand = net.minecraft.world.entity.EntityTypes.ARMOR_STAND.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+		stand.setNoGravity(true);
+		stand.snapTo(104.5, 201.2, 101.0, 0.0F, 0.0F);
+		level.addFreshEntity(stand);
+		stand.move(net.minecraft.world.entity.MoverType.SELF, new net.minecraft.world.phys.Vec3(-2.0, 0.0, 0.0));
+		double stoppedAt = stand.getX();
+		stand.discard();
+		SolarQuarry.LOGGER.info("[SelfTest] frame: entity moving into the post stopped at x={}", stoppedAt);
+		SelfTest.check(stoppedAt > 103.3 && stoppedAt < 103.5, "frame: a moving entity is stopped by the post (stopped at x=" + String.format(java.util.Locale.ROOT, "%.3f", stoppedAt) + ")");
+
+		double rate = quarry.measuredBlocksPerSecond();
+		double max = quarry.getUpgrades().blocksPerMinute() / 60.0;
+		SolarQuarry.LOGGER.info("[SelfTest] mining rate: {} blocks/s measured, {} max", rate, max);
+		SelfTest.check(rate > 0.5 && rate <= max + 0.001, "GUI: measured blocks per second is real and within the limit (" + rate + " of " + max + ")");
+
+		level.setBlock(Q, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+		SelfTest.check(com.solarquarry.quarry.QuarryFrames.boxesIntersecting(level, atPost).isEmpty(), "frame: collision disappears with the quarry");
+	}
+
+	private void verifyUpgradeLimits(ServerLevel level) {
+		QuarryBlockEntity quarry = quarry(level);
+		int first = QuarryBlockEntity.BUFFER_SLOTS;
+		var slot = new com.solarquarry.menu.UpgradeSlot(quarry, first, 0, 0);
+		SelfTest.check(slot.getMaxStackSize(new ItemStack(com.solarquarry.registry.ModItems.ENERGY_EFFICIENCY_UPGRADE, 64)) == 4, "upgrades: efficiency stacks to 4");
+		SelfTest.check(slot.getMaxStackSize(new ItemStack(com.solarquarry.registry.ModItems.SPEED_UPGRADE, 64)) == 4, "upgrades: speed stacks to 4");
+		SelfTest.check(slot.getMaxStackSize(new ItemStack(com.solarquarry.registry.ModItems.VOID_UPGRADE, 64)) == 1, "upgrades: void is limited to 1");
+		quarry.setItem(first, new ItemStack(com.solarquarry.registry.ModItems.SPEED_UPGRADE, 2));
+		var second = new com.solarquarry.menu.UpgradeSlot(quarry, first + 1, 0, 0);
+		SelfTest.check(!second.mayPlace(new ItemStack(com.solarquarry.registry.ModItems.SPEED_UPGRADE)), "upgrades: a second slot of the same type is refused");
+		SelfTest.check(!second.mayPlace(new ItemStack(Items.DIAMOND)), "upgrades: non-upgrade items are refused");
+		long inserted;
+		try (var tx = net.fabricmc.fabric.api.transfer.v1.transaction.Transaction.openOuter()) {
+			var storage = net.fabricmc.fabric.api.transfer.v1.item.ItemStorage.SIDED.find(level, Q, Direction.UP);
+			inserted = storage == null ? 0 : storage.insert(net.fabricmc.fabric.api.transfer.v1.item.ItemVariant.of(com.solarquarry.registry.ModItems.FORTUNE_UPGRADE), 1, tx);
+		}
+		SelfTest.check(inserted == 0, "upgrades: automation (hoppers, pipes) cannot insert upgrades or anything else");
+		quarry.setItem(first, ItemStack.EMPTY);
+
+		List<net.minecraft.world.item.Item> tab = com.solarquarry.registry.ModCreativeTab.orderedItems();
+		java.util.Set<net.minecraft.world.item.Item> unique = new java.util.HashSet<>(tab);
+		int registered = com.solarquarry.registry.ModBlocks.BLOCK_ITEMS.size() + com.solarquarry.registry.ModItems.ITEMS.size();
+		SelfTest.check(unique.size() == tab.size() && tab.size() == registered, "creative tab: every item exactly once (" + tab.size() + " of " + registered + ")");
+		SelfTest.check(tab.get(0) == ModBlocks.QUARRY.asItem(), "creative tab: grouped, starting with the quarry");
 	}
 }

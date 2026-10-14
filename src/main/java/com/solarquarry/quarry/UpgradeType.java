@@ -3,7 +3,7 @@ package com.solarquarry.quarry;
 public enum UpgradeType {
 	SPEED("speed", 4),
 	ENERGY_CAPACITY("energy_capacity", 4),
-	ENERGY_EFFICIENCY("energy_efficiency", 3),
+	ENERGY_EFFICIENCY("energy_efficiency", 4),
 	FORTUNE("fortune", 3),
 	SILK_TOUCH("silk_touch", 1),
 	RANGE("range", 1),
