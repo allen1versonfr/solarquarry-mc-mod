@@ -18,11 +18,13 @@ import org.jspecify.annotations.Nullable;
 public class FilterPipeMenu extends AbstractContainerMenu {
 	public static final int BUTTON_TOGGLE_MODE = 0;
 	public static final int BUTTON_TOGGLE_COMPONENTS = 1;
+	public static final int BUTTON_PRIORITY_DOWN = 2;
+	public static final int BUTTON_PRIORITY_UP = 3;
 	public static final int FILTER_X = 62;
 	public static final int FILTER_Y = 24;
 	public static final int INVENTORY_X = 8;
-	public static final int INVENTORY_Y = 116;
-	public static final int HOTBAR_Y = 174;
+	public static final int INVENTORY_Y = 150;
+	public static final int HOTBAR_Y = 208;
 	private static final int FILTER_SLOTS = ItemPipeBlockEntity.FILTER_SLOTS;
 	private static final int PLAYER_START = FILTER_SLOTS;
 
@@ -32,7 +34,7 @@ public class FilterPipeMenu extends AbstractContainerMenu {
 	private final @Nullable ItemPipeBlockEntity pipe;
 
 	public FilterPipeMenu(int containerId, Inventory inventory, BlockPos pos) {
-		this(containerId, inventory, pos, new SimpleContainer(FILTER_SLOTS), new SimpleContainerData(2), null);
+		this(containerId, inventory, pos, new SimpleContainer(FILTER_SLOTS), new SimpleContainerData(3), null);
 	}
 
 	public FilterPipeMenu(int containerId, Inventory inventory, ItemPipeBlockEntity pipe) {
@@ -75,6 +77,10 @@ public class FilterPipeMenu extends AbstractContainerMenu {
 		return this.data.get(1) != 0;
 	}
 
+	public int getPriority() {
+		return this.data.get(2) + ItemPipeBlockEntity.MIN_PRIORITY;
+	}
+
 	@Override
 	public boolean clickMenuButton(Player player, int buttonId) {
 		if (this.pipe == null) {
@@ -88,6 +94,11 @@ public class FilterPipeMenu extends AbstractContainerMenu {
 
 		if (buttonId == BUTTON_TOGGLE_COMPONENTS) {
 			this.pipe.toggleMatchComponents();
+			return true;
+		}
+
+		if (buttonId == BUTTON_PRIORITY_DOWN || buttonId == BUTTON_PRIORITY_UP) {
+			this.pipe.setPriority(this.pipe.getPriority() + (buttonId == BUTTON_PRIORITY_UP ? 1 : -1));
 			return true;
 		}
 

@@ -439,7 +439,7 @@ public final class SelfTest {
 		int night = SolarPanelBlockEntity.computeGeneration(level, SOLAR, SolarTier.ELITE);
 		SolarQuarry.LOGGER.info("[SelfTest] elite solar: noon={} midnight={}", noonGeneration, night);
 		check(noonGeneration > 0, "solar panel generates at noon");
-		check(night == 0, "solar panel stops at night");
+		check(night > 0 && night <= noonGeneration / 5, "elite solar panel drops to its low night output (" + night + ")");
 		server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), "time set noon");
 		level.setBlock(SOLAR.above(), Blocks.STONE.defaultBlockState(), Block.UPDATE_ALL);
 	}

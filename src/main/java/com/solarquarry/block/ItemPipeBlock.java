@@ -100,7 +100,20 @@ public class ItemPipeBlock extends BaseEntityBlock {
 	protected BlockState updateShape(
 		BlockState state, LevelReader level, ScheduledTickAccess ticks, BlockPos pos, Direction directionToNeighbour, BlockPos neighbourPos, BlockState neighbourState, RandomSource random
 	) {
+		if (level instanceof Level real && !real.isClientSide()) {
+			// A neighbour appeared, vanished or changed: cached routes may point at it.
+			com.solarquarry.pipe.PipeRouter.invalidateCache();
+		}
+
 		return state.setValue(PipeBlock.PROPERTY_BY_DIRECTION.get(directionToNeighbour), connectsTo(level, pos, directionToNeighbour, neighbourState));
+	}
+
+	@Override
+	protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
+		super.onPlace(state, level, pos, oldState, movedByPiston);
+		if (!level.isClientSide()) {
+			com.solarquarry.pipe.PipeRouter.invalidateCache();
+		}
 	}
 
 	@Override

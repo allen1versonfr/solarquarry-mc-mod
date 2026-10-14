@@ -32,7 +32,15 @@ final class SelfTestModes {
 	private static final BlockPos Q = new BlockPos(100, 200, 100);
 	private static final BlockPos BATTERY = Q.east(2);
 
-	private record Scenario(String name, Consumer<ServerLevel> setup, Predicate<QuarryBlockEntity> done, int timeout, Consumer<ServerLevel> verify) {
+	private record Scenario(String name, Consumer<ServerLevel> setup, Predicate<QuarryBlockEntity> done, int timeout, Consumer<ServerLevel> verify, boolean timed) {
+		Scenario(String name, Consumer<ServerLevel> setup, Predicate<QuarryBlockEntity> done, int timeout, Consumer<ServerLevel> verify) {
+			this(name, setup, done, timeout, verify, false);
+		}
+
+		/** Runs for exactly {@code ticks} ticks, then verifies. */
+		static Scenario timed(String name, Consumer<ServerLevel> setup, int ticks, Consumer<ServerLevel> verify) {
+			return new Scenario(name, setup, q -> false, ticks, verify, true);
+		}
 	}
 
 	private final List<Scenario> scenarios = new ArrayList<>();
@@ -52,18 +60,27 @@ final class SelfTestModes {
 			q -> q.getStatus() == QuarryStatus.OUTPUT_BLOCKED, 400, this::verifyFull));
 		this.scenarios.add(new Scenario("no power waits", this::setupNoPower,
 			q -> q.getStatus() == QuarryStatus.WAITING_FOR_POWER, 400, this::verifyNoPower));
+		this.scenarios.add(Scenario.timed("energy: two consumers share one battery", this::setupSharing, 100, this::verifySharing));
+		this.scenarios.add(Scenario.timed("energy: full battery stays at capacity", this::setupFullBattery, 100, this::verifyFullBattery));
+		this.scenarios.add(Scenario.timed("energy: disconnected cable stops transfer", this::setupDisconnected, 60, this::verifyDisconnected));
+		this.scenarios.add(Scenario.timed("energy: solar tiers at night", this::setupNight, 2, this::verifyNight));
+		this.scenarios.add(Scenario.timed("pipes: tag filter routes by item tag", this::setupTagRouting, 200, this::verifyTagRouting));
+		this.scenarios.add(Scenario.timed("pipes: priority fills the preferred chest first", this::setupPriority, 300, this::verifyPriority));
+		this.scenarios.add(Scenario.timed("pipes: recover when a destination is removed", this::setupRemoval, 15, this::removeDestination));
+		this.scenarios.add(Scenario.timed("pipes: rerouted items arrive elsewhere", s -> { }, 300, this::verifyRemoval));
+		this.scenarios.add(Scenario.timed("pipes: contents and filter settings persist", this::setupPipePersistence, 1, this::verifyPipePersistence));
 	}
 
 	static void forceChunks(ServerLevel level) {
 		for (int cx = 5; cx <= 7; cx++) {
-			for (int cz = 5; cz <= 7; cz++) {
+			for (int cz = 5; cz <= 9; cz++) {
 				level.setChunkForced(cx, cz, true);
 			}
 		}
 	}
 
 	static boolean chunksReady(ServerLevel level) {
-		return level.isLoaded(new BlockPos(88, 200, 88)) && level.isLoaded(new BlockPos(120, 200, 120));
+		return level.isLoaded(new BlockPos(88, 200, 88)) && level.isLoaded(new BlockPos(120, 200, 120)) && level.isLoaded(new BlockPos(110, 200, 150));
 	}
 
 	/** @return true when every scenario has finished */
@@ -89,7 +106,13 @@ final class SelfTestModes {
 			}
 			case 1 -> {
 				QuarryBlockEntity quarry = quarry(level);
-				if (scenario.done().test(quarry) || ++this.wait > scenario.timeout()) {
+				if (scenario.timed()) {
+					if (++this.wait >= scenario.timeout()) {
+						scenario.verify().accept(level);
+						this.index++;
+						this.stage = 0;
+					}
+				} else if (scenario.done().test(quarry) || ++this.wait > scenario.timeout()) {
 					SelfTest.check(this.wait <= scenario.timeout(), scenario.name() + ": reached expected state (" + this.wait + " ticks, status " + quarry.getStatus() + ")");
 					scenario.verify().accept(level);
 					this.index++;
@@ -341,6 +364,283 @@ final class SelfTestModes {
 		SelfTest.check(quarry.getStatus() == QuarryStatus.WAITING_FOR_POWER && quarry.getEnergy() < 100, "no power: status is No Power");
 		SelfTest.check(countBlocks(level, 99, 200, 101, 101, 200, 103, Blocks.STONE) == 9, "no power: nothing was mined");
 		quarry.pause();
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// Energy
+	// ---------------------------------------------------------------------------------------------
+
+	private static final BlockPos Q2 = Q.east(4);
+	private static final BlockPos PANEL = Q.east().north();
+	private long sharedStart;
+
+	private void setupSharing(ServerLevel level) {
+		// Quarry - cable - BASIC battery (256 E/t) - cable - quarry 2. Both quarries are idle and empty.
+		level.setBlock(BATTERY, ModBlocks.BATTERY_BASIC.defaultBlockState(), Block.UPDATE_ALL);
+		BatteryBlockEntity battery = (BatteryBlockEntity) level.getBlockEntity(BATTERY);
+		battery.restoreEnergy(200_000L);
+		this.sharedStart = battery.getEnergy();
+		level.setBlock(Q.east(3), ModBlocks.ENERGY_CABLE.defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(Q2, ModBlocks.QUARRY.defaultBlockState().setValue(QuarryBlock.FACING, Direction.NORTH), Block.UPDATE_ALL);
+	}
+
+	private void verifySharing(ServerLevel level) {
+		BatteryBlockEntity battery = (BatteryBlockEntity) level.getBlockEntity(BATTERY);
+		long a = quarry(level).getEnergy();
+		long b = ((QuarryBlockEntity) level.getBlockEntity(Q2)).getEnergy();
+		long total = a + b + battery.getEnergy();
+		SolarQuarry.LOGGER.info("[SelfTest] sharing: quarry A={} quarry B={} battery={} (start {})", a, b, battery.getEnergy(), this.sharedStart);
+		SelfTest.check(a > 0 && b > 0, "energy: both consumers on one network receive power (" + a + " / " + b + ")");
+		SelfTest.check(Math.abs(a - b) <= Math.max(a, b) / 4, "energy: power is shared fairly between consumers");
+		SelfTest.check(a + b <= 256L * 101, "energy: battery output respects its 256 E/t transfer limit (" + (a + b) + " in 100 ticks)");
+		SelfTest.check(total == this.sharedStart, "energy: nothing created or lost while transferring (" + total + " vs " + this.sharedStart + ")");
+		level.setBlock(Q2, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+	}
+
+	private void setupFullBattery(ServerLevel level) {
+		BatteryBlockEntity battery = (BatteryBlockEntity) level.getBlockEntity(BATTERY);
+		battery.restoreEnergy(battery.getEnergyCapacity());
+		// Disconnect the quarry so only the panel and the battery share the network.
+		level.setBlock(Q, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(PANEL, ModBlocks.SOLAR_PANEL_ELITE.defaultBlockState(), Block.UPDATE_ALL);
+		level.getServer().getCommands().performPrefixedCommand(level.getServer().createCommandSourceStack(), "time set noon");
+	}
+
+	private void verifyFullBattery(ServerLevel level) {
+		BatteryBlockEntity battery = (BatteryBlockEntity) level.getBlockEntity(BATTERY);
+		var panel = (com.solarquarry.blockentity.SolarPanelBlockEntity) level.getBlockEntity(PANEL);
+		SelfTest.check(battery.getEnergy() == battery.getEnergyCapacity(), "energy: a full battery never exceeds its capacity (" + battery.getEnergy() + ")");
+		SelfTest.check(panel.getEnergy() <= panel.getEnergyCapacity() && panel.getEnergy() > 0,
+			"energy: the panel's own buffer fills and caps when nothing can take power (" + panel.getEnergy() + "/" + panel.getEnergyCapacity() + ")");
+		level.setBlock(Q, ModBlocks.QUARRY.defaultBlockState().setValue(QuarryBlock.FACING, Direction.NORTH), Block.UPDATE_ALL);
+	}
+
+	private long disconnectedEnergy;
+	private long disconnectedBattery;
+
+	private void setupDisconnected(ServerLevel level) {
+		level.setBlock(Q.east(), Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+		quarry(level).restoreEnergy(5_000);
+		this.disconnectedEnergy = quarry(level).getEnergy();
+		this.disconnectedBattery = ((BatteryBlockEntity) level.getBlockEntity(BATTERY)).getEnergy();
+	}
+
+	private void verifyDisconnected(ServerLevel level) {
+		long now = quarry(level).getEnergy();
+		long battery = ((BatteryBlockEntity) level.getBlockEntity(BATTERY)).getEnergy();
+		SelfTest.check(now == this.disconnectedEnergy && battery == this.disconnectedBattery,
+			"energy: no power flows once the cable is removed (quarry " + this.disconnectedEnergy + " -> " + now + ", battery " + this.disconnectedBattery + " -> " + battery + ")");
+	}
+
+	private void setupNight(ServerLevel level) {
+		level.setBlock(PANEL, ModBlocks.SOLAR_PANEL_ELITE.defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(PANEL.west(), ModBlocks.SOLAR_PANEL_BASIC.defaultBlockState(), Block.UPDATE_ALL);
+	}
+
+	private void verifyNight(ServerLevel level) {
+		var commands = level.getServer().getCommands();
+		var source = level.getServer().createCommandSourceStack();
+		commands.performPrefixedCommand(source, "time set midnight");
+		int elite = com.solarquarry.blockentity.SolarPanelBlockEntity.computeGeneration(level, PANEL, com.solarquarry.energy.SolarTier.ELITE);
+		int basic = com.solarquarry.blockentity.SolarPanelBlockEntity.computeGeneration(level, PANEL.west(), com.solarquarry.energy.SolarTier.BASIC);
+		commands.performPrefixedCommand(source, "time set noon");
+		int eliteNoon = com.solarquarry.blockentity.SolarPanelBlockEntity.computeGeneration(level, PANEL, com.solarquarry.energy.SolarTier.ELITE);
+		int basicNoon = com.solarquarry.blockentity.SolarPanelBlockEntity.computeGeneration(level, PANEL.west(), com.solarquarry.energy.SolarTier.BASIC);
+		SolarQuarry.LOGGER.info("[SelfTest] solar: basic noon={} night={}, elite noon={} night={}", basicNoon, basic, eliteNoon, elite);
+		SelfTest.check(basic == 0, "energy: basic panels produce nothing at night");
+		SelfTest.check(elite > 0 && elite <= eliteNoon / 5, "energy: elite panels keep a small night output (" + elite + " of " + eliteNoon + ")");
+		SelfTest.check(eliteNoon > basicNoon * 10, "energy: higher tiers generate far more (" + eliteNoon + " vs " + basicNoon + ")");
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// Logistics (separate site so the quarry tests above are untouched)
+	// ---------------------------------------------------------------------------------------------
+
+	private static final BlockPos L = new BlockPos(100, 200, 140);
+	private static final BlockPos L_PIPE1 = L.east();
+	private static final BlockPos L_PIPE2 = L.east(2);
+	private static final BlockPos L_FILTER = L.east(3);
+	private static final BlockPos L_CHEST_A = L.east(4);
+	private static final BlockPos L_BRANCH = L.east(2).north();
+	private static final BlockPos L_CHEST_B = L.east(2).north(2);
+
+	private QuarryBlockEntity logisticsQuarry(ServerLevel level) {
+		return (QuarryBlockEntity) level.getBlockEntity(L);
+	}
+
+	private void resetLogistics(ServerLevel level) {
+		for (int x = 96; x <= 108; x++) {
+			for (int z = 134; z <= 146; z++) {
+				for (int y = 199; y <= 202; y++) {
+					BlockPos pos = new BlockPos(x, y, z);
+					if (!level.getBlockState(pos).isAir()) {
+						if (level.getBlockEntity(pos) instanceof Container container) {
+							container.clearContent();
+						}
+
+						level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+					}
+				}
+			}
+		}
+
+		for (net.minecraft.world.entity.item.ItemEntity e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(L).inflate(10))) {
+			e.discard();
+		}
+
+		level.setBlock(L, ModBlocks.QUARRY.defaultBlockState().setValue(QuarryBlock.FACING, Direction.NORTH), Block.UPDATE_ALL);
+		level.setBlock(L_PIPE1, ModBlocks.ITEM_PIPE.defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(L_PIPE2, ModBlocks.ITEM_PIPE.defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(L_FILTER, ModBlocks.FILTER_PIPE.defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(L_CHEST_A, Blocks.CHEST.defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(L_BRANCH, ModBlocks.ITEM_PIPE.defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(L_CHEST_B, Blocks.CHEST.defaultBlockState(), Block.UPDATE_ALL);
+	}
+
+	private static int countItem(ServerLevel level, BlockPos pos, net.minecraft.world.item.Item item) {
+		int n = 0;
+		if (level.getBlockEntity(pos) instanceof Container container) {
+			for (int i = 0; i < container.getContainerSize(); i++) {
+				ItemStack stack = container.getItem(i);
+				if (item == null ? !stack.isEmpty() : stack.is(item)) {
+					n += stack.getCount();
+				}
+			}
+		}
+
+		return n;
+	}
+
+	private int inTransit(ServerLevel level) {
+		int n = 0;
+		for (BlockPos pos : List.of(L_PIPE1, L_PIPE2, L_FILTER, L_BRANCH)) {
+			if (level.getBlockEntity(pos) instanceof com.solarquarry.blockentity.ItemPipeBlockEntity pipe) {
+				for (var item : pipe.getItems()) {
+					n += item.stack.getCount();
+				}
+			}
+		}
+
+		return n;
+	}
+
+	private void setupTagRouting(ServerLevel level) {
+		this.resetLogistics(level);
+		var filter = (com.solarquarry.blockentity.ItemPipeBlockEntity) level.getBlockEntity(L_FILTER);
+		filter.setWhitelist(true);
+		SelfTest.check(filter.setTag(0, "c:raw_materials"), "pipes: a valid tag id is accepted");
+		SelfTest.check(!filter.setTag(1, "Not A Tag!!"), "pipes: an invalid tag id is rejected");
+		QuarryBlockEntity quarry = this.logisticsQuarry(level);
+		quarry.setItem(0, new ItemStack(Items.RAW_IRON, 10));
+		quarry.setItem(1, new ItemStack(Items.COBBLESTONE, 20));
+		quarry.setItem(2, new ItemStack(Items.RAW_GOLD, 3));
+	}
+
+	private void verifyTagRouting(ServerLevel level) {
+		int ironA = countItem(level, L_CHEST_A, Items.RAW_IRON);
+		int goldA = countItem(level, L_CHEST_A, Items.RAW_GOLD);
+		int cobbleB = countItem(level, L_CHEST_B, Items.COBBLESTONE);
+		int totalA = countItem(level, L_CHEST_A, null);
+		int totalB = countItem(level, L_CHEST_B, null);
+		SolarQuarry.LOGGER.info("[SelfTest] tag routing: A iron={} gold={} total={}, B cobble={} total={}", ironA, goldA, totalA, cobbleB, totalB);
+		SelfTest.check(ironA == 10 && goldA == 3 && totalA == 13, "pipes: items in the tag (raw iron, raw gold) went through the tag filter");
+		SelfTest.check(cobbleB == 20 && totalB == 20, "pipes: other items took the plain branch");
+	}
+
+	private void setupPriority(ServerLevel level) {
+		this.resetLogistics(level);
+		var filter = (com.solarquarry.blockentity.ItemPipeBlockEntity) level.getBlockEntity(L_FILTER);
+		filter.setWhitelist(false);
+		filter.setPriority(3);
+		Container chestA = (Container) level.getBlockEntity(L_CHEST_A);
+		for (int i = 1; i < chestA.getContainerSize(); i++) {
+			chestA.setItem(i, new ItemStack(Items.DIRT, 64));
+		}
+
+		QuarryBlockEntity quarry = this.logisticsQuarry(level);
+		quarry.setItem(0, new ItemStack(Items.COBBLESTONE, 64));
+		quarry.setItem(1, new ItemStack(Items.COBBLESTONE, 64));
+	}
+
+	private void verifyPriority(ServerLevel level) {
+		int a = countItem(level, L_CHEST_A, Items.COBBLESTONE);
+		int b = countItem(level, L_CHEST_B, Items.COBBLESTONE);
+		SolarQuarry.LOGGER.info("[SelfTest] priority: A={} B={} transit={}", a, b, this.inTransit(level));
+		SelfTest.check(a == 64, "pipes: the priority +3 destination was filled first (" + a + ")");
+		SelfTest.check(b == 64, "pipes: overflow went to the lower-priority destination (" + b + ")");
+		SelfTest.check(this.inTransit(level) == 0 && this.logisticsQuarry(level).getUsedBufferSlots() == 0, "pipes: nothing left behind, nothing duplicated (128 in, 128 out)");
+	}
+
+	private void setupRemoval(ServerLevel level) {
+		this.resetLogistics(level);
+		var filter = (com.solarquarry.blockentity.ItemPipeBlockEntity) level.getBlockEntity(L_FILTER);
+		filter.setWhitelist(false);
+		filter.setPriority(3);
+		QuarryBlockEntity quarry = this.logisticsQuarry(level);
+		for (int i = 0; i < 4; i++) {
+			quarry.setItem(i, new ItemStack(Items.COBBLESTONE, 64));
+		}
+	}
+
+	private void removeDestination(ServerLevel level) {
+		Container chestA = (Container) level.getBlockEntity(L_CHEST_A);
+		int already = countItem(level, L_CHEST_A, Items.COBBLESTONE);
+		this.removedEarly = already;
+		chestA.clearContent();
+		level.setBlock(L_CHEST_A, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+		SolarQuarry.LOGGER.info("[SelfTest] removal: chest A held {} before removal, {} in transit", already, this.inTransit(level));
+	}
+
+	private int removedEarly;
+
+	private void verifyRemoval(ServerLevel level) {
+		int b = countItem(level, L_CHEST_B, Items.COBBLESTONE);
+		int transit = this.inTransit(level);
+		int buffered = 0;
+		QuarryBlockEntity quarry = this.logisticsQuarry(level);
+		for (int i = 0; i < QuarryBlockEntity.BUFFER_SLOTS; i++) {
+			buffered += quarry.getItem(i).getCount();
+		}
+
+		int dropped = 0;
+		for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(L).inflate(10))) {
+			dropped += e.getItem().getCount();
+		}
+
+		SolarQuarry.LOGGER.info("[SelfTest] removal: B={} early={} transit={} buffer={} dropped={}", b, this.removedEarly, transit, buffered, dropped);
+		SelfTest.check(b + this.removedEarly + transit + buffered == 256 && dropped == 0,
+			"pipes: every item is accounted for after a destination vanished (" + (b + this.removedEarly + transit + buffered) + "/256, none dropped)");
+		SelfTest.check(transit == 0 && buffered == 0, "pipes: in-flight items rerouted to the remaining chest");
+	}
+
+	private void setupPipePersistence(ServerLevel level) {
+		this.resetLogistics(level);
+		var filter = (com.solarquarry.blockentity.ItemPipeBlockEntity) level.getBlockEntity(L_FILTER);
+		filter.setWhitelist(true);
+		filter.setPriority(-2);
+		filter.setTag(2, "minecraft:logs");
+		var pipe = (com.solarquarry.blockentity.ItemPipeBlockEntity) level.getBlockEntity(L_PIPE1);
+		pipe.acceptFromSource(new ItemStack(Items.COBBLESTONE, 5), Direction.WEST);
+	}
+
+	private void verifyPipePersistence(ServerLevel level) {
+		var pipe = (com.solarquarry.blockentity.ItemPipeBlockEntity) level.getBlockEntity(L_PIPE1);
+		CompoundTag tag = pipe.saveWithFullMetadata(level.registryAccess());
+		BlockEntity copy = BlockEntity.loadStatic(L_PIPE1, level.getBlockState(L_PIPE1), tag, level.registryAccess());
+		int saved = 0;
+		if (copy instanceof com.solarquarry.blockentity.ItemPipeBlockEntity loaded) {
+			for (var item : loaded.getItems()) {
+				saved += item.stack.getCount();
+			}
+		}
+
+		SelfTest.check(saved == 5, "pipes: items in transit survive save/load (" + saved + ")");
+		var filter = (com.solarquarry.blockentity.ItemPipeBlockEntity) level.getBlockEntity(L_FILTER);
+		CompoundTag ftag = filter.saveWithFullMetadata(level.registryAccess());
+		BlockEntity fcopy = BlockEntity.loadStatic(L_FILTER, level.getBlockState(L_FILTER), ftag, level.registryAccess());
+		SelfTest.check(fcopy instanceof com.solarquarry.blockentity.ItemPipeBlockEntity f && f.getTag(2).equals("minecraft:logs") && f.isWhitelist(),
+			"pipes: filter mode and tags survive save/load");
+		this.resetLogistics(level);
 	}
 
 	// ---------------------------------------------------------------------------------------------

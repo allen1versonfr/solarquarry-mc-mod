@@ -90,10 +90,10 @@ public class QuarryScreen extends AbstractContainerScreen<QuarryMenu> {
 			this.plus[row] = this.config(new IndustrialButton(x + ROW_PLUS_X, ry, 18, 14, Component.literal("+"), input -> this.adjust(r, 1, input)));
 		}
 
-		this.oresOnlyButton = this.config(new IndustrialButton(x + 8, y + 89, 84, 16, Component.empty(),
+		this.oresOnlyButton = this.config(new IndustrialButton(x + 8, y + 89, 108, 16, Component.empty(),
 			input -> this.send(QuarryConfigPayload.ORES_ONLY, this.menu.isOresOnly() ? 0 : 1)).accent(0xFFE0B341));
 		this.oresOnlyButton.setTooltip(Tooltip.create(Component.translatable("gui.solarquarry.ores_only.tooltip")));
-		this.restartButton = this.config(new IndustrialButton(x + 96, y + 89, 84, 16, Component.translatable("gui.solarquarry.restart"),
+		this.restartButton = this.config(new IndustrialButton(x + 120, y + 89, 60, 16, Component.translatable("gui.solarquarry.restart"),
 			input -> this.pressButton(QuarryMenu.BUTTON_RESTART)).accent(0xFFE04B3A));
 		this.restartButton.setTooltip(Tooltip.create(Component.translatable("gui.solarquarry.restart.tooltip")));
 		this.listButton = this.config(new IndustrialButton(x + BAY_X, y + BAY_Y, BAY_W, 14, Component.empty(), this::cycleList).accent(0xFFE0B341));

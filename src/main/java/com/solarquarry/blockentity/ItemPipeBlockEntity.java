@@ -19,6 +19,11 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.Item;
+import com.mojang.serialization.Codec;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
@@ -53,6 +58,10 @@ public class ItemPipeBlockEntity extends BlockEntity implements ExtendedMenuProv
 	public static final int MAX_ITEMS = 8;
 	public static final int MAX_BATCH = 16;
 	public static final int FILTER_SLOTS = 9;
+	public static final int TAG_SLOTS = 3;
+	public static final int MAX_TAG_LENGTH = 96;
+	public static final int MIN_PRIORITY = -5;
+	public static final int MAX_PRIORITY = 5;
 	private static final int RETRY_TICKS = 10;
 	private static final int NO_ROUTE_RETRY_TICKS = 20;
 
@@ -62,10 +71,15 @@ public class ItemPipeBlockEntity extends BlockEntity implements ExtendedMenuProv
 		public void setChanged() {
 			super.setChanged();
 			ItemPipeBlockEntity.this.setChanged();
+			PipeRouter.invalidateCache();
 		}
 	};
 	private boolean whitelist;
 	private boolean matchComponents;
+	private int priority;
+	private final String[] tags = {"", "", ""};
+	@SuppressWarnings("unchecked")
+	private final @Nullable TagKey<Item>[] tagKeys = new TagKey[TAG_SLOTS];
 	private boolean syncDirty;
 	private long lastSoundTick = -100;
 	/** Client only: game time at which the last item snapshot was received. */
@@ -77,6 +91,7 @@ public class ItemPipeBlockEntity extends BlockEntity implements ExtendedMenuProv
 			return switch (index) {
 				case 0 -> ItemPipeBlockEntity.this.whitelist ? 1 : 0;
 				case 1 -> ItemPipeBlockEntity.this.matchComponents ? 1 : 0;
+				case 2 -> ItemPipeBlockEntity.this.priority - MIN_PRIORITY;
 				default -> 0;
 			};
 		}
@@ -87,7 +102,7 @@ public class ItemPipeBlockEntity extends BlockEntity implements ExtendedMenuProv
 
 		@Override
 		public int getCount() {
-			return 2;
+			return 3;
 		}
 	};
 
@@ -118,11 +133,76 @@ public class ItemPipeBlockEntity extends BlockEntity implements ExtendedMenuProv
 	public void toggleWhitelist() {
 		this.whitelist = !this.whitelist;
 		this.setChanged();
+		PipeRouter.invalidateCache();
 	}
 
 	public void toggleMatchComponents() {
 		this.matchComponents = !this.matchComponents;
 		this.setChanged();
+		PipeRouter.invalidateCache();
+	}
+
+	public void setWhitelist(boolean value) {
+		if (value != this.whitelist) {
+			this.toggleWhitelist();
+		}
+	}
+
+	public void setMatchComponents(boolean value) {
+		if (value != this.matchComponents) {
+			this.toggleMatchComponents();
+		}
+	}
+
+	public boolean isMatchComponents() {
+		return this.matchComponents;
+	}
+
+	public int getPriority() {
+		return this.isFilter() ? this.priority : 0;
+	}
+
+	public void setPriority(int value) {
+		int clamped = Math.max(MIN_PRIORITY, Math.min(MAX_PRIORITY, value));
+		if (clamped != this.priority) {
+			this.priority = clamped;
+			this.setChanged();
+			PipeRouter.invalidateCache();
+		}
+	}
+
+	public String getTag(int index) {
+		return index >= 0 && index < TAG_SLOTS ? this.tags[index] : "";
+	}
+
+	/**
+	 * Sets one item-tag rule (for example {@code c:ores}). Empty clears it. Invalid identifiers are rejected.
+	 * @return true if the value was accepted
+	 */
+	public boolean setTag(int index, String value) {
+		if (index < 0 || index >= TAG_SLOTS || value == null) {
+			return false;
+		}
+
+		String trimmed = value.trim();
+		if (trimmed.startsWith("#")) {
+			trimmed = trimmed.substring(1);
+		}
+
+		if (trimmed.length() > MAX_TAG_LENGTH) {
+			return false;
+		}
+
+		if (!trimmed.isEmpty() && Identifier.tryParse(trimmed) == null) {
+			return false;
+		}
+
+		this.tags[index] = trimmed;
+		this.tagKeys[index] = trimmed.isEmpty() ? null : TagKey.create(Registries.ITEM, Identifier.parse(trimmed));
+		this.syncDirty = true;
+		this.setChanged();
+		PipeRouter.invalidateCache();
+		return true;
 	}
 
 	public FilterResult testFilter(ItemStack stack) {
@@ -140,6 +220,13 @@ public class ItemPipeBlockEntity extends BlockEntity implements ExtendedMenuProv
 			if (this.matchComponents ? ItemStack.isSameItemSameComponents(entry, stack) : entry.is(stack.getItem())) {
 				listed = true;
 				break;
+			}
+		}
+
+		for (int i = 0; i < TAG_SLOTS && !listed; i++) {
+			TagKey<Item> key = this.tagKeys[i];
+			if (key != null && stack.is(key)) {
+				listed = true;
 			}
 		}
 
@@ -168,12 +255,12 @@ public class ItemPipeBlockEntity extends BlockEntity implements ExtendedMenuProv
 			return false;
 		}
 
-		List<Direction> route = PipeRouter.findRoute(this.level, this.worldPosition, stack, result == FilterResult.PASS_MATCHED);
+		List<Direction> route = PipeRouter.findRouteCached(this.level, this.worldPosition, stack, result == FilterResult.PASS_MATCHED);
 		if (route == null || route.isEmpty()) {
 			return false;
 		}
 
-		this.items.add(new TravelingItem(stack.copy(), entryFace, route));
+		this.items.add(new TravelingItem(stack.copy(), entryFace, new java.util.ArrayList<>(route)));
 		this.markForSync();
 		return true;
 	}
@@ -436,6 +523,8 @@ public class ItemPipeBlockEntity extends BlockEntity implements ExtendedMenuProv
 		});
 		this.whitelist = input.getBooleanOr("Whitelist", this.whitelist);
 		this.matchComponents = input.getBooleanOr("MatchComponents", this.matchComponents);
+		this.priority = Math.max(MIN_PRIORITY, Math.min(MAX_PRIORITY, input.getIntOr("Priority", this.priority)));
+		this.readTags(input);
 		if (this.level != null && this.level.isClientSide()) {
 			this.clientSnapshotTime = this.level.getGameTime();
 		}
@@ -453,6 +542,23 @@ public class ItemPipeBlockEntity extends BlockEntity implements ExtendedMenuProv
 		ContainerHelper.saveAllItems(output.child("Filter"), filterItems, true);
 		output.putBoolean("Whitelist", this.whitelist);
 		output.putBoolean("MatchComponents", this.matchComponents);
+		output.putInt("Priority", this.priority);
+		this.writeTags(output);
+	}
+
+	private void writeTags(ValueOutput output) {
+		output.store("Tags", Codec.STRING.listOf(), List.of(this.tags));
+	}
+
+	private void readTags(ValueInput input) {
+		input.read("Tags", Codec.STRING.listOf()).ifPresent(list -> {
+			for (int i = 0; i < TAG_SLOTS; i++) {
+				String value = i < list.size() ? list.get(i) : "";
+				if (!this.setTag(i, value)) {
+					this.setTag(i, "");
+				}
+			}
+		});
 	}
 
 	private void writeItems(ValueOutput output) {
@@ -484,6 +590,10 @@ public class ItemPipeBlockEntity extends BlockEntity implements ExtendedMenuProv
 		try (ProblemReporter.ScopedCollector reporter = new ProblemReporter.ScopedCollector(this.problemPath(), LOGGER)) {
 			TagValueOutput output = TagValueOutput.createWithContext(reporter, registries);
 			this.writeItems(output);
+			if (this.isFilter()) {
+				this.writeTags(output);
+			}
+
 			return output.buildResult();
 		}
 	}
