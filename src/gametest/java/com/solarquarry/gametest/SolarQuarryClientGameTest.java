@@ -102,6 +102,39 @@ public class SolarQuarryClientGameTest implements FabricClientGameTest {
 			context.takeScreenshot("08_terminal_gui");
 			context.setScreen(() -> null);
 			context.waitTicks(5);
+
+			// Recipe book: picking up an ingredient must unlock the mod's recipes for this player.
+			singleplayer.getServer().runOnServer(server -> {
+				ServerPlayer player = server.getPlayerList().getPlayers().get(0);
+				player.getInventory().add(new ItemStack(Items.IRON_INGOT, 1));
+			});
+			context.waitTicks(20);
+			singleplayer.getServer().runOnServer(server -> {
+				ServerPlayer player = server.getPlayerList().getPlayers().get(0);
+				for (String id : java.util.List.of("quarry", "wrench", "item_pipe", "battery_basic", "remote_terminal", "ore_prospector")) {
+					var key = net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.RECIPE, com.solarquarry.SolarQuarry.id(id));
+					if (!player.getRecipeBook().contains(key)) {
+						throw new AssertionError("recipe " + id + " was not unlocked in the recipe book after picking up an iron ingot");
+					}
+				}
+			});
+
+			// Tunnel Bore: the gantry should follow the tunnel volume, not the old square area.
+			singleplayer.getServer().runOnServer(server -> {
+				ServerPlayer player = server.getPlayerList().getPlayers().get(0);
+				if (player.level().getBlockEntity(quarryPos) instanceof QuarryBlockEntity quarry) {
+					quarry.setQuarryMode(com.solarquarry.quarry.QuarryMode.TUNNEL_BORE);
+					quarry.setWidth(3);
+					quarry.setHeight(3);
+					quarry.setLength(24);
+					quarry.start();
+				}
+			});
+			singleplayer.getServer().runCommand("tp @a " + (q.getX() + 6) + " " + (q.getY() + 4) + " " + (q.getZ() - 3));
+			context.waitTicks(10);
+			context.getInput().lookAt(q.offset(0, 0, 10));
+			context.waitTicks(120);
+			context.takeScreenshot("09_tunnel_mode");
 		}
 	}
 
