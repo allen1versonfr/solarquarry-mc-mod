@@ -27,12 +27,12 @@
         ]
       }
     },
-    "has_comparator": {
+    "has_repeater": {
       "trigger": "minecraft:inventory_changed",
       "conditions": {
         "items": [
           {
-            "items": "minecraft:comparator"
+            "items": "minecraft:repeater"
           }
         ]
       }
@@ -43,7 +43,7 @@
       "has_the_recipe",
       "has_item_pipe",
       "has_circuit_board",
-      "has_comparator"
+      "has_repeater"
     ]
   ],
   "rewards": {

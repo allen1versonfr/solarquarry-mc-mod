@@ -3,6 +3,7 @@ package com.solarquarry.block;
 import com.mojang.serialization.MapCodec;
 import com.solarquarry.blockentity.ItemPipeBlockEntity;
 import com.solarquarry.item.WrenchItem;
+import com.solarquarry.pipe.PipeTier;
 import com.solarquarry.registry.ModBlockEntities;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemStorage;
 import net.minecraft.core.BlockPos;
@@ -34,14 +35,19 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jspecify.annotations.Nullable;
 
 public class ItemPipeBlock extends BaseEntityBlock {
-	public static final MapCodec<ItemPipeBlock> CODEC = simpleCodec(p -> new ItemPipeBlock(false, p));
-	public static final MapCodec<ItemPipeBlock> FILTER_CODEC = simpleCodec(p -> new ItemPipeBlock(true, p));
+	private static final java.util.Map<String, MapCodec<ItemPipeBlock>> CODECS = new java.util.HashMap<>();
 	private static final ConnectionShapes SHAPES = new ConnectionShapes(5, 11);
 	private final boolean filter;
+	private final PipeTier tier;
 
 	public ItemPipeBlock(boolean filter, Properties properties) {
+		this(filter, PipeTier.BASIC, properties);
+	}
+
+	public ItemPipeBlock(boolean filter, PipeTier tier, Properties properties) {
 		super(properties);
 		this.filter = filter;
+		this.tier = tier;
 		BlockState state = this.stateDefinition.any();
 		for (BooleanProperty property : PipeBlock.PROPERTY_BY_DIRECTION.values()) {
 			state = state.setValue(property, false);
@@ -54,9 +60,15 @@ public class ItemPipeBlock extends BaseEntityBlock {
 		return this.filter;
 	}
 
+	public PipeTier tier() {
+		return this.tier;
+	}
+
 	@Override
 	protected MapCodec<? extends BaseEntityBlock> codec() {
-		return this.filter ? FILTER_CODEC : CODEC;
+		boolean filter = this.filter;
+		PipeTier tier = this.tier;
+		return CODECS.computeIfAbsent((filter ? "filter_" : "") + tier.id(), k -> simpleCodec(p -> new ItemPipeBlock(filter, tier, p)));
 	}
 
 	@Override

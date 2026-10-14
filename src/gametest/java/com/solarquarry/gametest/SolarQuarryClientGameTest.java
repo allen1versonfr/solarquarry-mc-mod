@@ -175,6 +175,65 @@ public class SolarQuarryClientGameTest implements FabricClientGameTest {
 			context.getInput().lookAt(q.offset(0, 0, 10));
 			context.waitTicks(120);
 			context.takeScreenshot("09_tunnel_mode");
+
+			// Sorting Terminal on the output network: the screen lists the chests reachable through the pipes.
+			singleplayer.getServer().runOnServer(server -> {
+				ServerPlayer player = server.getPlayerList().getPlayers().get(0);
+				ServerLevel level = player.level();
+				BlockPos terminalPos = quarryPos.east().north();
+				level.setBlock(terminalPos, ModBlocks.SORTING_TERMINAL.defaultBlockState(), Block.UPDATE_ALL);
+				if (level.getBlockEntity(terminalPos) instanceof com.solarquarry.blockentity.SortingTerminalBlockEntity terminal) {
+					terminal.register(quarryPos.east(4));
+					player.openMenu(terminal);
+				}
+			});
+			context.waitForScreen(com.solarquarry.client.screen.SortingTerminalScreen.class);
+			context.waitTicks(40);
+			context.runOnClient(client -> {
+				if (!(client.gui.screen() instanceof com.solarquarry.client.screen.SortingTerminalScreen screen) || screen.getSnapshot() == null
+					|| screen.getSnapshot().entries().size() < 2 || screen.getSnapshot().entries().stream().noneMatch(e -> e.registered())) {
+					throw new AssertionError("sorting terminal screen did not receive its destination list");
+				}
+			});
+			context.takeScreenshot("10_sorting_terminal");
+			context.runOnClient(client -> client.player.closeContainer());
+			context.waitTicks(5);
+
+			// A quarry placed in the air with a Range II upgrade: legs reach the ground, the drill stays on the frame.
+			singleplayer.getServer().runOnServer(server -> {
+				ServerPlayer player = server.getPlayerList().getPlayers().get(0);
+				ServerLevel level = player.level();
+				BlockPos high = quarryPos.offset(-48, 6, 0);
+				level.setBlock(high, ModBlocks.QUARRY.defaultBlockState().setValue(QuarryBlock.FACING, Direction.NORTH), Block.UPDATE_ALL);
+				if (level.getBlockEntity(high) instanceof QuarryBlockEntity floating) {
+					floating.setItem(QuarryBlockEntity.BUFFER_SLOTS, new ItemStack(ModItems.RANGE_UPGRADE_2));
+					floating.setItem(QuarryBlockEntity.BUFFER_SLOTS + 1, new ItemStack(ModItems.SPEED_UPGRADE, 4));
+					floating.restoreEnergy(400_000L);
+				}
+			});
+			context.waitTicks(3);
+			singleplayer.getServer().runOnServer(server -> {
+				ServerLevel level = server.getPlayerList().getPlayers().get(0).level();
+				if (level.getBlockEntity(quarryPos.offset(-48, 6, 0)) instanceof QuarryBlockEntity floating) {
+					floating.setWidth(64);
+					floating.setLength(64);
+					floating.start();
+					if (floating.getWidth() != 64) {
+						throw new AssertionError("Range II did not allow a 64 wide area: " + floating.getWidth());
+					}
+				}
+			});
+			BlockPos high = q.offset(-48, 6, 0);
+			singleplayer.getServer().runCommand("tp @a " + (high.getX() + 40) + " " + (high.getY() + 12) + " " + (high.getZ() - 14));
+			context.waitTicks(20);
+			context.getInput().lookAt(high.offset(0, -6, 24));
+			context.waitTicks(160);
+			context.takeScreenshot("11_floating_range_quarry");
+			singleplayer.getServer().runCommand("tp @a " + (high.getX() - 6) + " " + (high.getY() + 1) + " " + (high.getZ() - 6));
+			context.waitTicks(20);
+			context.getInput().lookAt(high.offset(0, -6, 2));
+			context.waitTicks(40);
+			context.takeScreenshot("12_quarry_legs_and_support");
 		}
 	}
 
@@ -214,6 +273,7 @@ public class SolarQuarryClientGameTest implements FabricClientGameTest {
 			quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS + 1, new ItemStack(ModItems.ENERGY_CAPACITY_UPGRADE, 1));
 			quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS + 2, new ItemStack(ModItems.FORTUNE_UPGRADE, 2));
 			quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS + 3, new ItemStack(ModItems.CHUNK_LOADER_UPGRADE, 1));
+			quarry.setItem(QuarryBlockEntity.TORCH_SLOT, new ItemStack(Items.TORCH, 32));
 			quarry.start();
 		}
 	}

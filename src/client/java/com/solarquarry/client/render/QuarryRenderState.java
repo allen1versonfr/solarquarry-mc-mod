@@ -22,5 +22,7 @@ public class QuarryRenderState extends BlockEntityRenderState {
 	public int headLight;
 	public int frameLight;
 	public boolean showGantry;
+	public float railLeft;
+	public float railRight;
 	public java.util.List<com.solarquarry.quarry.QuarryFrame.Box> frame = java.util.List.of();
 }

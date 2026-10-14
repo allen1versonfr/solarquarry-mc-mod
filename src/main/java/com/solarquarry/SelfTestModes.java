@@ -76,6 +76,13 @@ final class SelfTestModes {
 		this.scenarios.add(Scenario.timed("storage scan: counts connected inventories", this::setupStorage, 2, this::verifyStorage));
 		this.scenarios.add(Scenario.timed("phase 1: frame collision and measured mining rate", this::setupFrame, 200, this::verifyFrame));
 		this.scenarios.add(Scenario.timed("phase 1: upgrade limits and creative tab", s -> { }, 1, this::verifyUpgradeLimits));
+		this.scenarios.add(new Scenario("B2: torches light the pit walls, XP is collected", this::setupTorches, QuarryBlockEntity::isFinished, 1200, this::verifyTorches));
+		this.scenarios.add(Scenario.timed("B2: legs reach the ground, the machine gets a support", this::setupLegs, 5, this::verifyLegs));
+		this.scenarios.add(Scenario.timed("phase 2: pipe tiers move items at different speeds", this::setupPipeTiers, 30, this::verifyPipeTiersEarly));
+		this.scenarios.add(Scenario.timed("phase 2: basic pipe delivers too, just slower", s -> { }, 80, this::verifyPipeTiersLate));
+		this.scenarios.add(Scenario.timed("phase 2: sorting terminal routes by rules", this::setupSorting, 2, this::verifySortingRoutes));
+		this.scenarios.add(Scenario.timed("phase 2: sorting terminal delivers end to end", this::startSortingDelivery, 120, this::verifySortingDelivery));
+		this.scenarios.add(Scenario.timed("phase 2: sorting terminal menu, persistence and recovery", s -> { }, 1, this::verifySortingMenuAndRecovery));
 		this.scenarios.add(new Scenario("protection: claimed blocks are skipped (owner offline)", this::setupProtection, QuarryBlockEntity::isFinished, 2000, this::verifyProtection));
 		this.scenarios.add(Scenario.timed("prospector: exact ore count of the remaining volume", this::setupProspector, 1, this::verifyProspector));
 		this.scenarios.add(Scenario.timed("config: command, sync codec and multipliers", s -> { }, 1, this::verifyConfig));
@@ -905,6 +912,9 @@ final class SelfTestModes {
 		long[] result = com.solarquarry.item.ProspectorScans.scanNow(level, quarry(level), lines);
 		lines.forEach(line -> SolarQuarry.LOGGER.info("[SelfTest] prospector: {}", line.getString()));
 		SelfTest.check(result[0] == 5, "prospector: counted exactly the 5 ores inside the quarry volume (" + result[0] + ")");
+		String all = lines.stream().map(net.minecraft.network.chat.Component::getString).reduce("", (a, b) -> a + "|" + b);
+		SelfTest.check(all.contains("Iron Ore x2") && all.contains("Deepslate Iron Ore x1") && all.contains("Coal Ore x1") && all.contains("Diamond Ore x1") && !all.contains("more"),
+			"prospector: the report lists every ore kind, no '... more' cut-off");
 		SelfTest.check(result[1] == 0, "prospector: nothing was in unloaded chunks (" + result[1] + ")");
 		SelfTest.check(com.solarquarry.item.ProspectorScans.BLOCKS_PER_TICK * 25L >= 64L * 64 * 384,
 			"prospector: a 64x64 quarry from build height to bedrock is scanned in about 25 ticks or less");
@@ -1083,7 +1093,7 @@ final class SelfTestModes {
 		double stoppedAt = stand.getX();
 		stand.discard();
 		SolarQuarry.LOGGER.info("[SelfTest] frame: entity moving into the post stopped at x={}", stoppedAt);
-		SelfTest.check(stoppedAt > 103.3 && stoppedAt < 103.5, "frame: a moving entity is stopped by the post (stopped at x=" + String.format(java.util.Locale.ROOT, "%.3f", stoppedAt) + ")");
+		SelfTest.check(stoppedAt > 103.5 && stoppedAt < 103.6, "frame: a moving entity is stopped by the post (stopped at x=" + String.format(java.util.Locale.ROOT, "%.3f", stoppedAt) + ")");
 
 		double rate = quarry.measuredBlocksPerSecond();
 		double max = quarry.getUpgrades().blocksPerMinute() / 60.0;
@@ -1118,5 +1128,264 @@ final class SelfTestModes {
 		int registered = com.solarquarry.registry.ModBlocks.BLOCK_ITEMS.size() + com.solarquarry.registry.ModItems.ITEMS.size();
 		SelfTest.check(unique.size() == tab.size() && tab.size() == registered, "creative tab: every item exactly once (" + tab.size() + " of " + registered + ")");
 		SelfTest.check(tab.get(0) == ModBlocks.QUARRY.asItem(), "creative tab: grouped, starting with the quarry");
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// Phase 2: pipe tiers and the Sorting Terminal (site at x 138..150, z 118..128)
+	// ---------------------------------------------------------------------------------------------
+
+	private static final BlockPos S_TERMINAL = new BlockPos(140, 200, 124);
+	private static final BlockPos S_START = new BlockPos(140, 200, 125);
+	private static final BlockPos S_CHEST_A = new BlockPos(141, 200, 126);
+	private static final BlockPos S_CHEST_B = new BlockPos(143, 200, 126);
+	private static final BlockPos S_CHEST_C = new BlockPos(145, 200, 126);
+	private static final BlockPos S_CHEST_D = new BlockPos(147, 200, 125);
+
+	private void resetPhase2Site(ServerLevel level) {
+		for (int x = 138; x <= 150; x++) {
+			for (int z = 118; z <= 128; z++) {
+				for (int y = 199; y <= 202; y++) {
+					BlockPos pos = new BlockPos(x, y, z);
+					if (!level.getBlockState(pos).isAir()) {
+						if (level.getBlockEntity(pos) instanceof Container container) {
+							container.clearContent();
+						}
+
+						level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+					}
+				}
+			}
+		}
+	}
+
+	private void setupPipeTiers(ServerLevel level) {
+		this.resetPhase2Site(level);
+		for (int x = 140; x <= 147; x++) {
+			level.setBlock(new BlockPos(x, 200, 120), ModBlocks.ITEM_PIPE.defaultBlockState(), Block.UPDATE_ALL);
+			level.setBlock(new BlockPos(x, 200, 122), ModBlocks.ADVANCED_PIPE.defaultBlockState(), Block.UPDATE_ALL);
+		}
+
+		level.setBlock(new BlockPos(148, 200, 120), Blocks.CHEST.defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(new BlockPos(148, 200, 122), Blocks.CHEST.defaultBlockState(), Block.UPDATE_ALL);
+		com.solarquarry.pipe.PipeRouter.invalidateCache();
+		boolean basic = ((com.solarquarry.blockentity.ItemPipeBlockEntity) level.getBlockEntity(new BlockPos(140, 200, 120))).acceptFromSource(new ItemStack(Items.COBBLESTONE, 16), Direction.WEST);
+		boolean advanced = ((com.solarquarry.blockentity.ItemPipeBlockEntity) level.getBlockEntity(new BlockPos(140, 200, 122))).acceptFromSource(new ItemStack(Items.COBBLESTONE, 16), Direction.WEST);
+		SelfTest.check(basic && advanced, "pipe tiers: both lines accept a stack");
+	}
+
+	private void verifyPipeTiersEarly(ServerLevel level) {
+		int basic = countItem(level, new BlockPos(148, 200, 120), Items.COBBLESTONE);
+		int advanced = countItem(level, new BlockPos(148, 200, 122), Items.COBBLESTONE);
+		SelfTest.check(advanced == 16 && basic == 0, "pipe tiers: after 30 ticks the advanced line delivered (" + advanced + ") and the basic line not yet (" + basic + ")");
+		var pipe = (com.solarquarry.blockentity.ItemPipeBlockEntity) level.getBlockEntity(new BlockPos(141, 200, 122));
+		SelfTest.check(pipe.tier() == com.solarquarry.pipe.PipeTier.ADVANCED && pipe.tier().batch() == 64 && pipe.tier().capacity() == 16, "pipe tiers: advanced pipe batch 64, capacity 16");
+	}
+
+	private void verifyPipeTiersLate(ServerLevel level) {
+		int basic = countItem(level, new BlockPos(148, 200, 120), Items.COBBLESTONE);
+		SelfTest.check(basic == 16, "pipe tiers: the basic line delivered all 16 later (" + basic + ")");
+	}
+
+	private com.solarquarry.blockentity.SortingTerminalBlockEntity sortingTerminal(ServerLevel level) {
+		return (com.solarquarry.blockentity.SortingTerminalBlockEntity) level.getBlockEntity(S_TERMINAL);
+	}
+
+	private void setupSorting(ServerLevel level) {
+		this.resetPhase2Site(level);
+		for (int x = 140; x <= 146; x++) {
+			level.setBlock(new BlockPos(x, 200, 125), ModBlocks.REINFORCED_PIPE.defaultBlockState(), Block.UPDATE_ALL);
+		}
+
+		for (BlockPos chest : List.of(S_CHEST_A, S_CHEST_B, S_CHEST_C, S_CHEST_D)) {
+			level.setBlock(chest, Blocks.CHEST.defaultBlockState(), Block.UPDATE_ALL);
+		}
+
+		level.setBlock(S_TERMINAL, ModBlocks.SORTING_TERMINAL.defaultBlockState(), Block.UPDATE_ALL);
+		var terminal = this.sortingTerminal(level);
+		terminal.register(S_CHEST_A);
+		terminal.getRule(S_CHEST_A).setItem(0, "minecraft:raw_iron");
+		terminal.register(S_CHEST_B);
+		terminal.getRule(S_CHEST_B).setTag(0, "minecraft:logs");
+		terminal.register(S_CHEST_C);
+		terminal.getRule(S_CHEST_C).setMode(com.solarquarry.pipe.SortRule.Mode.FALLBACK);
+		terminal.changed();
+	}
+
+	/** Follows a route from the start pipe and returns the inventory it ends in (or null). */
+	private static BlockPos routeTarget(ServerLevel level, ItemStack stack) {
+		List<Direction> route = com.solarquarry.pipe.PipeRouter.findRoute(level, S_START, stack, false);
+		if (route == null) {
+			return null;
+		}
+
+		BlockPos pos = S_START;
+		for (Direction dir : route) {
+			pos = pos.relative(dir);
+		}
+
+		return pos;
+	}
+
+	private void verifySortingRoutes(ServerLevel level) {
+		var terminal = this.sortingTerminal(level);
+		SelfTest.check(terminal.discover().containsAll(List.of(S_CHEST_A, S_CHEST_B, S_CHEST_C, S_CHEST_D)), "sorting: the terminal discovers all 4 chests on its network");
+		SelfTest.check(S_CHEST_A.equals(routeTarget(level, new ItemStack(Items.RAW_IRON, 8))), "sorting: raw iron goes to its listed chest (A)");
+		SelfTest.check(S_CHEST_B.equals(routeTarget(level, new ItemStack(Items.OAK_LOG, 8))), "sorting: logs go to the chest with the #minecraft:logs tag (B)");
+		SelfTest.check(S_CHEST_C.equals(routeTarget(level, new ItemStack(Items.COBBLESTONE, 8))), "sorting: unmatched items go to the fallback chest (C)");
+		SelfTest.check(!S_CHEST_D.equals(routeTarget(level, new ItemStack(Items.DIRT, 8))), "sorting: an unregistered chest (D) receives nothing");
+
+		// Overflow: when A is full, raw iron overflows to the fallback.
+		Container a = (Container) level.getBlockEntity(S_CHEST_A);
+		for (int i = 0; i < a.getContainerSize(); i++) {
+			a.setItem(i, new ItemStack(Items.STONE, 64));
+		}
+
+		SelfTest.check(S_CHEST_C.equals(routeTarget(level, new ItemStack(Items.RAW_IRON, 8))), "sorting: a full destination overflows to the fallback");
+		a.clearContent();
+
+		// Without a fallback, unmatched items have no route and stay in the source.
+		terminal.getRule(S_CHEST_C).setMode(com.solarquarry.pipe.SortRule.Mode.ALLOW);
+		terminal.changed();
+		SelfTest.check(routeTarget(level, new ItemStack(Items.COBBLESTONE, 8)) == null, "sorting: without a fallback, unmatched items stay in the machine");
+
+		// Everything-except destinations rank after listed ones and before fallbacks.
+		terminal.getRule(S_CHEST_C).setMode(com.solarquarry.pipe.SortRule.Mode.BLOCK);
+		terminal.getRule(S_CHEST_C).setItem(0, "minecraft:cobblestone");
+		terminal.changed();
+		SelfTest.check(routeTarget(level, new ItemStack(Items.COBBLESTONE, 8)) == null && S_CHEST_C.equals(routeTarget(level, new ItemStack(Items.DIRT, 8))),
+			"sorting: an 'everything except' chest refuses its listed items and takes the rest");
+		SelfTest.check(S_CHEST_A.equals(routeTarget(level, new ItemStack(Items.RAW_IRON, 8))), "sorting: listed destinations still win over 'everything except' ones");
+
+		// Priority among listed destinations.
+		terminal.getRule(S_CHEST_B).setItem(1, "minecraft:raw_iron");
+		terminal.getRule(S_CHEST_B).setPriority(3);
+		terminal.changed();
+		SelfTest.check(S_CHEST_B.equals(routeTarget(level, new ItemStack(Items.RAW_IRON, 8))), "sorting: higher priority wins between two listed destinations");
+		terminal.getRule(S_CHEST_B).setItem(1, "");
+		terminal.getRule(S_CHEST_B).setPriority(0);
+		terminal.getRule(S_CHEST_C).setMode(com.solarquarry.pipe.SortRule.Mode.FALLBACK);
+		terminal.getRule(S_CHEST_C).setItem(0, "");
+		terminal.changed();
+	}
+
+	private void startSortingDelivery(ServerLevel level) {
+		var first = (com.solarquarry.blockentity.ItemPipeBlockEntity) level.getBlockEntity(new BlockPos(146, 200, 125));
+		boolean iron = first.acceptFromSource(new ItemStack(Items.RAW_IRON, 20), Direction.EAST);
+		boolean logs = first.acceptFromSource(new ItemStack(Items.OAK_LOG, 10), Direction.EAST);
+		boolean cobble = first.acceptFromSource(new ItemStack(Items.COBBLESTONE, 30), Direction.EAST);
+		SelfTest.check(iron && logs && cobble, "sorting: the network accepts three kinds of items");
+	}
+
+	private void verifySortingDelivery(ServerLevel level) {
+		SelfTest.check(countItem(level, S_CHEST_A, Items.RAW_IRON) == 20 && countItem(level, S_CHEST_B, Items.OAK_LOG) == 10
+			&& countItem(level, S_CHEST_C, Items.COBBLESTONE) == 30 && countItem(level, S_CHEST_D, null) == 0,
+			"sorting: every item reached its chest (A " + countItem(level, S_CHEST_A, null) + ", B " + countItem(level, S_CHEST_B, null)
+				+ ", C " + countItem(level, S_CHEST_C, null) + ", D " + countItem(level, S_CHEST_D, null) + ")");
+	}
+
+	private void verifySortingMenuAndRecovery(ServerLevel level) {
+		var terminal = this.sortingTerminal(level);
+		var fake = net.fabricmc.fabric.api.entity.FakePlayer.get(level);
+		fake.snapTo(S_TERMINAL.getX() + 0.5, S_TERMINAL.getY() + 1, S_TERMINAL.getZ() + 0.5);
+		var menu = new com.solarquarry.menu.SortingTerminalMenu(0, fake.getInventory(), terminal);
+		boolean registered = com.solarquarry.network.SortingActionPayload.apply(terminal, menu, com.solarquarry.network.SortingActionPayload.REGISTER, S_CHEST_D, 0, "");
+		SelfTest.check(registered && terminal.getRule(S_CHEST_D) != null, "sorting menu: registering a discovered chest works");
+		boolean far = com.solarquarry.network.SortingActionPayload.apply(terminal, menu, com.solarquarry.network.SortingActionPayload.REGISTER, new BlockPos(0, 64, 0), 0, "");
+		SelfTest.check(!far, "sorting menu: positions that are not on the network are refused");
+		com.solarquarry.network.SortingActionPayload.apply(terminal, menu, com.solarquarry.network.SortingActionPayload.SELECT, S_CHEST_D, 0, "");
+		menu.slots.get(0).set(new ItemStack(Items.DIAMOND));
+		menu.slots.get(0).setChanged();
+		SelfTest.check("minecraft:diamond".equals(terminal.getRule(S_CHEST_D).items().get(0)), "sorting menu: template slots write the rule");
+		boolean badTag = com.solarquarry.network.SortingActionPayload.apply(terminal, menu, com.solarquarry.network.SortingActionPayload.TAG, S_CHEST_D, 0, "Not A Tag!");
+		boolean goodTag = com.solarquarry.network.SortingActionPayload.apply(terminal, menu, com.solarquarry.network.SortingActionPayload.TAG, S_CHEST_D, 1, "#c:gems");
+		SelfTest.check(!badTag && goodTag && "c:gems".equals(terminal.getRule(S_CHEST_D).tags().get(1)), "sorting menu: invalid tags are refused, valid ones stored");
+		for (int i = 0; i < 20; i++) {
+			com.solarquarry.network.SortingActionPayload.apply(terminal, menu, com.solarquarry.network.SortingActionPayload.PRIORITY, S_CHEST_D, 1, "");
+		}
+
+		SelfTest.check(terminal.getRule(S_CHEST_D).priority() == com.solarquarry.pipe.SortRule.MAX_PRIORITY, "sorting menu: priority is clamped to +5");
+
+		// Save and load.
+		net.minecraft.nbt.CompoundTag saved = terminal.saveWithFullMetadata(level.registryAccess());
+		var copy = new com.solarquarry.blockentity.SortingTerminalBlockEntity(S_TERMINAL, terminal.getBlockState());
+		try (var reporter = new net.minecraft.util.ProblemReporter.ScopedCollector(SolarQuarry.LOGGER)) {
+			copy.loadWithComponents(net.minecraft.world.level.storage.TagValueInput.create(reporter, level.registryAccess(), saved));
+		}
+
+		SelfTest.check(copy.getRules().size() == 4 && "c:gems".equals(copy.getRule(S_CHEST_D).tags().get(1)) && copy.getRule(S_CHEST_C).mode() == com.solarquarry.pipe.SortRule.Mode.FALLBACK,
+			"sorting: destinations and rules survive save/load");
+
+		// A broken destination keeps its rule; items fall back meanwhile; a new chest in the same place is used again.
+		level.setBlock(S_CHEST_A, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+		SelfTest.check(terminal.getRule(S_CHEST_A) != null && S_CHEST_C.equals(routeTarget(level, new ItemStack(Items.RAW_IRON, 8))),
+			"sorting: a broken chest keeps its rule and its items fall back");
+		level.setBlock(S_CHEST_A, Blocks.BARREL.defaultBlockState(), Block.UPDATE_ALL);
+		SelfTest.check(S_CHEST_A.equals(routeTarget(level, new ItemStack(Items.RAW_IRON, 8))), "sorting: a replacement inventory at the same spot is used again");
+
+		// Wrench pickup keeps the rules.
+		ItemStack picked = com.solarquarry.item.WrenchItem.dismantle(level, S_TERMINAL);
+		SelfTest.check(level.getBlockState(S_TERMINAL).isAir() && picked.has(net.minecraft.core.component.DataComponents.BLOCK_ENTITY_DATA),
+			"sorting: the wrench picks the terminal up with its rules");
+		this.resetPhase2Site(level);
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// Checkpoint B2: torches, experience, legs
+	// ---------------------------------------------------------------------------------------------
+
+	private void setupTorches(ServerLevel level) {
+		// A 5x5 stone column with the 3x3 work area in the middle (x 99..101, z 101..103), 8 layers deep.
+		fill(level, 98, 192, 100, 102, 199, 104, Blocks.STONE.defaultBlockState());
+		level.setBlock(new BlockPos(100, 198, 102), Blocks.COAL_ORE.defaultBlockState(), Block.UPDATE_CLIENTS);
+		level.setBlock(new BlockPos(99, 196, 101), Blocks.DIAMOND_ORE.defaultBlockState(), Block.UPDATE_CLIENTS);
+		level.setBlock(new BlockPos(101, 194, 103), Blocks.LAPIS_ORE.defaultBlockState(), Block.UPDATE_CLIENTS);
+		QuarryBlockEntity quarry = quarry(level);
+		quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS, new ItemStack(com.solarquarry.registry.ModItems.SPEED_UPGRADE, 4));
+		quarry.setItem(QuarryBlockEntity.TORCH_SLOT, new ItemStack(Items.TORCH, 64));
+		configure(quarry, QuarryMode.STRIP_MINE, 3, 3, 1, 192);
+		quarry.resetProgress();
+		quarry.start();
+	}
+
+	private void verifyTorches(ServerLevel level) {
+		QuarryBlockEntity quarry = quarry(level);
+		int torches = countBlocks(level, 98, 192, 100, 102, 200, 104, Blocks.WALL_TORCH);
+		int left = quarry.getItem(QuarryBlockEntity.TORCH_SLOT).getCount();
+		SelfTest.check(torches == 8 && left == 56, "torches: 4 wall torches every 4 layers (" + torches + " placed, " + left + " left in the slot)");
+		SelfTest.check(level.getBlockState(new BlockPos(101, 197, 102)).is(Blocks.WALL_TORCH) && level.getBlockState(new BlockPos(102, 197, 102)).is(Blocks.STONE),
+			"torches: placed in the dug cell against the wall outside the area");
+		SelfTest.check(countBlocks(level, 99, 192, 101, 101, 199, 103, Blocks.STONE) == 0, "torches: the work area itself was still mined completely");
+		int xp = quarry.getStoredXp();
+		SolarQuarry.LOGGER.info("[SelfTest] stored experience after mining coal, diamond and lapis ore: {}", xp);
+		SelfTest.check(xp >= 3, "experience: ore experience was captured instead of dropped (" + xp + ")");
+		SelfTest.check(level.getEntitiesOfClass(net.minecraft.world.entity.ExperienceOrb.class, new net.minecraft.world.phys.AABB(98, 190, 99, 103, 201, 105)).isEmpty(),
+			"experience: no orbs were left lying in the pit");
+		var fake = net.fabricmc.fabric.api.entity.FakePlayer.get(level);
+		int before = fake.totalExperience;
+		int given = quarry.collectXp(fake);
+		SelfTest.check(given == xp && quarry.getStoredXp() == 0 && fake.totalExperience - before == xp, "experience: collecting gives it all to the player and empties the store");
+		quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS, ItemStack.EMPTY);
+		quarry.setItem(QuarryBlockEntity.TORCH_SLOT, ItemStack.EMPTY);
+	}
+
+	private void setupLegs(ServerLevel level) {
+		// The quarry floats at y 200; ground for one leg at y 195, for the machine at y 197.
+		level.setBlock(new BlockPos(103, 195, 100), Blocks.STONE.defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(new BlockPos(100, 197, 100), Blocks.STONE.defaultBlockState(), Block.UPDATE_ALL);
+		QuarryBlockEntity quarry = quarry(level);
+		configure(quarry, QuarryMode.STRIP_MINE, 5, 5, 1, 199);
+		quarry.resetProgress();
+		quarry.start();
+	}
+
+	private void verifyLegs(ServerLevel level) {
+		boolean legDown = !com.solarquarry.quarry.QuarryFrames.boxesIntersecting(level, new net.minecraft.world.phys.AABB(103.05, 196.1, 100.75, 103.25, 196.4, 100.95)).isEmpty();
+		boolean notBelow = com.solarquarry.quarry.QuarryFrames.boxesIntersecting(level, new net.minecraft.world.phys.AABB(103.05, 195.1, 100.75, 103.25, 195.9, 100.95)).isEmpty();
+		SelfTest.check(legDown && notBelow, "legs: the leg reaches down to the block under it and stops there");
+		boolean support = !com.solarquarry.quarry.QuarryFrames.boxesIntersecting(level, new net.minecraft.world.phys.AABB(100.4, 198.2, 100.4, 100.6, 199.8, 100.6)).isEmpty();
+		SelfTest.check(support, "legs: a floating machine gets a support column down to the ground");
+		float[] legs = quarry(level).getLegBottoms();
+		SelfTest.check(legs.length == 5 && legs[0] == -4.0F && legs[4] == -2.0F, "legs: leg and support lengths match the ground (" + java.util.Arrays.toString(legs) + ")");
+		quarry(level).pause();
 	}
 }

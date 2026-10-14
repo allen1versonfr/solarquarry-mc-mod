@@ -42,7 +42,8 @@ public class WrenchItem extends Item implements MachineTool, TooltipLines {
 		BlockState state = level.getBlockState(pos);
 		Block block = state.getBlock();
 		boolean ours = block instanceof QuarryBlock || block instanceof BatteryBlock || block instanceof SolarPanelBlock
-			|| block instanceof EnergyCableBlock || block instanceof ItemPipeBlock;
+			|| block instanceof EnergyCableBlock || block instanceof ItemPipeBlock
+			|| level.getBlockEntity(pos) instanceof Dismantlable;
 		if (!ours) {
 			return InteractionResult.PASS;
 		}
@@ -90,6 +91,9 @@ public class WrenchItem extends Item implements MachineTool, TooltipLines {
 			drop.set(DataComponents.BLOCK_ENTITY_DATA, TypedEntityData.of(be.getType(), data));
 		} else if (be instanceof BatteryBlockEntity battery) {
 			CompoundTag data = battery.extractForPickup(level.registryAccess());
+			drop.set(DataComponents.BLOCK_ENTITY_DATA, TypedEntityData.of(be.getType(), data));
+		} else if (be instanceof Dismantlable machine) {
+			CompoundTag data = machine.extractForPickup(level.registryAccess());
 			drop.set(DataComponents.BLOCK_ENTITY_DATA, TypedEntityData.of(be.getType(), data));
 		}
 

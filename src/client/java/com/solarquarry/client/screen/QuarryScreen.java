@@ -50,6 +50,7 @@ public class QuarryScreen extends AbstractContainerScreen<QuarryMenu> {
 	private IndustrialButton listButton;
 	private IndustrialButton oresOnlyButton;
 	private IndustrialButton restartButton;
+	private IndustrialButton xpButton;
 	private final List<IndustrialButton> configWidgets = new ArrayList<>();
 	private final IndustrialButton[] minus = new IndustrialButton[3];
 	private final IndustrialButton[] plus = new IndustrialButton[3];
@@ -80,6 +81,8 @@ public class QuarryScreen extends AbstractContainerScreen<QuarryMenu> {
 		this.resumeButton.setTooltip(Tooltip.create(Component.translatable("gui.solarquarry.resume.tooltip")));
 		this.configButton = this.addRenderableWidget(new IndustrialButton(bx, y + 88, BUTTON_W, 18, Component.translatable("gui.solarquarry.config"),
 			input -> this.toggleConfig()).accent(0xFF47A7E0));
+		this.xpButton = this.addRenderableWidget(new IndustrialButton(x + QuarryMenu.TORCH_X + 20, y + QuarryMenu.TORCH_Y, 34, 18, Component.translatable("gui.solarquarry.xp"),
+			input -> this.pressButton(QuarryMenu.BUTTON_COLLECT_XP)).accent(0xFF7CE04B));
 
 		// Configuration page.
 		this.modeButton = this.config(new IndustrialButton(x + 8, y + 23, 172, 14, Component.empty(), this::cycleMode).accent(0xFF47A7E0));
@@ -172,6 +175,10 @@ public class QuarryScreen extends AbstractContainerScreen<QuarryMenu> {
 		this.resumeButton.active = mode == QuarryBlockEntity.Mode.PAUSED;
 		boolean config = this.menu.isConfigPage();
 		this.configButton.setMessage(Component.translatable(config ? "gui.solarquarry.back" : "gui.solarquarry.config"));
+		int xp = this.menu.getStoredXp();
+		this.xpButton.visible = !config;
+		this.xpButton.active = xp > 0;
+		this.xpButton.setTooltip(Tooltip.create(Component.translatable("gui.solarquarry.xp.tooltip", xp)));
 		for (IndustrialButton widget : this.configWidgets) {
 			widget.visible = config;
 		}
@@ -243,8 +250,10 @@ public class QuarryScreen extends AbstractContainerScreen<QuarryMenu> {
 			}
 		} else {
 			for (int i = 0; i < QuarryBlockEntity.UPGRADE_SLOTS; i++) {
-				GuiDraw.slot(g, x + QuarryMenu.UPGRADE_X + (i % 2) * 18, y + QuarryMenu.UPGRADE_Y + (i / 2) * 18);
+				GuiDraw.slot(g, x + QuarryMenu.UPGRADE_X + (i % 3) * 18, y + QuarryMenu.UPGRADE_Y + (i / 3) * 18);
 			}
+
+			GuiDraw.slot(g, x + QuarryMenu.TORCH_X, y + QuarryMenu.TORCH_Y);
 		}
 
 		for (Slot slot : this.menu.slots) {

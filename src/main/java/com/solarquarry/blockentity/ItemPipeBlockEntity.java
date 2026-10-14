@@ -238,7 +238,11 @@ public class ItemPipeBlockEntity extends BlockEntity implements ExtendedMenuProv
 	}
 
 	public boolean hasRoom() {
-		return this.items.size() < MAX_ITEMS;
+		return this.items.size() < this.tier().capacity();
+	}
+
+	public com.solarquarry.pipe.PipeTier tier() {
+		return this.getBlockState().getBlock() instanceof ItemPipeBlock pipe ? pipe.tier() : com.solarquarry.pipe.PipeTier.BASIC;
 	}
 
 	/**
@@ -322,10 +326,15 @@ public class ItemPipeBlockEntity extends BlockEntity implements ExtendedMenuProv
 			return this.tryLeave(level, item);
 		}
 
-		item.ticks++;
-		if (item.ticks == CENTER_TICKS && (item.to == null || !this.isExitValid(level, item))) {
-			this.reroute(level, item);
-			return false;
+		int before = item.ticks;
+		item.ticks = Math.min(TRAVEL_TICKS, item.ticks + this.tier().step());
+		if (before < CENTER_TICKS && item.ticks >= CENTER_TICKS) {
+			// Crossing the center: the exit is checked exactly once, whatever the pipe's speed.
+			if (item.to == null || !this.isExitValid(level, item)) {
+				item.ticks = CENTER_TICKS;
+				this.reroute(level, item);
+				return false;
+			}
 		}
 
 		if (item.ticks >= TRAVEL_TICKS) {

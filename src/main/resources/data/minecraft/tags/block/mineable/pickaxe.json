@@ -11,6 +11,9 @@
     "solarquarry:energy_cable",
     "solarquarry:item_pipe",
     "solarquarry:filter_pipe",
-    "solarquarry:remote_terminal"
+    "solarquarry:remote_terminal",
+    "solarquarry:reinforced_pipe",
+    "solarquarry:advanced_pipe",
+    "solarquarry:sorting_terminal"
   ]
 }

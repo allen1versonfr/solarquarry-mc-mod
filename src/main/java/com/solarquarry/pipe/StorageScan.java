@@ -68,25 +68,36 @@ public final class StorageScan {
 		int used = 0;
 		int total = 0;
 		for (BlockPos pos : inventories) {
-			BlockEntity be = level.getBlockEntity(pos);
-			if (be instanceof Container container) {
-				for (int i = 0; i < container.getContainerSize(); i++) {
-					var stack = container.getItem(i);
-					total++;
-					if (!stack.isEmpty()) {
-						used++;
-						items += stack.getCount();
-					}
+			long[] counts = slots(level, pos);
+			items += counts[0];
+			used += (int) counts[1];
+			total += (int) counts[2];
+		}
+
+		return new Result(inventories.size(), items, used, total, pipes);
+	}
+
+	/** {items, usedSlots, totalSlots} of one inventory; all zero when it exposes no slots. */
+	public static long[] slots(Level level, BlockPos pos) {
+		long items = 0;
+		long used = 0;
+		long total = 0;
+		BlockEntity be = level.isLoaded(pos) ? level.getBlockEntity(pos) : null;
+		if (be instanceof Container container) {
+			for (int i = 0; i < container.getContainerSize(); i++) {
+				var stack = container.getItem(i);
+				total++;
+				if (!stack.isEmpty()) {
+					used++;
+					items += stack.getCount();
 				}
-
-				continue;
 			}
 
-			Storage<ItemVariant> storage = ItemStorage.SIDED.find(level, pos, null);
-			if (storage == null) {
-				continue;
-			}
+			return new long[] {items, used, total};
+		}
 
+		Storage<ItemVariant> storage = level.isLoaded(pos) ? ItemStorage.SIDED.find(level, pos, null) : null;
+		if (storage != null) {
 			for (StorageView<ItemVariant> view : storage) {
 				total++;
 				if (!view.isResourceBlank() && view.getAmount() > 0) {
@@ -96,6 +107,48 @@ public final class StorageScan {
 			}
 		}
 
-		return new Result(inventories.size(), items, used, total, pipes);
+		return new long[] {items, used, total};
+	}
+
+	/**
+	 * Inventories next to the pipes connected to {@code start} (pipes only; an inventory touching {@code start} itself
+	 * but no pipe is not on the network). Nearest first, bounded by {@link #MAX_PIPES}.
+	 */
+	public static java.util.List<BlockPos> inventoriesOnNetwork(Level level, BlockPos start) {
+		Set<BlockPos> inventories = new LinkedHashSet<>();
+		Set<BlockPos> visited = new HashSet<>();
+		ArrayDeque<BlockPos> queue = new ArrayDeque<>();
+		visited.add(start);
+		for (Direction dir : Direction.values()) {
+			BlockPos next = start.relative(dir);
+			if (level.isLoaded(next) && level.getBlockState(next).getBlock() instanceof ItemPipeBlock) {
+				visited.add(next.immutable());
+				queue.add(next.immutable());
+			}
+		}
+
+		int pipes = 0;
+		while (!queue.isEmpty() && pipes <= MAX_PIPES) {
+			BlockPos pos = queue.poll();
+			pipes++;
+			for (Direction dir : Direction.values()) {
+				BlockPos next = pos.relative(dir);
+				if (visited.contains(next) || !level.isLoaded(next)) {
+					continue;
+				}
+
+				var state = level.getBlockState(next);
+				if (state.getBlock() instanceof ItemPipeBlock) {
+					visited.add(next.immutable());
+					queue.add(next.immutable());
+				} else if (!(state.getBlock() instanceof QuarryBlock) && !state.isAir()
+					&& !(level.getBlockEntity(next) instanceof com.solarquarry.blockentity.SortingTerminalBlockEntity)
+					&& ItemStorage.SIDED.find(level, next, dir.getOpposite()) != null) {
+					inventories.add(next.immutable());
+				}
+			}
+		}
+
+		return new java.util.ArrayList<>(inventories);
 	}
 }

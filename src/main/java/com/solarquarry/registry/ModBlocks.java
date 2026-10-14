@@ -53,6 +53,22 @@ public final class ModBlocks {
 		BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(1.0F).sound(SoundType.COPPER_GRATE).noOcclusion(),
 		"tooltip.solarquarry.filter_pipe", Rarity.COMMON);
 
+	public static final ItemPipeBlock REINFORCED_PIPE = register("reinforced_pipe", p -> new ItemPipeBlock(false, com.solarquarry.pipe.PipeTier.REINFORCED, p),
+		BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(1.5F).sound(SoundType.COPPER_GRATE).noOcclusion(),
+		"tooltip.solarquarry.reinforced_pipe", Rarity.UNCOMMON);
+
+	public static final ItemPipeBlock ADVANCED_PIPE = register("advanced_pipe", p -> new ItemPipeBlock(false, com.solarquarry.pipe.PipeTier.ADVANCED, p),
+		BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(2.0F).sound(SoundType.COPPER_GRATE).noOcclusion(),
+		"tooltip.solarquarry.advanced_pipe", Rarity.RARE);
+
+	public static final com.solarquarry.block.SortingTerminalBlock SORTING_TERMINAL = register("sorting_terminal", com.solarquarry.block.SortingTerminalBlock::new,
+		BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.5F, 6.0F).sound(SoundType.METAL).requiresCorrectToolForDrops().lightLevel(state -> 4),
+		"tooltip.solarquarry.sorting_terminal", Rarity.UNCOMMON);
+
+	public static final com.solarquarry.storage.CrateBlock CRATE_BASIC = registerCrate(com.solarquarry.storage.CrateTier.BASIC, Rarity.COMMON);
+	public static final com.solarquarry.storage.CrateBlock CRATE_REINFORCED = registerCrate(com.solarquarry.storage.CrateTier.REINFORCED, Rarity.UNCOMMON);
+	public static final com.solarquarry.storage.CrateBlock CRATE_ADVANCED = registerCrate(com.solarquarry.storage.CrateTier.ADVANCED, Rarity.RARE);
+
 	public static final TerminalBlock REMOTE_TERMINAL = register("remote_terminal", TerminalBlock::new,
 		BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.5F, 6.0F).sound(SoundType.METAL).requiresCorrectToolForDrops().lightLevel(state -> 4),
 		"tooltip.solarquarry.remote_terminal", Rarity.UNCOMMON);
@@ -64,6 +80,12 @@ public final class ModBlocks {
 		return register("solar_panel_" + tier.id(), p -> new SolarPanelBlock(tier, p),
 			BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_BLUE).strength(3.0F, 6.0F).sound(SoundType.METAL).noOcclusion().requiresCorrectToolForDrops(),
 			"tooltip.solarquarry.solar_panel_" + tier.id(), rarity);
+	}
+
+	private static com.solarquarry.storage.CrateBlock registerCrate(com.solarquarry.storage.CrateTier tier, Rarity rarity) {
+		return register("crate_" + tier.id(), p -> new com.solarquarry.storage.CrateBlock(tier, p),
+			BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.0F, 6.0F).sound(SoundType.METAL).requiresCorrectToolForDrops(),
+			"tooltip.solarquarry.crate_" + tier.id(), rarity);
 	}
 
 	private static BatteryBlock registerBattery(BatteryTier tier, Rarity rarity) {

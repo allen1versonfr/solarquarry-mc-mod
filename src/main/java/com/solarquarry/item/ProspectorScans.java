@@ -132,7 +132,7 @@ public final class ProspectorScans {
 	static void report(Job job, Consumer<Component> out) {
 		out.accept(Component.translatable("solarquarry.prospector.quarry_exact", job.quarry.getX(), job.quarry.getY(), job.quarry.getZ(), job.scanned)
 			.withStyle(ChatFormatting.AQUA));
-		out.accept(ProspectorItem.report(job.counts));
+		ProspectorItem.report(job.counts).forEach(out);
 		if (job.unloaded > 0) {
 			out.accept(Component.translatable("solarquarry.prospector.unloaded", job.unloaded).withStyle(ChatFormatting.GRAY));
 		}

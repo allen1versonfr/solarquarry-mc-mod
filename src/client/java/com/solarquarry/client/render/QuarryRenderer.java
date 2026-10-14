@@ -49,8 +49,15 @@ public class QuarryRenderer implements BlockEntityRenderer<QuarryBlockEntity, Qu
 		state.status = be.getStatus();
 		state.forward = be.getAreaDirection();
 		MiningPattern pattern = be.pattern();
-		QuarryFrame frame = new QuarryFrame(pattern);
+		Level frameLevel = be.getLevel();
+		if (frameLevel != null) {
+			be.refreshLegsClient(frameLevel.getGameTime());
+		}
+
+		QuarryFrame frame = new QuarryFrame(pattern).withLegs(be.getLegBottoms());
 		state.frame = frame.structure();
+		state.railLeft = frame.railLeft();
+		state.railRight = frame.railRight();
 		state.lMin = frame.lMin();
 		state.lMax = frame.lMax();
 		state.fMin = frame.fMin();
@@ -67,6 +74,15 @@ public class QuarryRenderer implements BlockEntityRenderer<QuarryBlockEntity, Qu
 		} else if (last != null) {
 			target = last;
 		} else {
+			target = be.cursorPos();
+		}
+
+		// A target left over from a different area (range upgrade added or removed) must not pull the drill outside the frame.
+		Direction fwd = be.getAreaDirection();
+		Direction lat = fwd.getClockWise();
+		float tl = (target.getX() - origin.getX()) * lat.getStepX() + (target.getZ() - origin.getZ()) * lat.getStepZ();
+		float tf = (target.getX() - origin.getX()) * fwd.getStepX() + (target.getZ() - origin.getZ()) * fwd.getStepZ();
+		if (tl < frame.lMin() || tl > frame.lMax() || tf < frame.fMin() || tf > frame.fMax()) {
 			target = be.cursorPos();
 		}
 
@@ -177,25 +193,46 @@ public class QuarryRenderer implements BlockEntityRenderer<QuarryBlockEntity, Qu
 		});
 
 		RenderType steelType = RenderTypes.entityCutout(STEEL);
+		float rl = state.railLeft;
+		float rr = state.railRight;
+		float railTop = gy + 0.3F;
 		collector.submitCustomGeometry(poseStack, steelType, (pose, vc) -> {
-			// Bridge spanning the area at the current row.
-			this.localBox(pose, vc, forward, lateral, lMin - 0.1F, lMax + 0.1F, gy + 0.3F, gy + 0.6F, hf - 0.22F, hf + 0.22F, frameLight);
-			// Carriage riding on the bridge.
-			this.localBox(pose, vc, forward, lateral, hl - 0.4F, hl + 0.4F, gy + 0.15F, gy + 0.85F, hf - 0.4F, hf + 0.4F, frameLight);
+			// Y axis: a polished guide bar along the top of each side rail.
+			for (float side : new float[] {rl, rr}) {
+				this.localBox(pose, vc, forward, lateral, side - 0.06F, side + 0.06F, railTop, railTop + 0.08F, fMin - 0.15F, fMax + 0.15F, frameLight);
+			}
+
+			// X axis: the bridge is a pair of guide rods between two trucks that roll on the side rails.
+			for (float side : new float[] {rl, rr}) {
+				this.localBox(pose, vc, forward, lateral, side - 0.24F, side + 0.24F, railTop, railTop + 0.36F, hf - 0.3F, hf + 0.3F, frameLight);
+			}
+
+			this.localBox(pose, vc, forward, lateral, rl, rr, railTop + 0.1F, railTop + 0.18F, hf - 0.22F, hf - 0.14F, frameLight);
+			this.localBox(pose, vc, forward, lateral, rl, rr, railTop + 0.1F, railTop + 0.18F, hf + 0.14F, hf + 0.22F, frameLight);
+			// Carriage clamped on both rods.
+			this.localBox(pose, vc, forward, lateral, hl - 0.36F, hl + 0.36F, railTop - 0.05F, railTop + 0.42F, hf - 0.32F, hf + 0.32F, frameLight);
 			// Telescoping shaft down to the working block.
 			float shaftBottom = Math.min(gy, headTop + 0.55F);
-			if (shaftBottom < gy + 0.15F) {
-				this.localBox(pose, vc, forward, lateral, hl - 0.16F, hl + 0.16F, shaftBottom, gy + 0.15F, hf - 0.16F, hf + 0.16F, headLight);
-				// Thicker outer sleeve on the upper part of the shaft.
+			if (shaftBottom < railTop) {
+				this.localBox(pose, vc, forward, lateral, hl - 0.16F, hl + 0.16F, shaftBottom, railTop, hf - 0.16F, hf + 0.16F, headLight);
 				float sleeveBottom = Math.max(shaftBottom, gy - 2.0F);
-				this.localBox(pose, vc, forward, lateral, hl - 0.22F, hl + 0.22F, sleeveBottom, gy + 0.15F, hf - 0.22F, hf + 0.22F, frameLight);
+				this.localBox(pose, vc, forward, lateral, hl - 0.22F, hl + 0.22F, sleeveBottom, railTop, hf - 0.22F, hf + 0.22F, frameLight);
+			}
+		});
+
+		// Dark wheels on the two trucks (they read as the bridge riding the Y rails).
+		collector.submitCustomGeometry(poseStack, RenderTypes.entityCutout(DRILL), (pose, vc) -> {
+			for (float side : new float[] {rl, rr}) {
+				for (float df : new float[] {-0.22F, 0.22F}) {
+					this.localBox(pose, vc, forward, lateral, side - 0.27F, side + 0.27F, railTop - 0.02F, railTop + 0.1F, hf + df - 0.06F, hf + df + 0.06F, 0xFF22262B, frameLight);
+				}
 			}
 		});
 
 		// Status beacon on the carriage (full bright so it reads as a light).
 		int lampColor = state.status.color() | 0xFF000000;
 		collector.submitCustomGeometry(poseStack, RenderTypes.entityCutout(DRILL), (pose, vc) ->
-			this.localBox(pose, vc, forward, lateral, hl - 0.12F, hl + 0.12F, gy + 0.85F, gy + 1.05F, hf - 0.12F, hf + 0.12F, lampColor, LightCoordsUtil.FULL_BRIGHT)
+			this.localBox(pose, vc, forward, lateral, hl - 0.12F, hl + 0.12F, gy + 0.72F, gy + 0.9F, hf - 0.12F, hf + 0.12F, lampColor, LightCoordsUtil.FULL_BRIGHT)
 		);
 
 		// Spinning drill bit.

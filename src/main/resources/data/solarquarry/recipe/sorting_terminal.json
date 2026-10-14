@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    "IAI",
+    "RHR",
+    "IPI"
+  ],
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "A": "solarquarry:advanced_circuit",
+    "R": "minecraft:redstone",
+    "H": "minecraft:chest",
+    "P": "solarquarry:item_pipe"
+  },
+  "result": {
+    "id": "solarquarry:sorting_terminal",
+    "count": 1
+  }
+}

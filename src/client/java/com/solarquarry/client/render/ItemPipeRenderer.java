@@ -57,7 +57,7 @@ public class ItemPipeRenderer implements BlockEntityRenderer<ItemPipeBlockEntity
 			be.clientSnapshotTime = now;
 		}
 
-		float elapsed = (now - be.clientSnapshotTime) + partialTicks;
+		float elapsed = ((now - be.clientSnapshotTime) + partialTicks) * be.tier().step();
 		int seed = (int) be.getBlockPos().asLong();
 		for (int i = 0; i < items.size(); i++) {
 			TravelingItem item = items.get(i);

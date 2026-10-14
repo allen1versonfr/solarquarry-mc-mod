@@ -4,7 +4,7 @@
   "ingredients": [
     "solarquarry:item_pipe",
     "solarquarry:circuit_board",
-    "minecraft:comparator"
+    "minecraft:repeater"
   ],
   "result": {
     "id": "solarquarry:filter_pipe",

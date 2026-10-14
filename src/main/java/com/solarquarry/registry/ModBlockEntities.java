@@ -20,7 +20,13 @@ public final class ModBlockEntities {
 	public static final BlockEntityType<BatteryBlockEntity> BATTERY = register("battery",
 		FabricBlockEntityTypeBuilder.create(BatteryBlockEntity::new, ModBlocks.BATTERY_BASIC, ModBlocks.BATTERY_ADVANCED, ModBlocks.BATTERY_ELITE).build());
 	public static final BlockEntityType<ItemPipeBlockEntity> ITEM_PIPE = register("item_pipe",
-		FabricBlockEntityTypeBuilder.create(ItemPipeBlockEntity::new, ModBlocks.ITEM_PIPE, ModBlocks.FILTER_PIPE).build());
+		FabricBlockEntityTypeBuilder.create(ItemPipeBlockEntity::new, ModBlocks.ITEM_PIPE, ModBlocks.FILTER_PIPE, ModBlocks.REINFORCED_PIPE, ModBlocks.ADVANCED_PIPE).build());
+
+	public static final BlockEntityType<com.solarquarry.storage.CrateBlockEntity> CRATE = register("crate",
+		FabricBlockEntityTypeBuilder.create(com.solarquarry.storage.CrateBlockEntity::new, ModBlocks.CRATE_BASIC, ModBlocks.CRATE_REINFORCED, ModBlocks.CRATE_ADVANCED).build());
+
+	public static final BlockEntityType<com.solarquarry.blockentity.SortingTerminalBlockEntity> SORTING_TERMINAL = register("sorting_terminal",
+		FabricBlockEntityTypeBuilder.create(com.solarquarry.blockentity.SortingTerminalBlockEntity::new, ModBlocks.SORTING_TERMINAL).build());
 
 	public static final BlockEntityType<TerminalBlockEntity> TERMINAL = register("remote_terminal",
 		FabricBlockEntityTypeBuilder.create(TerminalBlockEntity::new, ModBlocks.REMOTE_TERMINAL).build());

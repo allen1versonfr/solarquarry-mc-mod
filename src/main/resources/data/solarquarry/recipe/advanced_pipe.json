@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    "PGP",
+    "GDG",
+    "PGP"
+  ],
+  "key": {
+    "P": "solarquarry:reinforced_pipe",
+    "G": "minecraft:gold_ingot",
+    "D": "minecraft:diamond"
+  },
+  "result": {
+    "id": "solarquarry:advanced_pipe",
+    "count": 4
+  }
+}

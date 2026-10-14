@@ -56,6 +56,9 @@ public class SolarQuarry implements ModInitializer {
 		ServerPlayNetworking.registerGlobalReceiver(TerminalActionPayload.TYPE, TerminalActionPayload::handle);
 		PayloadTypeRegistry.clientboundPlay().register(TerminalSnapshotPayload.TYPE, TerminalSnapshotPayload.STREAM_CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(ConfigSyncPayload.TYPE, ConfigSyncPayload.STREAM_CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(com.solarquarry.network.SortingSnapshotPayload.TYPE, com.solarquarry.network.SortingSnapshotPayload.STREAM_CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(com.solarquarry.network.SortingActionPayload.TYPE, com.solarquarry.network.SortingActionPayload.STREAM_CODEC);
+		ServerPlayNetworking.registerGlobalReceiver(com.solarquarry.network.SortingActionPayload.TYPE, com.solarquarry.network.SortingActionPayload::handle);
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> SolarQuarryCommand.sync(handler.getPlayer()));
 		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> SolarQuarryCommand.register(dispatcher));
 		ServerLifecycleEvents.SERVER_STARTED.register(QuarryChunkLoading::restoreAll);

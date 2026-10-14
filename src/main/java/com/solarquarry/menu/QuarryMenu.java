@@ -23,6 +23,7 @@ public class QuarryMenu extends AbstractContainerMenu {
 	public static final int BUTTON_PAUSE = 1;
 	public static final int BUTTON_RESUME = 2;
 	public static final int BUTTON_RESTART = 3;
+	public static final int BUTTON_COLLECT_XP = 4;
 
 	public static final int BUFFER_START = 0;
 	public static final int UPGRADE_START = QuarryBlockEntity.BUFFER_SLOTS;
@@ -34,8 +35,11 @@ public class QuarryMenu extends AbstractContainerMenu {
 	// Layout shared with the screen.
 	public static final int BUFFER_X = 8;
 	public static final int BUFFER_Y = 126;
-	public static final int UPGRADE_X = 196;
-	public static final int UPGRADE_Y = 36;
+	public static final int UPGRADE_X = 188;
+	public static final int UPGRADE_Y = 34;
+	public static final int TORCH_SLOT_INDEX = QuarryBlockEntity.TORCH_SLOT;
+	public static final int TORCH_X = 188;
+	public static final int TORCH_Y = 80;
 	public static final int LIST_X = 188;
 	public static final int LIST_Y = 38;
 	public static final int INVENTORY_X = 176;
@@ -81,10 +85,14 @@ public class QuarryMenu extends AbstractContainerMenu {
 		}
 
 		for (int i = 0; i < QuarryBlockEntity.UPGRADE_SLOTS; i++) {
-			UpgradeSlot slot = new UpgradeSlot(container, UPGRADE_START + i, UPGRADE_X + (i % 2) * 18, UPGRADE_Y + (i / 2) * 18);
+			UpgradeSlot slot = new UpgradeSlot(container, UPGRADE_START + i, UPGRADE_X + (i % 3) * 18, UPGRADE_Y + (i / 3) * 18);
 			slot.setActiveCondition(() -> !this.configPage);
 			this.addSlot(slot);
 		}
+
+		TorchSlot torchSlot = new TorchSlot(container, QuarryBlockEntity.TORCH_SLOT, TORCH_X, TORCH_Y);
+		torchSlot.setActiveCondition(() -> !this.configPage);
+		this.addSlot(torchSlot);
 
 		QuarryBlockEntity.ListKind[] kinds = QuarryBlockEntity.ListKind.values();
 		for (int k = 0; k < kinds.length; k++) {
@@ -269,6 +277,11 @@ public class QuarryMenu extends AbstractContainerMenu {
 		return this.data.get(26);
 	}
 
+	/** Experience stored in the quarry, waiting to be collected. */
+	public int getStoredXp() {
+		return this.unsigned(28) | (this.unsigned(29) << 16);
+	}
+
 	/** Blocks actually mined per second (rolling 10 s), from the server. */
 	public double getMeasuredBlocksPerSecond() {
 		return this.data.get(27) / 100.0;
@@ -306,6 +319,7 @@ public class QuarryMenu extends AbstractContainerMenu {
 			case BUTTON_PAUSE -> this.quarry.pause();
 			case BUTTON_RESUME -> this.quarry.resume();
 			case BUTTON_RESTART -> this.quarry.resetProgress();
+			case BUTTON_COLLECT_XP -> this.quarry.collectXp(player);
 			default -> {
 				return false;
 			}
@@ -353,7 +367,9 @@ public class QuarryMenu extends AbstractContainerMenu {
 			if (!this.moveItemStackTo(stack, PLAYER_START, PLAYER_END, true)) {
 				return ItemStack.EMPTY;
 			}
-		} else if (stack.getItem() instanceof UpgradeItem && this.moveItemStackTo(stack, UPGRADE_START, LIST_START, false)) {
+		} else if (stack.getItem() instanceof UpgradeItem && this.moveItemStackTo(stack, UPGRADE_START, TORCH_SLOT_INDEX, false)) {
+			// moved into an upgrade slot
+		} else if (stack.is(net.minecraft.world.item.Items.TORCH) && slotIndex >= PLAYER_START && this.moveItemStackTo(stack, TORCH_SLOT_INDEX, TORCH_SLOT_INDEX + 1, false)) {
 			// moved into an upgrade slot
 		} else if (slotIndex < PLAYER_START + 27) {
 			if (!this.moveItemStackTo(stack, PLAYER_START + 27, PLAYER_END, false)) {

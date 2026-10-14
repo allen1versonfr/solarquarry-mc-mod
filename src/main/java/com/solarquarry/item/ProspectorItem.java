@@ -36,7 +36,6 @@ import net.minecraft.world.level.block.state.BlockState;
  * Each use costs durability and starts a cooldown, so it cannot map the world for free.
  */
 public class ProspectorItem extends Item implements MachineTool, TooltipLines {
-	private static final int TOP_ENTRIES = 6;
 
 	public ProspectorItem(Properties properties) {
 		super(properties);
@@ -66,7 +65,7 @@ public class ProspectorItem extends Item implements MachineTool, TooltipLines {
 			}
 
 			player.sendSystemMessage(Component.translatable("solarquarry.prospector.chunk", chunk.x(), chunk.z(), top, level.getMinY()).withStyle(ChatFormatting.AQUA));
-			player.sendSystemMessage(report(counts));
+			report(counts).forEach(player::sendSystemMessage);
 			this.spend(serverLevel, player, stack, hand);
 		}
 
@@ -106,31 +105,30 @@ public class ProspectorItem extends Item implements MachineTool, TooltipLines {
 		stack.hurtAndBreak(1, player, hand);
 	}
 
-	static Component report(Object2IntOpenHashMap<Block> counts) {
+	/** The complete list: a total line, then every ore kind with its count, most common first (one per line). */
+	static List<Component> report(Object2IntOpenHashMap<Block> counts) {
+		List<Component> lines = new ArrayList<>();
 		if (counts.isEmpty()) {
-			return Component.translatable("solarquarry.prospector.none").withStyle(ChatFormatting.GRAY);
+			lines.add(Component.translatable("solarquarry.prospector.none").withStyle(ChatFormatting.GRAY));
+			return lines;
 		}
 
 		List<Object2IntOpenHashMap.Entry<Block>> entries = new ArrayList<>(counts.object2IntEntrySet());
-		entries.sort((a, b) -> Integer.compare(b.getIntValue(), a.getIntValue()));
+		entries.sort((a, b) -> b.getIntValue() != a.getIntValue() ? Integer.compare(b.getIntValue(), a.getIntValue())
+			: a.getKey().getName().getString().compareTo(b.getKey().getName().getString()));
 		long total = 0;
 		for (var entry : entries) {
 			total += entry.getIntValue();
 		}
 
-		MutableComponent line = Component.translatable("solarquarry.prospector.total", total).withStyle(ChatFormatting.YELLOW);
-		for (int i = 0; i < Math.min(TOP_ENTRIES, entries.size()); i++) {
-			var entry = entries.get(i);
-			line.append(Component.literal(i == 0 ? "  " : ", ").withStyle(ChatFormatting.GRAY));
-			line.append(entry.getKey().getName().copy().withStyle(ChatFormatting.WHITE));
+		lines.add(Component.translatable("solarquarry.prospector.total", total).withStyle(ChatFormatting.YELLOW));
+		for (var entry : entries) {
+			MutableComponent line = Component.literal("  ").append(entry.getKey().getName().copy().withStyle(ChatFormatting.WHITE));
 			line.append(Component.literal(" x" + entry.getIntValue()).withStyle(ChatFormatting.GRAY));
+			lines.add(line);
 		}
 
-		if (entries.size() > TOP_ENTRIES) {
-			line.append(Component.translatable("solarquarry.prospector.more", entries.size() - TOP_ENTRIES).withStyle(ChatFormatting.GRAY));
-		}
-
-		return line;
+		return lines;
 	}
 
 	@Override

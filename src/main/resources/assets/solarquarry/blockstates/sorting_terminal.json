@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "solarquarry:block/sorting_terminal"
+    },
+    "facing=east": {
+      "model": "solarquarry:block/sorting_terminal",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "solarquarry:block/sorting_terminal",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "solarquarry:block/sorting_terminal",
+      "y": 270
+    }
+  }
+}

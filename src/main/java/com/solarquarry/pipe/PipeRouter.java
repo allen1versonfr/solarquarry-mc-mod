@@ -3,6 +3,7 @@ package com.solarquarry.pipe;
 import com.solarquarry.block.ItemPipeBlock;
 import com.solarquarry.block.QuarryBlock;
 import com.solarquarry.blockentity.ItemPipeBlockEntity;
+import com.solarquarry.blockentity.SortingTerminalBlockEntity;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -28,6 +29,8 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>Routing rules, in order (deterministic):
  * <ol>
+ * <li>If a Sorting Terminal is attached to the network, only the destinations it has registered are used, ranked by its
+ * rules: listed items first, then "everything except" destinations, then fallback destinations, each by rule priority.</li>
  * <li>Destinations reached through an Allow filter that lists the item beat all others.</li>
  * <li>Higher priority wins. A path's priority is set by the last filter pipe it passes through (plain pipes keep it; default 0).</li>
  * <li>The nearest destination (fewest pipes) wins.</li>
@@ -91,6 +94,10 @@ public final class PipeRouter {
 		return route;
 	}
 
+	/** A destination found during the search: an inventory face next to a pipe. */
+	private record Candidate(int node, Direction dir, BlockPos target, boolean matched, int priority, int order) {
+	}
+
 	/**
 	 * @param start pipe the item is currently in (its own filter has already been checked)
 	 * @param startMatched whether the item already passed a whitelist filter that lists it
@@ -111,18 +118,13 @@ public final class PipeRouter {
 		queue.add(0);
 		visited.add(new Key(start, startMatched, startPriority));
 
-		int bestNode = -1;
-		Direction bestDir = null;
-		boolean bestMatched = false;
-		int bestPriority = Integer.MIN_VALUE;
+		List<Candidate> candidates = new ArrayList<>();
+		Set<Long> seenTargets = new HashSet<>();
+		SortingTerminalBlockEntity terminal = null;
 
 		while (!queue.isEmpty() && nodes.size() < MAX_NODES) {
 			int index = queue.poll();
 			Node node = nodes.get(index);
-			if (bestNode >= 0 && bestMatched && bestPriority >= ItemPipeBlockEntity.MAX_PRIORITY) {
-				break; // nothing can beat a matched, maximum-priority destination found earlier (and nearer)
-			}
-
 			for (Direction dir : Direction.values()) {
 				BlockPos next = node.pos().relative(dir);
 				if (!level.isLoaded(next)) {
@@ -156,31 +158,76 @@ public final class PipeRouter {
 					continue;
 				}
 
-				if (!better(node.matched(), node.priority(), bestNode >= 0, bestMatched, bestPriority)) {
+				BlockEntity be = level.getBlockEntity(next);
+				if (be instanceof SortingTerminalBlockEntity found) {
+					if (terminal == null) {
+						terminal = found; // the nearest terminal on the network decides
+					}
+
 					continue;
 				}
 
-				Storage<ItemVariant> storage = ItemStorage.SIDED.find(level, next, dir.getOpposite());
-				if (storage == null || !storage.supportsInsertion()) {
-					continue;
-				}
-
-				if (StorageUtil.simulateInsert(storage, variant, amount, null) > 0) {
-					bestNode = index;
-					bestDir = dir;
-					bestMatched = node.matched();
-					bestPriority = node.priority();
+				// One candidate per (inventory, matched, priority) path state: the first, nearest one found.
+				long targetKey = next.asLong() * 31 + (node.matched() ? 1 : 0) * 17 + node.priority();
+				if (seenTargets.add(targetKey)) {
+					candidates.add(new Candidate(index, dir, next.immutable(), node.matched(), node.priority(), candidates.size()));
 				}
 			}
 		}
 
-		if (bestNode < 0) {
+		if (candidates.isEmpty()) {
 			return null;
 		}
 
+		java.util.Map<Candidate, Integer> ranks = new java.util.HashMap<>();
+		List<Candidate> ranked = new ArrayList<>(candidates.size());
+		for (Candidate candidate : candidates) {
+			int rank = terminal == null ? 1 : terminal.rankFor(candidate.target(), stack);
+			if (rank > 0) {
+				ranks.put(candidate, rank);
+				ranked.add(candidate);
+			}
+		}
+
+		ranked.sort((a, b) -> compare(ranks.get(a), ranks.get(b), a, b));
+		for (Candidate candidate : ranked) {
+			Storage<ItemVariant> storage = ItemStorage.SIDED.find(level, candidate.target(), candidate.dir().getOpposite());
+			if (storage == null || !storage.supportsInsertion()) {
+				continue;
+			}
+
+			if (StorageUtil.simulateInsert(storage, variant, amount, null) > 0) {
+				return buildRoute(nodes, candidate.node(), candidate.dir());
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Ranking: Sorting Terminal class and rule priority (when a terminal is on the network), then filter-pipe match,
+	 * then filter-pipe priority, then discovery order (nearest first, fixed face order). Negative = a comes first.
+	 */
+	private static int compare(int rankA, int rankB, Candidate a, Candidate b) {
+		if (rankA != rankB) {
+			return Integer.compare(rankB, rankA);
+		}
+
+		if (a.matched() != b.matched()) {
+			return a.matched() ? -1 : 1;
+		}
+
+		if (a.priority() != b.priority()) {
+			return Integer.compare(b.priority(), a.priority());
+		}
+
+		return Integer.compare(a.order(), b.order());
+	}
+
+	private static List<Direction> buildRoute(List<Node> nodes, int last, Direction exit) {
 		List<Direction> route = new ArrayList<>();
-		route.add(bestDir);
-		Node cursor = nodes.get(bestNode);
+		route.add(exit);
+		Node cursor = nodes.get(last);
 		while (cursor.parent() >= 0) {
 			route.add(cursor.via());
 			cursor = nodes.get(cursor.parent());

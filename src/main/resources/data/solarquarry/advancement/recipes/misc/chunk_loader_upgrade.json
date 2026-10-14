@@ -7,6 +7,16 @@
         "recipe": "solarquarry:chunk_loader_upgrade"
       }
     },
+    "has_obsidian": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "minecraft:obsidian"
+          }
+        ]
+      }
+    },
     "has_ender_pearl": {
       "trigger": "minecraft:inventory_changed",
       "conditions": {
@@ -41,6 +51,7 @@
   "requirements": [
     [
       "has_the_recipe",
+      "has_obsidian",
       "has_ender_pearl",
       "has_advanced_circuit",
       "has_upgrade_base"

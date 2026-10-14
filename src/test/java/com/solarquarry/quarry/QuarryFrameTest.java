@@ -65,4 +65,25 @@ class QuarryFrameTest {
 		assertEquals(clear.maxDy() + QuarryFrame.GANTRY_HEIGHT, new QuarryFrame(clear).gantryY());
 		assertTrue(new QuarryFrame(clear).gantryY() > new QuarryFrame(strip(8, 8)).gantryY());
 	}
+
+	@Test
+	void legsReachTheGroundAndTheMachineGetsASupport() {
+		QuarryFrame frame = new QuarryFrame(strip(5, 5)).withLegs(new float[] {-4, 0, -2.5F, -96, -3});
+		List<QuarryFrame.Box> posts = frame.posts();
+		assertEquals(-4.0F, posts.get(0).y0());
+		assertEquals(0.0F, posts.get(1).y0());
+		assertEquals(-96.0F, posts.get(3).y0());
+		assertTrue(frame.structure().stream().anyMatch(b -> b.part() == QuarryFrame.Part.SUPPORT && b.y0() == -3.0F));
+		assertTrue(new QuarryFrame(strip(5, 5)).structure().stream().noneMatch(b -> b.part() == QuarryFrame.Part.SUPPORT), "no support when standing on the ground");
+	}
+
+	@Test
+	void legsStandOutsideTheWorkArea() {
+		MiningPattern pattern = strip(5, 5);
+		QuarryFrame frame = new QuarryFrame(pattern);
+		for (QuarryFrame.Box post : frame.posts()) {
+			boolean outsideLaterally = post.l1() <= frame.lMin() || post.l0() >= frame.lMax();
+			assertTrue(outsideLaterally, "post " + post + " overlaps the mined columns");
+		}
+	}
 }

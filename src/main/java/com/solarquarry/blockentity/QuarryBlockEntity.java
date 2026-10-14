@@ -81,8 +81,14 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	public static final int BUFFER_SLOTS = 27;
 	public static final int UPGRADE_SLOTS = 6;
 	public static final int FILTER_SLOTS = 9;
-	public static final int TOTAL_SLOTS = BUFFER_SLOTS + UPGRADE_SLOTS;
-	public static final int DATA_COUNT = 28;
+	public static final int UPGRADE_END = BUFFER_SLOTS + UPGRADE_SLOTS;
+	/** Torches the quarry uses to light the pit walls as it digs. */
+	public static final int TORCH_SLOT = UPGRADE_END;
+	public static final int TOTAL_SLOTS = TORCH_SLOT + 1;
+	/** Light the walls every this many layers (strip modes) or blocks of tunnel. */
+	public static final int TORCH_SPACING = 4;
+	public static final int MAX_STORED_XP = 1_000_000;
+	public static final int DATA_COUNT = 30;
 	public static final int DEFAULT_SIZE = 16;
 	public static final int DEFAULT_HEIGHT = 3;
 	/** Maximum positions examined per tick while skipping air and ignored blocks. */
@@ -92,7 +98,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	/** Ore positions remembered at once; scanning pauses while the queue is full. */
 	public static final int MAX_ORE_QUEUE = 2048;
 	private static final long FLUID_COST = 10;
-	private static final int[] BUFFER_SLOT_IDS = createRange(BUFFER_SLOTS);
+	private static final int[] FACE_SLOT_IDS = faceSlots();
 
 	/** What the player asked the machine to do. */
 	public enum Mode {
@@ -144,6 +150,8 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	private QuarryStatus status = QuarryStatus.IDLE;
 	/** Last block the drill worked on (drives the animation; synced to clients). */
 	private @Nullable BlockPos lastTarget;
+	/** Experience collected from mined blocks, handed to a player on request. */
+	private int storedXp;
 
 	// ---- runtime state (recomputed, not authoritative) ----
 	private QuarryUpgrades upgrades = QuarryUpgrades.NONE;
@@ -170,6 +178,9 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	private @Nullable MiningPattern framePattern;
 	private @Nullable Direction frameDirection;
 	private final RateWindow mineRate = new RateWindow(10);
+	/** Bottom (dy) of each frame leg and of the support under the machine; 0 = standing at the quarry's level. */
+	private float[] legBottoms = new float[0];
+	private long legsCheckedAt = Long.MIN_VALUE;
 
 	// ---- client animation state (client only) ----
 	public float clientHeadX = Float.NaN;
@@ -215,6 +226,8 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 				case 25 -> q.level != null ? q.level.getMaxY() : 319;
 				case 26 -> (int) Math.min(q.upgrades.typicalPowerDraw(), 0x7FFF);
 				case 27 -> (int) Math.min(Math.round(q.mineRate.perSecond() * 100.0), 0x7FFF);
+				case 28 -> q.storedXp & 0xFFFF;
+				case 29 -> (q.storedXp >>> 16) & 0xFFFF;
 				default -> 0;
 			};
 		}
@@ -249,6 +262,16 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		this.syncDirty = true;
 	}
 
+	private static int[] faceSlots() {
+		int[] result = new int[BUFFER_SLOTS + 1];
+		for (int i = 0; i < BUFFER_SLOTS; i++) {
+			result[i] = i;
+		}
+
+		result[BUFFER_SLOTS] = TORCH_SLOT;
+		return result;
+	}
+
 	private static int[] createRange(int size) {
 		int[] result = new int[size];
 		for (int i = 0; i < size; i++) {
@@ -273,6 +296,10 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		this.energyReceivedThisTick = 0;
 		this.refreshUpgrades();
 		this.updateChunkLoading(level);
+		if (this.ticks % 100 == 0 && this.framePattern != null && this.updateLegs()) {
+			this.framePattern = null; // ground changed under a leg: re-register the frame
+		}
+
 		this.refreshFrame();
 		if (this.ticks % 20 == 0) {
 			this.mineRate.advance();
@@ -489,11 +516,13 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 			StepResult result = this.tryMine(level, pos);
 			if (result == StepResult.SKIPPED) {
 				this.step++;
+				this.lightCompletedSection(level, pattern);
 				continue;
 			}
 
 			if (result == StepResult.MINED) {
 				this.step++;
+				this.lightCompletedSection(level, pattern);
 			}
 
 			return result;
@@ -641,7 +670,8 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 
 		this.useEnergy(cost);
 		level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
-		target.spawnAfterBreak(level, pos, tool, false);
+		target.spawnAfterBreak(level, pos, tool, true);
+		this.absorbExperience(level, pos);
 		for (ItemStack stack : kept) {
 			this.insertIntoBuffer(stack);
 		}
@@ -925,6 +955,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		this.oreQueue.clear();
 		this.finished = false;
 		this.cooldown = 0;
+		this.lastTarget = null;
 		this.invalidatePattern();
 		this.markConfigChanged();
 	}
@@ -1195,7 +1226,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 				continue;
 			}
 
-			ItemStack batch = stack.copyWithCount(Math.min(stack.getCount(), ItemPipeBlockEntity.MAX_BATCH));
+			ItemStack batch = stack.copyWithCount(Math.min(stack.getCount(), pipe.tier().batch()));
 			if (pipe.acceptFromSource(batch, entryFace)) {
 				stack.shrink(batch.getCount());
 				this.setChanged();
@@ -1296,6 +1327,10 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 			return false;
 		}
 
+		if (slot == TORCH_SLOT) {
+			return itemStack.is(Items.TORCH);
+		}
+
 		return this.canInstallUpgrade(slot, itemStack);
 	}
 
@@ -1310,7 +1345,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 			return false;
 		}
 
-		for (int i = BUFFER_SLOTS; i < TOTAL_SLOTS && i < container.getContainerSize(); i++) {
+		for (int i = BUFFER_SLOTS; i < UPGRADE_END && i < container.getContainerSize(); i++) {
 			if (i == slot) {
 				continue;
 			}
@@ -1344,12 +1379,12 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 
 	@Override
 	public int[] getSlotsForFace(Direction direction) {
-		return BUFFER_SLOT_IDS;
+		return FACE_SLOT_IDS;
 	}
 
 	@Override
 	public boolean canPlaceItemThroughFace(int slot, ItemStack itemStack, @Nullable Direction direction) {
-		return false;
+		return slot == TORCH_SLOT && itemStack.is(Items.TORCH);
 	}
 
 	@Override
@@ -1446,6 +1481,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		this.targetY = input.getIntOr("TargetY", this.targetY);
 		this.oresOnly = input.getBooleanOr("OresOnly", this.oresOnly);
 		this.blocksMined = Math.max(0, input.getLongOr("BlocksMined", this.blocksMined));
+		this.storedXp = Math.clamp(input.getIntOr("StoredXp", 0), 0, MAX_STORED_XP);
 		this.cooldown = Math.max(0, Math.min(20, input.getIntOr("Cooldown", this.cooldown)));
 		this.status = QuarryStatus.byName(input.getStringOr("Status", this.status.getSerializedName()));
 		this.upgrades = QuarryUpgrades.of(this, BUFFER_SLOTS, UPGRADE_SLOTS);
@@ -1485,6 +1521,175 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		this.refreshFrame();
 	}
 
+	// ---- experience ----
+
+	/** Picks up the experience orbs a block just dropped where it was mined and stores their value. */
+	private void absorbExperience(ServerLevel level, BlockPos pos) {
+		for (net.minecraft.world.entity.ExperienceOrb orb : level.getEntitiesOfClass(net.minecraft.world.entity.ExperienceOrb.class, new net.minecraft.world.phys.AABB(pos).inflate(0.75))) {
+			if (orb.tickCount == 0 && !orb.isRemoved()) {
+				// Orbs can merge (a count above 1); read it from the orb's own save data rather than guessing.
+				TagValueOutput saved = TagValueOutput.createWithoutContext(ProblemReporter.DISCARDING);
+				orb.saveWithoutId(saved);
+				int count = Math.max(1, saved.buildResult().getIntOr("Count", 1));
+				this.storedXp = (int) Math.min(MAX_STORED_XP, (long) this.storedXp + (long) orb.getValue() * count);
+				orb.discard();
+			}
+		}
+	}
+
+	public int getStoredXp() {
+		return this.storedXp;
+	}
+
+	/** Gives the stored experience to the player. Returns the amount given. */
+	public int collectXp(Player player) {
+		int amount = this.storedXp;
+		if (amount <= 0) {
+			return 0;
+		}
+
+		this.storedXp = 0;
+		player.giveExperiencePoints(amount);
+		if (this.level != null) {
+			this.level.playSound(null, this.worldPosition, net.minecraft.sounds.SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.4F, 1.1F);
+		}
+
+		this.setChanged();
+		return amount;
+	}
+
+	// ---- torches ----
+
+	/**
+	 * After a strip-mine layer (or a tunnel slice) is finished, puts wall torches on the pit walls of that layer every
+	 * {@link #TORCH_SPACING} layers, using torches from the torch slot. Torches go in cells that are already dug and
+	 * never mined again, attached to blocks outside the work area.
+	 */
+	private void lightCompletedSection(ServerLevel level, MiningPattern pattern) {
+		if (this.step <= 0 || this.step % pattern.cellsPerLayer() != 0) {
+			return;
+		}
+
+		ItemStack torches = this.items.get(TORCH_SLOT);
+		if (torches.isEmpty() || !torches.is(Items.TORCH)) {
+			return;
+		}
+
+		long section = this.step / pattern.cellsPerLayer() - 1;
+		if (section % TORCH_SPACING != TORCH_SPACING - 1) {
+			return;
+		}
+
+		MiningPattern.Cell done = pattern.cell(this.step - 1);
+		List<MiningPattern.Cell> spots = new ArrayList<>();
+		List<Direction> walls = new ArrayList<>();
+		Direction forward = this.getAreaDirection();
+		Direction lateral = forward.getClockWise();
+		switch (this.quarryMode) {
+			case STRIP_MINE, ORE_PRIORITY -> {
+				int midF = 1 + (pattern.length() - 1) / 2;
+				int midL = (pattern.width() - 1) / 2;
+				spots.add(new MiningPattern.Cell(0, done.dy(), midF));
+				walls.add(lateral.getOpposite());
+				spots.add(new MiningPattern.Cell(pattern.width() - 1, done.dy(), midF));
+				walls.add(lateral);
+				spots.add(new MiningPattern.Cell(midL, done.dy(), pattern.length()));
+				walls.add(forward);
+				spots.add(new MiningPattern.Cell(midL, done.dy(), 1));
+				walls.add(forward.getOpposite());
+			}
+			case TUNNEL_BORE -> {
+				int dy = Math.min(1, pattern.height() - 1);
+				spots.add(new MiningPattern.Cell(0, dy, done.forward()));
+				walls.add(lateral.getOpposite());
+				if (pattern.width() > 1) {
+					spots.add(new MiningPattern.Cell(pattern.width() - 1, dy, done.forward()));
+					walls.add(lateral);
+				}
+			}
+			case AREA_CLEAR -> {
+				return; // open to the sky
+			}
+		}
+
+		ServerPlayer actor = this.actor(level);
+		for (int i = 0; i < spots.size() && !torches.isEmpty(); i++) {
+			BlockPos cellPos = this.toWorld(spots.get(i), pattern);
+			Direction wall = walls.get(i);
+			BlockState torch = Blocks.WALL_TORCH.defaultBlockState().setValue(net.minecraft.world.level.block.WallTorchBlock.FACING, wall.getOpposite());
+			if (!level.isLoaded(cellPos) || !level.getBlockState(cellPos).isAir() || !torch.canSurvive(level, cellPos) || !level.mayInteract(actor, cellPos)) {
+				continue;
+			}
+
+			level.setBlock(cellPos, torch, Block.UPDATE_ALL);
+			torches.shrink(1);
+			this.setChanged();
+		}
+	}
+
+	// ---- frame legs ----
+
+	/** Recomputes where each frame leg (and the support under the machine) meets the ground. */
+	public boolean updateLegs() {
+		if (this.level == null) {
+			return false;
+		}
+
+		QuarryFrame frame = new QuarryFrame(this.pattern());
+		Direction forward = this.getAreaDirection();
+		Direction lateral = forward.getClockWise();
+		List<QuarryFrame.Box> posts = frame.posts();
+		float[] bottoms = new float[posts.size() + 1];
+		for (int i = 0; i < posts.size(); i++) {
+			QuarryFrame.Box post = posts.get(i);
+			float l = (post.l0() + post.l1()) * 0.5F;
+			float f = (post.f0() + post.f1()) * 0.5F;
+			int x = (int) Math.floor(this.worldPosition.getX() + 0.5 + lateral.getStepX() * l + forward.getStepX() * f);
+			int z = (int) Math.floor(this.worldPosition.getZ() + 0.5 + lateral.getStepZ() * l + forward.getStepZ() * f);
+			bottoms[i] = groundBelow(this.level, x, z, this.worldPosition.getY());
+		}
+
+		bottoms[posts.size()] = groundBelow(this.level, this.worldPosition.getX(), this.worldPosition.getZ(), this.worldPosition.getY());
+		boolean changed = !java.util.Arrays.equals(bottoms, this.legBottoms);
+		this.legBottoms = bottoms;
+		return changed;
+	}
+
+	/** dy of the ground under a column, searching down from the quarry's level (0 = ground at the quarry's level). */
+	private static float groundBelow(Level level, int x, int z, int startY) {
+		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos(x, startY - 1, z);
+		int floor = Math.max(level.getMinY(), startY - QuarryFrame.MAX_LEG);
+		while (pos.getY() >= floor) {
+			if (!level.isLoaded(pos)) {
+				return 0.0F;
+			}
+
+			BlockState state = level.getBlockState(pos);
+			if (!state.getCollisionShape(level, pos).isEmpty() || !state.getFluidState().isEmpty()) {
+				return pos.getY() + 1 - startY;
+			}
+
+			pos.move(Direction.DOWN);
+		}
+
+		return floor - startY;
+	}
+
+	public float[] getLegBottoms() {
+		return this.legBottoms;
+	}
+
+	/** Client: refresh the legs now and then (the ground can change), re-registering the frame if they moved. */
+	public void refreshLegsClient(long gameTime) {
+		if (gameTime - this.legsCheckedAt >= 40) {
+			this.legsCheckedAt = gameTime;
+			if (this.updateLegs()) {
+				this.framePattern = null;
+				this.refreshFrame();
+			}
+		}
+	}
+
 	/** Whether the frame is up: the machine was started or has made progress (same rule as the renderer). */
 	public boolean isFrameVisible() {
 		return this.mode != Mode.IDLE || this.step > 0 || this.scanStep > 0;
@@ -1507,7 +1712,8 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		if (pattern == null) {
 			QuarryFrames.remove(this.level, this.worldPosition.asLong());
 		} else {
-			QuarryFrames.put(this.level, this.worldPosition.asLong(), new QuarryFrame(pattern).worldBoxes(this.worldPosition, direction));
+			this.updateLegs();
+			QuarryFrames.put(this.level, this.worldPosition.asLong(), new QuarryFrame(pattern).withLegs(this.legBottoms).worldBoxes(this.worldPosition, direction));
 		}
 	}
 
@@ -1570,6 +1776,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		output.putLong("Energy", this.energy);
 		this.writeSyncFields(output);
 		output.putLong("BlocksMined", this.blocksMined);
+		output.putInt("StoredXp", this.storedXp);
 		output.putInt("Cooldown", this.cooldown);
 		output.putLong("ScanStep", this.scanStep);
 		output.putBoolean("ScanComplete", this.scanComplete);

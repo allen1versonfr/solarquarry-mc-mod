@@ -24,6 +24,7 @@ public class SolarQuarryClient implements ClientModInitializer {
 		MenuScreens.register(ModMenus.QUARRY, QuarryScreen::new);
 		MenuScreens.register(ModMenus.FILTER_PIPE, FilterPipeScreen::new);
 		MenuScreens.register(ModMenus.TERMINAL, TerminalScreen::new);
+		MenuScreens.register(ModMenus.SORTING_TERMINAL, com.solarquarry.client.screen.SortingTerminalScreen::new);
 		ItemTooltipCallback.EVENT.register((stack, context, type, lines) -> {
 			if (stack.getItem() instanceof TooltipLines tooltip) {
 				tooltip.addTooltipLines(stack, lines::add);
@@ -31,6 +32,11 @@ public class SolarQuarryClient implements ClientModInitializer {
 		});
 		ClientPlayNetworking.registerGlobalReceiver(TerminalSnapshotPayload.TYPE, (payload, context) -> {
 			if (context.client().gui.screen() instanceof TerminalScreen screen) {
+				screen.accept(payload);
+			}
+		});
+		ClientPlayNetworking.registerGlobalReceiver(com.solarquarry.network.SortingSnapshotPayload.TYPE, (payload, context) -> {
+			if (context.client().gui.screen() instanceof com.solarquarry.client.screen.SortingTerminalScreen screen) {
 				screen.accept(payload);
 			}
 		});
