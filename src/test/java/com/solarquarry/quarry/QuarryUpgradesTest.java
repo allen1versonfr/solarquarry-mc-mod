@@ -46,4 +46,13 @@ class QuarryUpgradesTest {
 		assertTrue(max.ticksPerOperation() >= 1);
 		assertTrue(max.blocksPerOperation() <= 2);
 	}
+
+	@Test
+	void autoSmelterCostDropsWithEfficiencyButNeverReachesZero() {
+		long base = new QuarryUpgrades(0, 0, 0, 0, false, 0, false, false).smeltCostPerItem();
+		long efficient = new QuarryUpgrades(0, 0, 4, 0, false, 0, false, false).smeltCostPerItem();
+		assertEquals(com.solarquarry.smelting.Smelting.AUTO_SMELT_COST, base);
+		org.junit.jupiter.api.Assertions.assertTrue(efficient < base && efficient > 0, "efficiency lowers the smelting cost: " + efficient);
+		assertEquals(base, new QuarryUpgrades(4, 0, 0, 3, false, 0, false, false).smeltCostPerItem(), "speed and fortune do not change it");
+	}
 }

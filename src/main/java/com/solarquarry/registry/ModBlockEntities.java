@@ -31,6 +31,9 @@ public final class ModBlockEntities {
 	public static final BlockEntityType<com.solarquarry.fluid.LiquidTankBlockEntity> LIQUID_TANK = register("liquid_tank",
 		FabricBlockEntityTypeBuilder.create(com.solarquarry.fluid.LiquidTankBlockEntity::new, ModBlocks.LIQUID_TANK).build());
 
+	public static final BlockEntityType<com.solarquarry.smelting.SuperSmelterBlockEntity> SUPER_SMELTER = register("super_smelter",
+		FabricBlockEntityTypeBuilder.create(com.solarquarry.smelting.SuperSmelterBlockEntity::new, ModBlocks.SUPER_SMELTER).build());
+
 	public static final BlockEntityType<TerminalBlockEntity> TERMINAL = register("remote_terminal",
 		FabricBlockEntityTypeBuilder.create(TerminalBlockEntity::new, ModBlocks.REMOTE_TERMINAL).build());
 

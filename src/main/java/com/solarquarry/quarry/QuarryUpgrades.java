@@ -6,13 +6,13 @@ import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
 
 /** Snapshot of the upgrades installed in a quarry and the machine stats they produce. */
-public record QuarryUpgrades(int speed, int capacity, int efficiency, int fortune, boolean silkTouch, int rangeTier, boolean voiding, boolean chunkLoader, boolean liquidRemover) {
+public record QuarryUpgrades(int speed, int capacity, int efficiency, int fortune, boolean silkTouch, int rangeTier, boolean voiding, boolean chunkLoader, boolean liquidRemover, boolean autoSmelter) {
 	public static final QuarryUpgrades NONE = new QuarryUpgrades(0, 0, 0, 0, false, 0, false, false);
 	public static final long BASE_CAPACITY = 100_000L;
 	private static final int[] INTERVALS = {10, 6, 4, 2, 1};
 
 	public QuarryUpgrades(int speed, int capacity, int efficiency, int fortune, boolean silkTouch, int rangeTier, boolean voiding, boolean chunkLoader) {
-		this(speed, capacity, efficiency, fortune, silkTouch, rangeTier, voiding, chunkLoader, false);
+		this(speed, capacity, efficiency, fortune, silkTouch, rangeTier, voiding, chunkLoader, false, false);
 	}
 
 	public static QuarryUpgrades of(Container upgrades, int first, int count) {
@@ -25,6 +25,7 @@ public record QuarryUpgrades(int speed, int capacity, int efficiency, int fortun
 		boolean voiding = false;
 		boolean chunkLoader = false;
 		boolean liquid = false;
+		boolean smelter = false;
 
 		for (int i = first; i < first + count; i++) {
 			ItemStack stack = upgrades.getItem(i);
@@ -43,6 +44,7 @@ public record QuarryUpgrades(int speed, int capacity, int efficiency, int fortun
 				case VOID -> voiding = true;
 				case CHUNK_LOADER -> chunkLoader = true;
 				case LIQUID_REMOVER -> liquid = true;
+				case AUTO_SMELTER -> smelter = true;
 			}
 		}
 
@@ -59,7 +61,8 @@ public record QuarryUpgrades(int speed, int capacity, int efficiency, int fortun
 			Math.min(range, 2),
 			voiding,
 			chunkLoader,
-			liquid
+			liquid,
+			smelter
 		);
 	}
 
@@ -104,6 +107,12 @@ public record QuarryUpgrades(int speed, int capacity, int efficiency, int fortun
 	/** Average power draw in E/t while mining stone continuously at full speed. */
 	public long typicalPowerDraw() {
 		return Math.max(1L, this.typicalEnergyPerBlock() * this.blocksPerOperation() / this.ticksPerOperation());
+	}
+
+	/** Energy per item the Auto-Smelter smelts: lowered by efficiency, scaled by the server's energy multiplier. */
+	public long smeltCostPerItem() {
+		return Math.max(1L, Math.round(com.solarquarry.smelting.Smelting.AUTO_SMELT_COST * (1.0 - 0.15 * this.efficiency)
+			* SolarQuarryConfig.get().energyCostMultiplier()));
 	}
 
 	/** Combined energy-cost multiplier from speed, efficiency, silk touch, fortune and the server's energyCostMultiplier. */

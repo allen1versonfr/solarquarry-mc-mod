@@ -40,8 +40,8 @@ public class LiquidTankRenderer implements BlockEntityRenderer<LiquidTankBlockEn
 		BlockEntityRenderer.super.extractRenderState(be, state, partialTicks, cameraPosition, breakProgress);
 		state.fill = be.fill();
 		Fluid fluid = be.fluid().getFluid();
-		state.glow = fluid.is(FluidTags.LAVA);
-		state.color = fluid.is(FluidTags.WATER) ? 0xFF3F76E4 : state.glow ? 0xFFFF8A1E : 0xFF9AA4B0;
+		state.glow = fluid.defaultFluidState().is(FluidTags.LAVA);
+		state.color = fluid.defaultFluidState().is(FluidTags.WATER) ? 0xFF3F76E4 : state.glow ? 0xFFFF8A1E : 0xFF9AA4B0;
 	}
 
 	@Override
@@ -50,7 +50,8 @@ public class LiquidTankRenderer implements BlockEntityRenderer<LiquidTankBlockEn
 			return;
 		}
 
-		float top = BOTTOM + (TOP - BOTTOM) * Math.max(0.03F, state.fill);
+		// At least one pixel shows as soon as there is any liquid.
+		float top = BOTTOM + Math.max(1.0F / 16.0F, (TOP - BOTTOM) * state.fill);
 		int light = state.glow ? LightCoordsUtil.FULL_BRIGHT : state.lightCoords;
 		int color = state.color;
 		collector.submitCustomGeometry(poseStack, RenderTypes.entityCutout(GAUGE), (pose, vc) -> {

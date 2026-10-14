@@ -249,6 +249,14 @@ public class SolarQuarryClientGameTest implements FabricClientGameTest {
 				if (!(level.getBlockEntity(pond.north(2)) instanceof com.solarquarry.fluid.LiquidTankBlockEntity tank) || tank.amount() <= 0) {
 					throw new AssertionError("the liquid tank received no water from the quarry");
 				}
+
+				com.solarquarry.SolarQuarry.LOGGER.info("[ClientTest] liquid tank holds {} mB after pumping", tank.amount() * 1000 / net.fabricmc.fabric.api.transfer.v1.fluid.FluidConstants.BUCKET);
+				// Top it up to half so the screenshot shows the level gauge clearly.
+				long half = com.solarquarry.fluid.LiquidTankBlockEntity.CAPACITY / 2;
+				try (var tx = net.fabricmc.fabric.api.transfer.v1.transaction.Transaction.openOuter()) {
+					tank.storage.insert(tank.fluid(), Math.max(0, half - tank.amount()), tx);
+					tx.commit();
+				}
 			});
 			singleplayer.getServer().runCommand("tp @a " + (pond.getX() - 2) + " " + (pond.getY() + 1) + " " + (pond.getZ() - 4));
 			context.waitTicks(10);
@@ -264,6 +272,30 @@ public class SolarQuarryClientGameTest implements FabricClientGameTest {
 			context.waitForScreen(com.solarquarry.client.screen.CrateScreen.class);
 			context.waitTicks(10);
 			context.takeScreenshot("15_crate_screen");
+			context.runOnClient(client -> client.player.closeContainer());
+			context.waitTicks(5);
+
+			// Super Smelter: two lanes working, the third idle.
+			singleplayer.getServer().runOnServer(server -> {
+				ServerPlayer player = server.getPlayerList().getPlayers().get(0);
+				BlockPos smelterPos = pond.west(2);
+				player.level().setBlock(smelterPos, ModBlocks.SUPER_SMELTER.defaultBlockState(), Block.UPDATE_ALL);
+				if (player.level().getBlockEntity(smelterPos) instanceof com.solarquarry.smelting.SuperSmelterBlockEntity smelter) {
+					smelter.restoreEnergy(40_000L);
+					smelter.setItem(0, new ItemStack(Items.RAW_IRON, 32));
+					smelter.setItem(1, new ItemStack(Items.SAND, 16));
+					player.openMenu(smelter);
+				}
+			});
+			context.waitForScreen(com.solarquarry.client.screen.SuperSmelterScreen.class);
+			context.waitTicks(80);
+			context.runOnClient(client -> {
+				if (!(client.gui.screen() instanceof com.solarquarry.client.screen.SuperSmelterScreen screen)
+					|| screen.getMenu().getStatus() != com.solarquarry.smelting.SuperSmelterBlockEntity.Status.RUNNING || screen.getMenu().getPowerDraw() != 32) {
+					throw new AssertionError("super smelter screen does not show two working lanes");
+				}
+			});
+			context.takeScreenshot("16_super_smelter");
 			context.runOnClient(client -> client.player.closeContainer());
 			context.waitTicks(5);
 		}

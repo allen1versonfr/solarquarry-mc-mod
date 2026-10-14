@@ -19,6 +19,7 @@
     "solarquarry:crate_reinforced",
     "solarquarry:crate_advanced",
     "solarquarry:liquid_tank",
-    "solarquarry:fluid_pipe"
+    "solarquarry:fluid_pipe",
+    "solarquarry:super_smelter"
   ]
 }

@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "CFC",
+    "GBG",
+    "CRC"
+  ],
+  "key": {
+    "C": "minecraft:copper_ingot",
+    "F": "minecraft:blast_furnace",
+    "G": "minecraft:gold_ingot",
+    "B": "solarquarry:upgrade_base",
+    "R": "solarquarry:circuit_board"
+  },
+  "result": {
+    "id": "solarquarry:auto_smelter_upgrade",
+    "count": 1
+  }
+}

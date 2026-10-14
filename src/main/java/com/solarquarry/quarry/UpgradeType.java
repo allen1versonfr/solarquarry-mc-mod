@@ -9,7 +9,8 @@ public enum UpgradeType {
 	RANGE("range", 1),
 	VOID("void", 1),
 	CHUNK_LOADER("chunk_loader", 1),
-	LIQUID_REMOVER("liquid_remover", 1);
+	LIQUID_REMOVER("liquid_remover", 1),
+	AUTO_SMELTER("auto_smelter", 1);
 
 	private final String id;
 	private final int maxStack;

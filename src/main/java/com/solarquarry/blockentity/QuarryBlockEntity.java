@@ -185,6 +185,8 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		}
 	};
 	private long fluidPumped;
+	/** Fraction of a point of smelting experience not yet stored. */
+	private float smeltXpRemainder;
 	/** Where the pump arm last worked (synced for the renderer). */
 	private @Nullable BlockPos pumpTarget;
 
@@ -218,6 +220,9 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	private long legsCheckedAt = Long.MIN_VALUE;
 	/** Next pattern index the pump arm checks; runs ahead of the drill and wraps back to it. */
 	private long pumpCursor;
+	/** Final dry check over the whole volume (Liquid Remover only). */
+	private long sweepCursor;
+	private boolean sweepFound;
 	private List<com.solarquarry.fluid.FluidNetwork.Target> fluidTargets = List.of();
 	private int fluidTargetsVersion = -1;
 	private long fluidTargetsAt = Long.MIN_VALUE;
@@ -274,7 +279,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 				case 27 -> (int) Math.min(Math.round(q.mineRate.perSecond() * 100.0), 0x7FFF);
 				case 28 -> q.storedXp & 0xFFFF;
 				case 29 -> (q.storedXp >>> 16) & 0xFFFF;
-				case 30 -> (q.upgrades.liquidRemover() ? 1 : 0) | (q.fluidPipeConnected ? 2 : 0) | (q.upgrades.voiding() ? 4 : 0);
+				case 30 -> (q.upgrades.liquidRemover() ? 1 : 0) | (q.fluidPipeConnected ? 2 : 0) | (q.upgrades.voiding() ? 4 : 0) | (q.upgrades.autoSmelter() ? 8 : 0);
 				case 31 -> (int) Math.min(q.pumpTank.amount * 10 / FluidConstants.BUCKET, 0x7FFF);
 				default -> 0;
 			};
@@ -562,7 +567,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		MiningPattern pattern = this.pattern();
 		for (int scanned = 0; scanned < SCAN_BUDGET; scanned++) {
 			if (pattern.isComplete(this.step)) {
-				return StepResult.FINISHED;
+				return this.upgrades.liquidRemover() ? this.drySweep(level, pattern) : StepResult.FINISHED;
 			}
 
 			BlockPos pos = this.positionOf(pattern, this.step);
@@ -721,11 +726,35 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 			}
 		}
 
+		// Auto-Smelter: ores and raw metals become what a furnace makes of them (void-listed drops were removed above).
+		long smeltCost = 0;
+		float smeltXp = 0.0F;
+		if (this.upgrades.autoSmelter()) {
+			for (int i = 0; i < kept.size(); i++) {
+				ItemStack drop = kept.get(i);
+				if (!com.solarquarry.smelting.Smelting.autoSmelts(drop)) {
+					continue;
+				}
+
+				com.solarquarry.smelting.Smelting.Result smelted = com.solarquarry.smelting.Smelting.smelt(level, drop);
+				if (smelted != null) {
+					kept.set(i, smelted.output().copyWithCount(Math.min(smelted.output().getMaxStackSize(), smelted.output().getCount() * drop.getCount())));
+					smeltCost += this.smeltCostPerItem() * drop.getCount();
+					smeltXp += smelted.experience() * drop.getCount();
+				}
+			}
+
+			if (this.energy < cost + smeltCost) {
+				return StepResult.NO_ENERGY;
+			}
+		}
+
 		if (!this.canFitAll(kept)) {
 			return StepResult.FULL;
 		}
 
-		this.useEnergy(cost);
+		this.useEnergy(cost + smeltCost);
+		this.addSmeltingExperience(smeltXp);
 		level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
 		target.spawnAfterBreak(level, pos, tool, true);
 		this.absorbExperience(level, pos);
@@ -1013,6 +1042,8 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		this.finished = false;
 		this.cooldown = 0;
 		this.lastTarget = null;
+		this.sweepCursor = 0;
+		this.sweepFound = false;
 		this.invalidatePattern();
 		this.markConfigChanged();
 	}
@@ -1542,6 +1573,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		input.child("PumpTank").ifPresent(tank -> SingleVariantStorage.readValue(this.pumpTank, FluidVariant.CODEC, FluidVariant::blank, tank));
 		this.pumpTank.amount = Math.clamp(this.pumpTank.amount, 0, PUMP_CAPACITY);
 		this.fluidPumped = Math.max(0, input.getLongOr("FluidPumped", 0L));
+		this.smeltXpRemainder = Math.clamp(input.getFloatOr("SmeltXp", 0.0F), 0.0F, 1.0F);
 		this.clientPump = input.getBooleanOr("Pump", false);
 		this.pumpTarget = input.getLong("PumpTarget").map(BlockPos::of).orElse(null);
 		this.cooldown = Math.max(0, Math.min(20, input.getIntOr("Cooldown", this.cooldown)));
@@ -1640,6 +1672,46 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		}
 	}
 
+	/**
+	 * With a Liquid Remover the job is only done once a full pass over the volume finds no liquid: water can flow back
+	 * into cells the drill already passed. Each liquid block found is pumped like any other.
+	 */
+	private StepResult drySweep(ServerLevel level, MiningPattern pattern) {
+		for (int scanned = 0; scanned < SCAN_BUDGET; scanned++) {
+			if (pattern.isComplete(this.sweepCursor)) {
+				if (!this.sweepFound) {
+					this.sweepCursor = 0;
+					return StepResult.FINISHED;
+				}
+
+				this.sweepCursor = 0;
+				this.sweepFound = false;
+				return StepResult.SCANNING;
+			}
+
+			BlockPos pos = this.positionOf(pattern, this.sweepCursor);
+			if (!level.isLoaded(pos)) {
+				return this.waitForChunk(level, pos);
+			}
+
+			BlockState state = level.getBlockState(pos);
+			if (state.getBlock() instanceof LiquidBlock && !this.shouldSkip(level, pos, state)
+				&& QuarryProtection.mayBreak(level, this.actor(level), pos, state, null)) {
+				StepResult result = this.pumpLiquid(level, pos, state);
+				if (result == StepResult.MINED) {
+					this.sweepFound = true;
+					this.sweepCursor++;
+				}
+
+				return result;
+			}
+
+			this.sweepCursor++;
+		}
+
+		return StepResult.SCANNING;
+	}
+
 	/** Removes one liquid block with the pump arm. */
 	private StepResult pumpLiquid(ServerLevel level, BlockPos pos, BlockState state) {
 		net.minecraft.world.level.material.FluidState fluid = state.getFluidState();
@@ -1734,6 +1806,26 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 
 	public boolean hasPumpClient() {
 		return this.clientPump;
+	}
+
+	// ---- auto-smelter ----
+
+	public long smeltCostPerItem() {
+		return this.upgrades.smeltCostPerItem();
+	}
+
+	/** Furnace experience earned by the Auto-Smelter, kept with the mining experience (fractions carry over). */
+	private void addSmeltingExperience(float amount) {
+		if (amount <= 0.0F) {
+			return;
+		}
+
+		this.smeltXpRemainder += amount;
+		int whole = (int) this.smeltXpRemainder;
+		if (whole > 0) {
+			this.smeltXpRemainder -= whole;
+			this.storedXp = (int) Math.min(MAX_STORED_XP, (long) this.storedXp + whole);
+		}
 	}
 
 	// ---- experience ----
@@ -1994,6 +2086,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		output.putInt("StoredXp", this.storedXp);
 		SingleVariantStorage.writeValue(this.pumpTank, FluidVariant.CODEC, output.child("PumpTank"));
 		output.putLong("FluidPumped", this.fluidPumped);
+		output.putFloat("SmeltXp", this.smeltXpRemainder);
 		output.putInt("Cooldown", this.cooldown);
 		output.putLong("ScanStep", this.scanStep);
 		output.putBoolean("ScanComplete", this.scanComplete);

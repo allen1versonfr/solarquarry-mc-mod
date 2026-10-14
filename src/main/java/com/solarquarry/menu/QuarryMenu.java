@@ -286,6 +286,10 @@ public class QuarryMenu extends AbstractContainerMenu {
 		return (this.data.get(30) & 1) != 0;
 	}
 
+	public boolean hasAutoSmelter() {
+		return (this.data.get(30) & 8) != 0;
+	}
+
 	public boolean isFluidPipeConnected() {
 		return (this.data.get(30) & 2) != 0;
 	}

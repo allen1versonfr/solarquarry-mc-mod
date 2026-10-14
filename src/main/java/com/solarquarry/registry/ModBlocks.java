@@ -77,6 +77,11 @@ public final class ModBlocks {
 		BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.0F, 6.0F).sound(SoundType.METAL).requiresCorrectToolForDrops(),
 		"tooltip.solarquarry.liquid_tank", Rarity.UNCOMMON);
 
+	public static final com.solarquarry.smelting.SuperSmelterBlock SUPER_SMELTER = register("super_smelter", com.solarquarry.smelting.SuperSmelterBlock::new,
+		BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.5F, 6.0F).sound(SoundType.METAL).requiresCorrectToolForDrops()
+			.lightLevel(state -> state.getValue(com.solarquarry.smelting.SuperSmelterBlock.LIT) ? 13 : 0),
+		"tooltip.solarquarry.super_smelter", Rarity.RARE);
+
 	public static final TerminalBlock REMOTE_TERMINAL = register("remote_terminal", TerminalBlock::new,
 		BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.5F, 6.0F).sound(SoundType.METAL).requiresCorrectToolForDrops().lightLevel(state -> 4),
 		"tooltip.solarquarry.remote_terminal", Rarity.UNCOMMON);

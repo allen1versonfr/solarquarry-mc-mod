@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "solarquarry:block/super_smelter_front_on",
+    "side": "solarquarry:block/super_smelter_side",
+    "top": "solarquarry:block/super_smelter_top"
+  }
+}

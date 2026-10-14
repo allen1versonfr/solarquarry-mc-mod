@@ -25,9 +25,9 @@ public class CrateScreen extends AbstractContainerScreen<CrateMenu> {
 	protected void init() {
 		super.init();
 		if (this.menu.tier().pages() > 1) {
-			this.previous = this.addRenderableWidget(new IndustrialButton(this.leftPos + WIDTH - 52, this.topPos + 3, 14, 12, Component.literal("<"),
+			this.previous = this.addRenderableWidget(new IndustrialButton(this.leftPos + WIDTH - 52, this.topPos + CrateMenu.INVENTORY_Y - 13, 14, 12, Component.literal("<"),
 				input -> this.press(CrateMenu.BUTTON_PREVIOUS)));
-			this.next = this.addRenderableWidget(new IndustrialButton(this.leftPos + WIDTH - 18, this.topPos + 3, 14, 12, Component.literal(">"),
+			this.next = this.addRenderableWidget(new IndustrialButton(this.leftPos + WIDTH - 18, this.topPos + CrateMenu.INVENTORY_Y - 13, 14, 12, Component.literal(">"),
 				input -> this.press(CrateMenu.BUTTON_NEXT)));
 		}
 	}
@@ -65,7 +65,7 @@ public class CrateScreen extends AbstractContainerScreen<CrateMenu> {
 		g.text(this.font, this.title, this.titleLabelX, this.titleLabelY, 0xFFF1D8A6, true);
 		g.text(this.font, this.playerInventoryTitle, this.inventoryLabelX, this.inventoryLabelY, GuiDraw.LABEL, false);
 		if (this.menu.tier().pages() > 1) {
-			g.centeredText(this.font, Component.literal((this.menu.page() + 1) + "/" + this.menu.tier().pages()), WIDTH - 27, 6, GuiDraw.LCD_TEXT);
+			g.centeredText(this.font, Component.literal((this.menu.page() + 1) + "/" + this.menu.tier().pages()), WIDTH - 27, CrateMenu.INVENTORY_Y - 11, GuiDraw.LCD_TEXT);
 		}
 	}
 }

@@ -24,6 +24,7 @@ public class SolarQuarryClient implements ClientModInitializer {
 		MenuScreens.register(ModMenus.QUARRY, QuarryScreen::new);
 		MenuScreens.register(ModMenus.FILTER_PIPE, FilterPipeScreen::new);
 		MenuScreens.register(ModMenus.CRATE, com.solarquarry.client.screen.CrateScreen::new);
+		MenuScreens.register(ModMenus.SUPER_SMELTER, com.solarquarry.client.screen.SuperSmelterScreen::new);
 		MenuScreens.register(ModMenus.TERMINAL, TerminalScreen::new);
 		MenuScreens.register(ModMenus.SORTING_TERMINAL, com.solarquarry.client.screen.SortingTerminalScreen::new);
 		ItemTooltipCallback.EVENT.register((stack, context, type, lines) -> {

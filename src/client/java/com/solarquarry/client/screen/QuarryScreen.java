@@ -449,6 +449,10 @@ public class QuarryScreen extends AbstractContainerScreen<QuarryMenu> {
 			lines.add(Component.translatable("gui.solarquarry.upgrades.void"));
 		}
 
+		if (this.menu.hasAutoSmelter()) {
+			lines.add(Component.translatable("gui.solarquarry.upgrades.auto_smelter").withStyle(ChatFormatting.GOLD));
+		}
+
 		if (this.menu.hasLiquidRemover()) {
 			int tenths = this.menu.getPumpTenths();
 			lines.add(Component.translatable("gui.solarquarry.upgrades.liquid", tenths / 10 + "." + tenths % 10,

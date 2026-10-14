@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "solarquarry:item/auto_smelter_upgrade"
+  }
+}

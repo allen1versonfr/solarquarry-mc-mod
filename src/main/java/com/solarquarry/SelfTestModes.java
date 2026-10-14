@@ -79,8 +79,13 @@ final class SelfTestModes {
 		this.scenarios.add(new Scenario("B2: torches light the pit walls, XP is collected", this::setupTorches, QuarryBlockEntity::isFinished, 1200, this::verifyTorches));
 		this.scenarios.add(Scenario.timed("B2: legs reach the ground, the machine gets a support", this::setupLegs, 5, this::verifyLegs));
 		this.scenarios.add(new Scenario("phase 2: liquid remover pumps water into a tank", this::setupLiquid, QuarryBlockEntity::isFinished, 1600, this::verifyLiquid));
+		this.scenarios.add(Scenario.timed("phase 2: the pump's buffer drains into the tank", s -> { }, 80, this::verifyLiquidDrained));
 		this.scenarios.add(new Scenario("phase 2: liquid remover with a void upgrade deletes liquid", this::setupLiquidVoid, QuarryBlockEntity::isFinished, 1600, this::verifyLiquidVoid));
 		this.scenarios.add(Scenario.timed("phase 2: storage crates hold pages of items", s -> { }, 1, this::verifyCrates));
+		this.scenarios.add(Scenario.timed("phase 3: super smelter runs three lanes at 4x speed", this::setupSmelter, 120, this::verifySmelterRun));
+		this.scenarios.add(Scenario.timed("phase 3: super smelter pauses without power", this::starveSmelter, 30, this::verifySmelterStarved));
+		this.scenarios.add(Scenario.timed("phase 3: super smelter stops when the output is full", this::fillSmelterOutput, 30, this::verifySmelterFull));
+		this.scenarios.add(new Scenario("phase 3: auto-smelter upgrade smelts mined ores", this::setupAutoSmelter, QuarryBlockEntity::isFinished, 1200, this::verifyAutoSmelter));
 		this.scenarios.add(Scenario.timed("phase 2: pipe tiers move items at different speeds", this::setupPipeTiers, 30, this::verifyPipeTiersEarly));
 		this.scenarios.add(Scenario.timed("phase 2: basic pipe delivers too, just slower", s -> { }, 80, this::verifyPipeTiersLate));
 		this.scenarios.add(Scenario.timed("phase 2: sorting terminal routes by rules", this::setupSorting, 2, this::verifySortingRoutes));
@@ -1420,17 +1425,26 @@ final class SelfTestModes {
 
 	private void verifyLiquid(ServerLevel level) {
 		QuarryBlockEntity quarry = quarry(level);
-		int water = countBlocks(level, 99, 195, 101, 101, 199, 103, Blocks.WATER);
+		int water = countBlocks(level, 99, 196, 101, 101, 199, 103, Blocks.WATER);
 		SelfTest.check(quarry.isFinished() && water == 0, "liquid: the flooded area was drained and mined (" + water + " water left)");
 		var tank = level.getBlockEntity(TANK) instanceof com.solarquarry.fluid.LiquidTankBlockEntity t ? t : null;
 		long bucket = net.fabricmc.fabric.api.transfer.v1.fluid.FluidConstants.BUCKET;
 		long inTank = tank != null ? tank.amount() : 0;
 		long total = inTank + quarry.getPumpAmount();
 		SolarQuarry.LOGGER.info("[SelfTest] liquid: pumped {} buckets, {} in the tank, {} still in the quarry", quarry.getFluidPumped() / bucket, inTank / bucket, quarry.getPumpAmount() / bucket);
-		SelfTest.check(tank != null && tank.fluid().getFluid() == net.minecraft.world.level.material.Fluids.WATER && inTank >= 9 * bucket,
-			"liquid: water went through the fluid pipe into the tank (" + inTank / bucket + " buckets)");
+		SelfTest.check(quarry.getFluidPumped() >= 18 * bucket, "liquid: every water source was collected (" + quarry.getFluidPumped() / bucket + " buckets)");
 		SelfTest.check(total == quarry.getFluidPumped(), "liquid: nothing was lost or duplicated between the pump and the tank");
-		SelfTest.check(countBlocks(level, 99, 195, 101, 101, 199, 103, Blocks.STONE) == 0, "liquid: the stone under the water was still mined");
+		SelfTest.check(countBlocks(level, 99, 196, 101, 101, 199, 103, Blocks.STONE) == 0, "liquid: the stone under the water was still mined");
+		quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS, ItemStack.EMPTY);
+	}
+
+	private void verifyLiquidDrained(ServerLevel level) {
+		QuarryBlockEntity quarry = quarry(level);
+		var tank = level.getBlockEntity(TANK) instanceof com.solarquarry.fluid.LiquidTankBlockEntity t ? t : null;
+		long bucket = net.fabricmc.fabric.api.transfer.v1.fluid.FluidConstants.BUCKET;
+		long inTank = tank != null ? tank.amount() : 0;
+		SelfTest.check(tank != null && tank.fluid().getFluid() == net.minecraft.world.level.material.Fluids.WATER && quarry.getPumpAmount() == 0
+			&& inTank == quarry.getFluidPumped(), "liquid: all of it went through the fluid pipe into the tank (" + inTank / bucket + " buckets)");
 
 		// Buckets empty the tank, one bucket at a time.
 		var fake = net.fabricmc.fabric.api.entity.FakePlayer.get(level);
@@ -1441,7 +1455,6 @@ final class SelfTestModes {
 		SelfTest.check(used && filled && tank.amount() == before - bucket, "liquid: an empty bucket takes one bucket of water out of the tank");
 		fake.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
 		this.tankBeforeVoid = tank != null ? tank.amount() : 0;
-		quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS, ItemStack.EMPTY);
 	}
 
 	private void setupLiquidVoid(ServerLevel level) {
@@ -1456,7 +1469,7 @@ final class SelfTestModes {
 
 	private void verifyLiquidVoid(ServerLevel level) {
 		QuarryBlockEntity quarry = quarry(level);
-		int water = countBlocks(level, 99, 195, 101, 101, 199, 103, Blocks.WATER);
+		int water = countBlocks(level, 99, 196, 101, 101, 199, 103, Blocks.WATER);
 		long inTank = level.getBlockEntity(TANK) instanceof com.solarquarry.fluid.LiquidTankBlockEntity t ? t.amount() : -1;
 		SelfTest.check(quarry.isFinished() && water == 0, "liquid + void: the flooded area was drained (" + water + " water left)");
 		SelfTest.check(inTank == this.tankBeforeVoid && quarry.getPumpAmount() == 0, "liquid + void: the liquid was deleted, nothing reached the tank");
@@ -1496,5 +1509,139 @@ final class SelfTestModes {
 		menu.removed(fake);
 		crate.clearContent();
 		level.removeBlock(pos, false);
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// Phase 3: Super Smelter, Auto-Smelter Upgrade
+	// ---------------------------------------------------------------------------------------------
+
+	private static final BlockPos SMELTER = new BlockPos(120, 200, 120);
+	private long smelterEnergyStart;
+
+	private com.solarquarry.smelting.SuperSmelterBlockEntity smelter(ServerLevel level) {
+		return level.getBlockEntity(SMELTER) instanceof com.solarquarry.smelting.SuperSmelterBlockEntity s ? s : null;
+	}
+
+	private void setupSmelter(ServerLevel level) {
+		level.setBlock(SMELTER, com.solarquarry.registry.ModBlocks.SUPER_SMELTER.defaultBlockState(), Block.UPDATE_ALL);
+		var smelter = this.smelter(level);
+		smelter.restoreEnergy(com.solarquarry.smelting.SuperSmelterBlockEntity.CAPACITY);
+		smelter.setItem(0, new ItemStack(Items.RAW_IRON, 8));
+		smelter.setItem(1, new ItemStack(Items.COBBLESTONE, 8));
+		this.smelterEnergyStart = smelter.getEnergy();
+	}
+
+	private void verifySmelterRun(ServerLevel level) {
+		var smelter = this.smelter(level);
+		int cook = com.solarquarry.smelting.SuperSmelterBlockEntity.COOK_TICKS;
+		ItemStack ingots = smelter.getItem(3);
+		ItemStack stone = smelter.getItem(4);
+		SelfTest.check(ingots.is(Items.IRON_INGOT) && stone.is(Items.STONE) && ingots.getCount() == 2 && stone.getCount() == 2,
+			"smelter: furnace recipes, two lanes in parallel, one item per " + cook + " ticks (" + ingots + ", " + stone + ")");
+		SelfTest.check(smelter.getItem(0).getCount() == 6 && smelter.getItem(1).getCount() == 6, "smelter: one input used per result");
+		long worked = (long) ingots.getCount() * cook + smelter.getProgress(0) + (long) stone.getCount() * cook + smelter.getProgress(1);
+		long used = this.smelterEnergyStart - smelter.getEnergy();
+		SelfTest.check(used == worked * com.solarquarry.smelting.SuperSmelterBlockEntity.LANE_POWER,
+			"smelter: energy matches the work exactly (" + used + " E for " + worked + " lane-ticks), the idle lane draws nothing");
+		SelfTest.check(smelter.getStatus() == com.solarquarry.smelting.SuperSmelterBlockEntity.Status.RUNNING
+			&& level.getBlockState(SMELTER).getValue(com.solarquarry.smelting.SuperSmelterBlock.LIT), "smelter: status Smelting, front lit");
+		SelfTest.check(!smelter.canPlaceItem(0, new ItemStack(Items.DIRT)) && smelter.canPlaceItem(2, new ItemStack(Items.RAW_GOLD))
+			&& !smelter.canPlaceItem(3, new ItemStack(Items.RAW_GOLD)), "smelter: inputs accept only smeltable items, results cannot be inserted");
+		SelfTest.check(smelter.canPlaceItemThroughFace(2, new ItemStack(Items.RAW_GOLD), net.minecraft.core.Direction.UP)
+			&& !smelter.canPlaceItemThroughFace(2, new ItemStack(Items.RAW_GOLD), net.minecraft.core.Direction.DOWN)
+			&& smelter.canTakeItemThroughFace(3, ingots, net.minecraft.core.Direction.DOWN)
+			&& !smelter.canTakeItemThroughFace(0, smelter.getItem(0), net.minecraft.core.Direction.DOWN)
+			&& !smelter.canTakeItemThroughFace(3, ingots, net.minecraft.core.Direction.NORTH), "smelter: sided automation (inputs from top/sides, results from the bottom)");
+		var storage = net.fabricmc.fabric.api.transfer.v1.item.ItemStorage.SIDED.find(level, SMELTER, net.minecraft.core.Direction.UP);
+		long inserted;
+		try (var tx = net.fabricmc.fabric.api.transfer.v1.transaction.Transaction.openOuter()) {
+			inserted = storage == null ? 0 : storage.insert(net.fabricmc.fabric.api.transfer.v1.item.ItemVariant.of(Items.DIRT), 4, tx);
+		}
+
+		SelfTest.check(inserted == 0, "smelter: a pipe or hopper cannot push unsmeltable items in");
+
+		CompoundTag tag = smelter.saveWithFullMetadata(level.registryAccess());
+		BlockEntity copy = BlockEntity.loadStatic(SMELTER, level.getBlockState(SMELTER), tag, level.registryAccess());
+		SelfTest.check(copy instanceof com.solarquarry.smelting.SuperSmelterBlockEntity c && c.getEnergy() == smelter.getEnergy()
+			&& c.getProgress(0) == smelter.getProgress(0) && ItemStack.matches(c.getItem(3), ingots) && c.getItem(0).getCount() == 6,
+			"smelter: energy, progress and items survive save/load");
+	}
+
+	private void starveSmelter(ServerLevel level) {
+		var smelter = this.smelter(level);
+		smelter.extractForPickup(level.registryAccess());
+		smelter.setItem(0, new ItemStack(Items.RAW_IRON, 8));
+		smelter.restoreEnergy(com.solarquarry.smelting.SuperSmelterBlockEntity.LANE_POWER * 10);
+	}
+
+	private void verifySmelterStarved(ServerLevel level) {
+		var smelter = this.smelter(level);
+		SelfTest.check(smelter.getStatus() == com.solarquarry.smelting.SuperSmelterBlockEntity.Status.NO_POWER && smelter.getEnergy() == 0
+			&& smelter.getProgress(0) == 10 && smelter.getItem(3).isEmpty(), "smelter: stops at no power and keeps its progress (" + smelter.getProgress(0) + ")");
+	}
+
+	private void fillSmelterOutput(ServerLevel level) {
+		var smelter = this.smelter(level);
+		smelter.setItem(3, new ItemStack(Items.IRON_INGOT, 64));
+		smelter.restoreEnergy(10_000);
+		this.smelterEnergyStart = smelter.getEnergy();
+	}
+
+	private void verifySmelterFull(ServerLevel level) {
+		var smelter = this.smelter(level);
+		SelfTest.check(smelter.getStatus() == com.solarquarry.smelting.SuperSmelterBlockEntity.Status.OUTPUT_FULL
+			&& smelter.getEnergy() == this.smelterEnergyStart && smelter.getItem(0).getCount() == 8 && smelter.getItem(3).getCount() == 64,
+			"smelter: a full result slot stops the lane without using energy or input");
+		smelter.extractForPickup(level.registryAccess());
+		level.removeBlock(SMELTER, false);
+	}
+
+	private void setupAutoSmelter(ServerLevel level) {
+		// 3x3x2 of iron ore over a layer of stone, inside a stone column.
+		fill(level, 98, 196, 100, 102, 199, 104, Blocks.STONE.defaultBlockState());
+		fill(level, 99, 198, 101, 101, 199, 103, Blocks.IRON_ORE.defaultBlockState());
+		QuarryBlockEntity quarry = quarry(level);
+		for (int i = 0; i < QuarryBlockEntity.UPGRADE_SLOTS; i++) {
+			quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS + i, ItemStack.EMPTY);
+		}
+
+		for (int i = 0; i < QuarryBlockEntity.BUFFER_SLOTS; i++) {
+			quarry.setItem(i, ItemStack.EMPTY);
+		}
+
+		quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS, new ItemStack(com.solarquarry.registry.ModItems.AUTO_SMELTER_UPGRADE));
+		quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS + 1, new ItemStack(com.solarquarry.registry.ModItems.SPEED_UPGRADE, 2));
+		quarry.collectXp(net.fabricmc.fabric.api.entity.FakePlayer.get(level));
+		configure(quarry, QuarryMode.STRIP_MINE, 3, 3, 1, 197);
+		quarry.resetProgress();
+		quarry.restoreEnergy(quarry.getEnergyCapacity());
+		quarry.start();
+	}
+
+	private void verifyAutoSmelter(ServerLevel level) {
+		QuarryBlockEntity quarry = quarry(level);
+		int ingots = 0;
+		int raw = 0;
+		int cobble = 0;
+		for (int i = 0; i < QuarryBlockEntity.BUFFER_SLOTS; i++) {
+			ItemStack stack = quarry.getItem(i);
+			if (stack.is(Items.IRON_INGOT)) {
+				ingots += stack.getCount();
+			} else if (stack.is(Items.RAW_IRON)) {
+				raw += stack.getCount();
+			} else if (stack.is(Items.COBBLESTONE)) {
+				cobble += stack.getCount();
+			}
+		}
+
+		SelfTest.check(ingots == 18 && raw == 0, "auto-smelter: 18 iron ore became 18 iron ingots (" + ingots + " ingots, " + raw + " raw)");
+		SelfTest.check(cobble == 9, "auto-smelter: stone is not smelted (" + cobble + " cobblestone)");
+		SelfTest.check(quarry.getStoredXp() >= 12, "auto-smelter: smelting experience is stored (" + quarry.getStoredXp() + ")");
+		for (int i = 0; i < QuarryBlockEntity.BUFFER_SLOTS + QuarryBlockEntity.UPGRADE_SLOTS; i++) {
+			quarry.setItem(i, ItemStack.EMPTY);
+		}
+
+		quarry.collectXp(net.fabricmc.fabric.api.entity.FakePlayer.get(level));
+		quarry.pause();
 	}
 }

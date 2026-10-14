@@ -36,6 +36,8 @@ public class SortingTerminalScreen extends AbstractContainerScreen<SortingTermin
 	private static final int ROWS = 5;
 	private static final int PANEL_X = 132;
 	private static final int TAG_Y = 96;
+	/** Two short notes under the list; hover them for the full explanation. */
+	private static final int NOTE_Y = 116;
 	private @Nullable SortingSnapshotPayload snapshot;
 	private int scroll;
 	private IndustrialButton registerButton;
@@ -297,14 +299,39 @@ public class SortingTerminalScreen extends AbstractContainerScreen<SortingTermin
 				g.centeredText(this.font, Component.translatable("gui.solarquarry.sorting.priority", (p > 0 ? "+" : "") + p), PANEL_X + 58, 82, p == 0 ? GuiDraw.LABEL : 0xFFFFE066);
 				SortRule.Mode mode = SortRule.Mode.byOrdinal(entry.mode());
 				if (mode != SortRule.Mode.FALLBACK && !entry.hasEntries()) {
-					g.textWithWordWrap(this.font, Component.translatable(mode == SortRule.Mode.ALLOW ? "gui.solarquarry.sorting.warn_empty_allow" : "gui.solarquarry.sorting.note_block_all"),
-						LIST_X, 136, 240, mode == SortRule.Mode.ALLOW ? 0xFFFFB066 : GuiDraw.LCD_DIM);
+					boolean allow = mode == SortRule.Mode.ALLOW;
+					g.text(this.font, Component.translatable(allow ? "gui.solarquarry.sorting.warn_empty_allow.short" : "gui.solarquarry.sorting.note_block_all.short"),
+						LIST_X, NOTE_Y, allow ? 0xFFFFB066 : GuiDraw.LCD_DIM, false);
 				}
 			}
 		}
 
 		if (!this.snapshot.hasFallback()) {
-			g.textWithWordWrap(this.font, Component.translatable("gui.solarquarry.sorting.no_fallback"), LIST_X, 146, 240, GuiDraw.LCD_DIM);
+			g.text(this.font, Component.translatable("gui.solarquarry.sorting.no_fallback.short"), LIST_X, NOTE_Y + 11, GuiDraw.LCD_DIM, false);
+		}
+	}
+
+	@Override
+	protected void extractTooltip(GuiGraphicsExtractor g, int mouseX, int mouseY) {
+		super.extractTooltip(g, mouseX, mouseY);
+		if (this.snapshot == null) {
+			return;
+		}
+
+		int rx = mouseX - this.leftPos;
+		int ry = mouseY - this.topPos;
+		if (rx < LIST_X || rx >= LIST_X + LIST_W) {
+			return;
+		}
+
+		SortingSnapshotPayload.Entry entry = this.selectedEntry();
+		if (ry >= NOTE_Y - 1 && ry < NOTE_Y + 9 && entry != null && entry.registered() && !entry.hasEntries()) {
+			SortRule.Mode mode = SortRule.Mode.byOrdinal(entry.mode());
+			if (mode != SortRule.Mode.FALLBACK) {
+				g.setTooltipForNextFrame(this.font, Component.translatable(mode == SortRule.Mode.ALLOW ? "gui.solarquarry.sorting.warn_empty_allow" : "gui.solarquarry.sorting.note_block_all"), mouseX, mouseY);
+			}
+		} else if (ry >= NOTE_Y + 10 && ry < NOTE_Y + 20 && !this.snapshot.hasFallback()) {
+			g.setTooltipForNextFrame(this.font, Component.translatable("gui.solarquarry.sorting.no_fallback"), mouseX, mouseY);
 		}
 	}
 }

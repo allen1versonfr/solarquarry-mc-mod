@@ -38,6 +38,13 @@ public class UpgradeItem extends Item implements TooltipLines {
 				: Component.translatable("tooltip.solarquarry.upgrade.chunk_loader.disabled").withStyle(ChatFormatting.RED));
 		}
 
+		if (this.type == UpgradeType.AUTO_SMELTER) {
+			long cost = Math.max(1L, Math.round(com.solarquarry.smelting.Smelting.AUTO_SMELT_COST * SolarQuarryConfig.get().energyCostMultiplier()));
+			builder.accept(Component.translatable("tooltip.solarquarry.upgrade.auto_smelter.cost", cost).withStyle(ChatFormatting.DARK_GRAY));
+			builder.accept(Component.translatable("tooltip.solarquarry.upgrade.auto_smelter.fortune").withStyle(ChatFormatting.DARK_GRAY));
+			builder.accept(Component.translatable("tooltip.solarquarry.upgrade.auto_smelter.filters").withStyle(ChatFormatting.DARK_GRAY));
+		}
+
 		if (this.type.maxStack() > 1) {
 			builder.accept(Component.translatable("tooltip.solarquarry.upgrade.stack", this.type.maxStack()).withStyle(ChatFormatting.DARK_GRAY));
 		}

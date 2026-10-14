@@ -14,6 +14,9 @@ public final class ModMenus {
 	public static final ExtendedMenuType<QuarryMenu, BlockPos> QUARRY = Registry.register(
 		BuiltInRegistries.MENU, SolarQuarry.id("quarry"), new ExtendedMenuType<>(QuarryMenu::new, BlockPos.STREAM_CODEC)
 	);
+	public static final ExtendedMenuType<com.solarquarry.smelting.SuperSmelterMenu, BlockPos> SUPER_SMELTER = Registry.register(
+		BuiltInRegistries.MENU, SolarQuarry.id("super_smelter"), new ExtendedMenuType<>(com.solarquarry.smelting.SuperSmelterMenu::new, BlockPos.STREAM_CODEC)
+	);
 	public static final ExtendedMenuType<FilterPipeMenu, BlockPos> FILTER_PIPE = Registry.register(
 		BuiltInRegistries.MENU, SolarQuarry.id("filter_pipe"), new ExtendedMenuType<>(FilterPipeMenu::new, BlockPos.STREAM_CODEC)
 	);
