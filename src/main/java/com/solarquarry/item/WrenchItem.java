@@ -32,7 +32,7 @@ import net.minecraft.world.level.block.state.BlockState;
 /**
  * Dismantles Solar Quarry blocks. Quarries and batteries keep their complete state in the dropped item.
  */
-public class WrenchItem extends Item {
+public class WrenchItem extends Item implements MachineTool {
 	public WrenchItem(Properties properties) {
 		super(properties);
 	}

@@ -4,6 +4,9 @@ import com.solarquarry.client.render.ItemPipeRenderer;
 import com.solarquarry.client.render.QuarryRenderer;
 import com.solarquarry.client.screen.FilterPipeScreen;
 import com.solarquarry.client.screen.QuarryScreen;
+import com.solarquarry.client.screen.TerminalScreen;
+import com.solarquarry.network.TerminalSnapshotPayload;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import com.solarquarry.registry.ModBlockEntities;
 import com.solarquarry.registry.ModMenus;
 import net.fabricmc.api.ClientModInitializer;
@@ -15,6 +18,12 @@ public class SolarQuarryClient implements ClientModInitializer {
 	public void onInitializeClient() {
 		MenuScreens.register(ModMenus.QUARRY, QuarryScreen::new);
 		MenuScreens.register(ModMenus.FILTER_PIPE, FilterPipeScreen::new);
+		MenuScreens.register(ModMenus.TERMINAL, TerminalScreen::new);
+		ClientPlayNetworking.registerGlobalReceiver(TerminalSnapshotPayload.TYPE, (payload, context) -> {
+			if (context.client().gui.screen() instanceof TerminalScreen screen) {
+				screen.accept(payload);
+			}
+		});
 		BlockEntityRenderers.register(ModBlockEntities.QUARRY, QuarryRenderer::new);
 		BlockEntityRenderers.register(ModBlockEntities.ITEM_PIPE, ItemPipeRenderer::new);
 	}

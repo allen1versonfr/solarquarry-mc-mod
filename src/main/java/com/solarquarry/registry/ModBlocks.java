@@ -6,6 +6,7 @@ import com.solarquarry.block.EnergyCableBlock;
 import com.solarquarry.block.ItemPipeBlock;
 import com.solarquarry.block.QuarryBlock;
 import com.solarquarry.block.SolarPanelBlock;
+import com.solarquarry.block.TerminalBlock;
 import com.solarquarry.energy.BatteryTier;
 import com.solarquarry.energy.SolarTier;
 import com.solarquarry.item.MachineBlockItem;
@@ -51,6 +52,10 @@ public final class ModBlocks {
 	public static final ItemPipeBlock FILTER_PIPE = register("filter_pipe", p -> new ItemPipeBlock(true, p),
 		BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(1.0F).sound(SoundType.COPPER_GRATE).noOcclusion(),
 		"tooltip.solarquarry.filter_pipe", Rarity.COMMON);
+
+	public static final TerminalBlock REMOTE_TERMINAL = register("remote_terminal", TerminalBlock::new,
+		BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.5F, 6.0F).sound(SoundType.METAL).requiresCorrectToolForDrops().lightLevel(state -> 4),
+		"tooltip.solarquarry.remote_terminal", Rarity.UNCOMMON);
 
 	private ModBlocks() {
 	}

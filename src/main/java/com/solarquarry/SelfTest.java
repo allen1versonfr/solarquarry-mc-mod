@@ -392,7 +392,42 @@ public final class SelfTest {
 		long recipes = server.getRecipeManager().getRecipes().stream()
 			.filter(holder -> holder.id().identifier().getNamespace().equals(SolarQuarry.MOD_ID))
 			.count();
-		check(recipes == 25, "all 25 crafting recipes loaded (" + recipes + ")");
+		check(recipes == 28, "all 28 crafting recipes loaded (" + recipes + ")");
+		java.util.Set<String> recipeIds = new java.util.HashSet<>();
+		server.getRecipeManager().getRecipes().forEach(holder -> recipeIds.add(holder.id().identifier().toString()));
+		int uncraftable = 0;
+		int noUnlock = 0;
+		List<Item> all = new ArrayList<>(ModBlocks.BLOCK_ITEMS);
+		all.addAll(ModItems.ITEMS);
+		for (Item item : all) {
+			String id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item).toString();
+			if (!recipeIds.contains(id)) {
+				uncraftable++;
+				SolarQuarry.LOGGER.error("[SelfTest] no crafting recipe for {}", id);
+			}
+		}
+
+		for (String id : recipeIds) {
+			if (!id.startsWith(SolarQuarry.MOD_ID + ":")) {
+				continue;
+			}
+
+			String path = id.substring(SolarQuarry.MOD_ID.length() + 1);
+			boolean found = false;
+			for (String category : List.of("redstone", "equipment", "misc")) {
+				if (server.getAdvancements().get(SolarQuarry.id("recipes/" + category + "/" + path)) != null) {
+					found = true;
+				}
+			}
+
+			if (!found) {
+				noUnlock++;
+				SolarQuarry.LOGGER.error("[SelfTest] no recipe-book unlock for {}", id);
+			}
+		}
+
+		check(uncraftable == 0, "every item and block (" + all.size() + ") has a crafting recipe");
+		check(noUnlock == 0, "every recipe unlocks in the recipe book");
 		int lootTables = 0;
 		for (Item item : ModBlocks.BLOCK_ITEMS) {
 			Block block = ((BlockItem) item).getBlock();

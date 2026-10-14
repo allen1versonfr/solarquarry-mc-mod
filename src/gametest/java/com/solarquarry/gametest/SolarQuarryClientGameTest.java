@@ -6,6 +6,8 @@ import com.solarquarry.blockentity.ItemPipeBlockEntity;
 import com.solarquarry.blockentity.QuarryBlockEntity;
 import com.solarquarry.client.screen.FilterPipeScreen;
 import com.solarquarry.client.screen.QuarryScreen;
+import com.solarquarry.client.screen.TerminalScreen;
+import com.solarquarry.blockentity.TerminalBlockEntity;
 import com.solarquarry.registry.ModBlocks;
 import com.solarquarry.registry.ModItems;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
@@ -88,6 +90,18 @@ public class SolarQuarryClientGameTest implements FabricClientGameTest {
 			context.takeScreenshot("07_filter_gui");
 			context.setScreen(() -> null);
 			context.waitTicks(5);
+
+			singleplayer.getServer().runOnServer(server -> {
+				ServerPlayer player = server.getPlayerList().getPlayers().get(0);
+				if (player.level().getBlockEntity(quarryPos.west().north()) instanceof TerminalBlockEntity terminal) {
+					player.openMenu(terminal);
+				}
+			});
+			context.waitForScreen(TerminalScreen.class);
+			context.waitTicks(30);
+			context.takeScreenshot("08_terminal_gui");
+			context.setScreen(() -> null);
+			context.waitTicks(5);
 		}
 	}
 
@@ -102,6 +116,7 @@ public class SolarQuarryClientGameTest implements FabricClientGameTest {
 		level.setBlock(battery.north(2), ModBlocks.SOLAR_PANEL_BASIC.defaultBlockState(), Block.UPDATE_ALL);
 		level.setBlock(battery.north(2).east(), ModBlocks.SOLAR_PANEL_ADVANCED.defaultBlockState(), Block.UPDATE_ALL);
 		level.setBlock(battery.north(2).west(), ModBlocks.SOLAR_PANEL_ELITE.defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(q.west().north(), ModBlocks.REMOTE_TERMINAL.defaultBlockState(), Block.UPDATE_ALL);
 		if (level.getBlockEntity(battery) instanceof BatteryBlockEntity cell) {
 			cell.restoreEnergy(4_000_000L);
 		}
@@ -117,6 +132,8 @@ public class SolarQuarryClientGameTest implements FabricClientGameTest {
 		if (level.getBlockEntity(q.east(3)) instanceof ItemPipeBlockEntity filter) {
 			filter.toggleWhitelist();
 			filter.getFilter().setItem(0, new ItemStack(Items.DIRT));
+			filter.setTag(0, "c:ores");
+			filter.setPriority(2);
 		}
 
 		if (level.getBlockEntity(q) instanceof QuarryBlockEntity quarry) {

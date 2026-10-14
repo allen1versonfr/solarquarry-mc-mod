@@ -133,3 +133,18 @@ tasks.register("exportCompileJars") {
 		file("_refs/cp/classpath.txt").text = names.join("\n")
 	}
 }
+
+// Unit tests for pure logic (mining patterns, upgrade math, solar output, energy accounting, routing rules).
+dependencies {
+	testImplementation platform("org.junit:junit-bom:5.11.4")
+	testImplementation "org.junit.jupiter:junit-jupiter"
+	testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+test {
+	useJUnitPlatform()
+	testLogging {
+		events "passed", "failed", "skipped"
+		exceptionFormat "full"
+	}
+}

@@ -3,6 +3,8 @@ package com.solarquarry;
 import com.solarquarry.energy.EnergyNetwork;
 import com.solarquarry.network.FilterConfigPayload;
 import com.solarquarry.network.QuarryConfigPayload;
+import com.solarquarry.network.TerminalActionPayload;
+import com.solarquarry.network.TerminalSnapshotPayload;
 import com.solarquarry.pipe.PipeRouter;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import com.solarquarry.registry.ModBlockEntities;
@@ -39,6 +41,9 @@ public class SolarQuarry implements ModInitializer {
 		ServerPlayNetworking.registerGlobalReceiver(QuarryConfigPayload.TYPE, QuarryConfigPayload::handle);
 		PayloadTypeRegistry.serverboundPlay().register(FilterConfigPayload.TYPE, FilterConfigPayload.STREAM_CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(FilterConfigPayload.TYPE, FilterConfigPayload::handle);
+		PayloadTypeRegistry.serverboundPlay().register(TerminalActionPayload.TYPE, TerminalActionPayload.STREAM_CODEC);
+		ServerPlayNetworking.registerGlobalReceiver(TerminalActionPayload.TYPE, TerminalActionPayload::handle);
+		PayloadTypeRegistry.clientboundPlay().register(TerminalSnapshotPayload.TYPE, TerminalSnapshotPayload.STREAM_CODEC);
 		// Route caches hold level references: drop them when a server stops.
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
 			PipeRouter.invalidateCache();

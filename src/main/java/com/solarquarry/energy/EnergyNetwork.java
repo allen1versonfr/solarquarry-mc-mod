@@ -99,7 +99,16 @@ public final class EnergyNetwork {
 			}
 		}
 
-		if (receivers.isEmpty()) {
+		return distributeAmong(source, receivers, maxAmount, rotation);
+	}
+
+	/**
+	 * Pure transfer core (unit tested): moves up to {@code maxAmount} from {@code source} to the receivers, an even share
+	 * first and then any remainder to whoever still has room, starting at {@code rotation} so nobody is always last.
+	 * Energy is only added after the same amount was removed, so the total is conserved.
+	 */
+	public static long distributeAmong(EnergyNode source, List<EnergyNode> receivers, long maxAmount, int rotation) {
+		if (maxAmount <= 0 || receivers.isEmpty()) {
 			return 0;
 		}
 
@@ -108,7 +117,6 @@ public final class EnergyNetwork {
 		int count = receivers.size();
 		int start = Math.floorMod(rotation, count);
 
-		// Two passes: an even share first, then whatever is left to anyone with room.
 		for (int pass = 0; pass < 2 && remaining > 0; pass++) {
 			int left = count;
 			for (int i = 0; i < count && remaining > 0; i++) {
@@ -123,7 +131,6 @@ public final class EnergyNetwork {
 				long extracted = source.extractEnergy(accepted, false);
 				long inserted = receiver.insertEnergy(extracted, false);
 				if (inserted < extracted) {
-					// Should not happen after a successful simulation; return the difference to the source.
 					source.restoreEnergy(extracted - inserted);
 				}
 

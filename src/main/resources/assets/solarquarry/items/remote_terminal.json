@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "solarquarry:block/remote_terminal"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "A": "minecraft:amethyst_shard",
+    "G": "minecraft:glass_pane",
+    "C": "solarquarry:circuit_board",
+    "I": "minecraft:iron_ingot",
+    "R": "minecraft:redstone"
+  },
+  "pattern": [
+    " A ",
+    "GCG",
+    "IRI"
+  ],
+  "result": {
+    "id": "solarquarry:ore_prospector",
+    "count": 1
+  }
+}

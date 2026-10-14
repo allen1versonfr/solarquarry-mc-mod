@@ -10,6 +10,7 @@
     "solarquarry:battery_elite",
     "solarquarry:energy_cable",
     "solarquarry:item_pipe",
-    "solarquarry:filter_pipe"
+    "solarquarry:filter_pipe",
+    "solarquarry:remote_terminal"
   ]
 }

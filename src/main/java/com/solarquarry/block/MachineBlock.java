@@ -21,7 +21,7 @@ public abstract class MachineBlock extends BaseEntityBlock {
 
 	@Override
 	protected InteractionResult useItemOn(ItemStack itemStack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hitResult) {
-		if (itemStack.getItem() instanceof WrenchItem) {
+		if (itemStack.getItem() instanceof com.solarquarry.item.MachineTool) {
 			// Let the wrench handle the interaction instead of opening the GUI.
 			return InteractionResult.PASS;
 		}

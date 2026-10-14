@@ -462,6 +462,73 @@ public class ItemPipeBlockEntity extends BlockEntity implements ExtendedMenuProv
 	}
 
 	// =====================================================================================
+	// Presets (configuration cards)
+	// =====================================================================================
+
+	public CompoundTag writePreset(HolderLookup.Provider registries) {
+		CompoundTag tag = new CompoundTag();
+		tag.putInt("Version", 1);
+		tag.putString("Kind", "filter");
+		tag.putBoolean("Whitelist", this.whitelist);
+		tag.putBoolean("MatchComponents", this.matchComponents);
+		tag.putInt("Priority", this.priority);
+		net.minecraft.nbt.ListTag tagList = new net.minecraft.nbt.ListTag();
+		for (String value : this.tags) {
+			tagList.add(net.minecraft.nbt.StringTag.valueOf(value));
+		}
+
+		tag.put("Tags", tagList);
+		try (ProblemReporter.ScopedCollector reporter = new ProblemReporter.ScopedCollector(this.problemPath(), LOGGER)) {
+			TagValueOutput output = TagValueOutput.createWithContext(reporter, registries);
+			NonNullList<ItemStack> templates = NonNullList.withSize(FILTER_SLOTS, ItemStack.EMPTY);
+			for (int i = 0; i < FILTER_SLOTS; i++) {
+				templates.set(i, this.filter.getItem(i));
+			}
+
+			ContainerHelper.saveAllItems(output, templates, true);
+			tag.put("Templates", output.buildResult());
+		}
+
+		return tag;
+	}
+
+	public Component applyPreset(CompoundTag tag, HolderLookup.Provider registries) {
+		if (!"filter".equals(tag.getStringOr("Kind", ""))) {
+			return Component.translatable("solarquarry.card.wrong_kind");
+		}
+
+		int version = tag.getIntOr("Version", 0);
+		if (version > 1) {
+			return Component.translatable("solarquarry.card.too_new", version);
+		}
+
+		this.setWhitelist(tag.getBooleanOr("Whitelist", false));
+		this.setMatchComponents(tag.getBooleanOr("MatchComponents", false));
+		this.setPriority(tag.getIntOr("Priority", 0));
+		net.minecraft.nbt.ListTag tagList = tag.getListOrEmpty("Tags");
+		int rejected = 0;
+		for (int i = 0; i < TAG_SLOTS; i++) {
+			if (!this.setTag(i, i < tagList.size() ? tagList.getStringOr(i, "") : "")) {
+				this.setTag(i, "");
+				rejected++;
+			}
+		}
+
+		try (ProblemReporter.ScopedCollector reporter = new ProblemReporter.ScopedCollector(this.problemPath(), LOGGER)) {
+			NonNullList<ItemStack> templates = NonNullList.withSize(FILTER_SLOTS, ItemStack.EMPTY);
+			ContainerHelper.loadAllItems(net.minecraft.world.level.storage.TagValueInput.create(reporter, registries, tag.getCompoundOrEmpty("Templates")), templates);
+			for (int i = 0; i < FILTER_SLOTS; i++) {
+				this.filter.setItem(i, templates.get(i).isEmpty() ? ItemStack.EMPTY : templates.get(i).copyWithCount(1));
+			}
+		}
+
+		this.syncDirty = true;
+		Component summary = Component.translatable("solarquarry.card.applied_filter",
+			Component.translatable(this.whitelist ? "gui.solarquarry.whitelist" : "gui.solarquarry.blacklist"), this.priority);
+		return rejected > 0 ? summary.copy().append(" ").append(Component.translatable("solarquarry.card.partial", rejected)) : summary;
+	}
+
+	// =====================================================================================
 	// Menu (filter pipes only)
 	// =====================================================================================
 

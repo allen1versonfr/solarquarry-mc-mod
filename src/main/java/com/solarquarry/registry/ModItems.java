@@ -1,6 +1,8 @@
 package com.solarquarry.registry;
 
 import com.solarquarry.SolarQuarry;
+import com.solarquarry.item.ConfigCardItem;
+import com.solarquarry.item.ProspectorItem;
 import com.solarquarry.item.UpgradeItem;
 import com.solarquarry.item.WrenchItem;
 import com.solarquarry.quarry.UpgradeType;
@@ -24,6 +26,10 @@ public final class ModItems {
 	public static final Item MACHINE_FRAME = register("machine_frame", Item::new, new Item.Properties());
 	public static final Item DRILL_HEAD = register("drill_head", Item::new, new Item.Properties().stacksTo(16));
 	public static final Item UPGRADE_BASE = register("upgrade_base", Item::new, new Item.Properties());
+
+	public static final Item ORE_PROSPECTOR = register("ore_prospector", ProspectorItem::new,
+		new Item.Properties().durability(128).repairable(net.minecraft.world.item.Items.COPPER_INGOT).rarity(Rarity.UNCOMMON));
+	public static final Item CONFIG_CARD = register("config_card", ConfigCardItem::new, new Item.Properties().stacksTo(16));
 
 	public static final Item SPEED_UPGRADE = upgrade("speed_upgrade", UpgradeType.SPEED, 0, Rarity.UNCOMMON);
 	public static final Item ENERGY_CAPACITY_UPGRADE = upgrade("energy_capacity_upgrade", UpgradeType.ENERGY_CAPACITY, 0, Rarity.UNCOMMON);

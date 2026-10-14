@@ -1458,6 +1458,102 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		}
 	}
 
+	// =====================================================================================
+	// Presets (configuration cards): settings only, never items, energy or upgrades
+	// =====================================================================================
+
+	public static final int PRESET_VERSION = 1;
+
+	public CompoundTag writePreset() {
+		CompoundTag tag = new CompoundTag();
+		tag.putInt("Version", PRESET_VERSION);
+		tag.putString("Kind", "quarry");
+		tag.putString("QuarryMode", this.quarryMode.id());
+		tag.putInt("Width", this.width);
+		tag.putInt("Length", this.length);
+		tag.putInt("Height", this.height);
+		tag.putBoolean("OresOnly", this.oresOnly);
+		if (this.hasTargetY) {
+			tag.putInt("DepthBelow", Math.max(0, this.worldPosition.getY() - this.effectiveTargetY()));
+		}
+
+		tag.put("VoidList", listIds(this.voidFilter));
+		tag.put("SkipList", listIds(this.skipFilter));
+		tag.put("OreList", listIds(this.oreFilter));
+		return tag;
+	}
+
+	/**
+	 * Applies a preset. Unknown or out-of-range values are replaced or clamped; items, energy and upgrades are untouched.
+	 * @return a message describing what happened
+	 */
+	public Component applyPreset(CompoundTag tag) {
+		int version = tag.getIntOr("Version", 0);
+		if (!"quarry".equals(tag.getStringOr("Kind", ""))) {
+			return Component.translatable("solarquarry.card.wrong_kind");
+		}
+
+		if (version > PRESET_VERSION) {
+			return Component.translatable("solarquarry.card.too_new", version);
+		}
+
+		String modeId = tag.getStringOr("QuarryMode", QuarryMode.STRIP_MINE.id());
+		QuarryMode newMode = QuarryMode.byId(modeId);
+		boolean unknownMode = !newMode.id().equals(modeId);
+		this.setQuarryMode(newMode);
+		this.setWidth(tag.getIntOr("Width", DEFAULT_SIZE));
+		this.setLength(tag.getIntOr("Length", DEFAULT_SIZE));
+		this.setHeight(tag.getIntOr("Height", DEFAULT_HEIGHT));
+		this.setOresOnly(tag.getBooleanOr("OresOnly", false));
+		if (tag.contains("DepthBelow")) {
+			this.setTargetY(this.worldPosition.getY() - Math.max(0, tag.getIntOr("DepthBelow", 0)));
+		} else {
+			this.hasTargetY = false;
+			this.markConfigChanged();
+		}
+
+		int skipped = readIds(tag, "VoidList", this.voidFilter) + readIds(tag, "SkipList", this.skipFilter) + readIds(tag, "OreList", this.oreFilter);
+		Component summary = Component.translatable("solarquarry.card.applied_quarry", Component.translatable(this.quarryMode.translationKey()), this.width, this.length);
+		if (unknownMode || skipped > 0) {
+			return summary.copy().append(" ").append(Component.translatable("solarquarry.card.partial", skipped + (unknownMode ? 1 : 0)));
+		}
+
+		return summary;
+	}
+
+	static net.minecraft.nbt.ListTag listIds(SimpleContainer container) {
+		net.minecraft.nbt.ListTag list = new net.minecraft.nbt.ListTag();
+		for (int i = 0; i < container.getContainerSize(); i++) {
+			ItemStack stack = container.getItem(i);
+			list.add(net.minecraft.nbt.StringTag.valueOf(stack.isEmpty() ? "" : BuiltInRegistries.ITEM.getKey(stack.getItem()).toString()));
+		}
+
+		return list;
+	}
+
+	/** @return how many entries were invalid and skipped */
+	static int readIds(CompoundTag tag, String key, SimpleContainer container) {
+		net.minecraft.nbt.ListTag list = tag.getListOrEmpty(key);
+		int skipped = 0;
+		for (int i = 0; i < container.getContainerSize(); i++) {
+			String id = i < list.size() ? list.getStringOr(i, "") : "";
+			ItemStack value = ItemStack.EMPTY;
+			if (!id.isEmpty()) {
+				net.minecraft.resources.Identifier parsed = net.minecraft.resources.Identifier.tryParse(id);
+				Item item = parsed != null ? BuiltInRegistries.ITEM.getOptional(parsed).orElse(null) : null;
+				if (item == null || item == Items.AIR) {
+					skipped++;
+				} else {
+					value = new ItemStack(item);
+				}
+			}
+
+			container.setItem(i, value);
+		}
+
+		return skipped;
+	}
+
 	/**
 	 * Prepares this quarry to be carried by a wrench: returns its complete state and empties the block entity
 	 * so the following block removal cannot drop or duplicate anything.

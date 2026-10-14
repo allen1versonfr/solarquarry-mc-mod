@@ -5,6 +5,7 @@ import com.solarquarry.blockentity.BatteryBlockEntity;
 import com.solarquarry.blockentity.ItemPipeBlockEntity;
 import com.solarquarry.blockentity.QuarryBlockEntity;
 import com.solarquarry.blockentity.SolarPanelBlockEntity;
+import com.solarquarry.blockentity.TerminalBlockEntity;
 import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -20,6 +21,9 @@ public final class ModBlockEntities {
 		FabricBlockEntityTypeBuilder.create(BatteryBlockEntity::new, ModBlocks.BATTERY_BASIC, ModBlocks.BATTERY_ADVANCED, ModBlocks.BATTERY_ELITE).build());
 	public static final BlockEntityType<ItemPipeBlockEntity> ITEM_PIPE = register("item_pipe",
 		FabricBlockEntityTypeBuilder.create(ItemPipeBlockEntity::new, ModBlocks.ITEM_PIPE, ModBlocks.FILTER_PIPE).build());
+
+	public static final BlockEntityType<TerminalBlockEntity> TERMINAL = register("remote_terminal",
+		FabricBlockEntityTypeBuilder.create(TerminalBlockEntity::new, ModBlocks.REMOTE_TERMINAL).build());
 
 	private ModBlockEntities() {
 	}

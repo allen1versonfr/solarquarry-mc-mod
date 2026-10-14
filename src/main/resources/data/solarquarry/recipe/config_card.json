@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "minecraft:paper",
+    "minecraft:paper",
+    "solarquarry:circuit_board",
+    "minecraft:redstone"
+  ],
+  "result": {
+    "id": "solarquarry:config_card",
+    "count": 4
+  }
+}
