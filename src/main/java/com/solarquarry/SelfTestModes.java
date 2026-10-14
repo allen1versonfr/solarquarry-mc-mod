@@ -101,6 +101,12 @@ final class SelfTestModes {
 		this.scenarios.add(Scenario.timed("chunk loader: remembered quarries get their chunks back", this::restoreChunkLoader, 80, this::verifyChunkLoaderRestored));
 		this.scenarios.add(Scenario.timed("chunk loader: an unpowered quarry keeps only its own chunks", this::setupChunkLoaderNoPower, 40, this::releaseForcedChunk));
 		this.scenarios.add(Scenario.timed("chunk loader: waits for power without losing its chunks", s -> { }, 160, this::verifyChunkLoaderNoPower));
+		this.scenarios.add(Scenario.timed("phase 4: the shop is built once, with its trader and guard", this::setupShop, 40, this::verifyShop));
+		this.scenarios.add(Scenario.timed("phase 4: starter kit once per player, parcel when the inventory is full", s -> { }, 1, this::verifyStarterKit));
+		this.scenarios.add(Scenario.timed("phase 4: extra copies of the trader remove themselves", this::spawnDuplicateTrader, 45, this::verifyNoDuplicate));
+		this.scenarios.add(Scenario.timed("phase 4: stock refills the next morning", this::exhaustStock, 45, this::verifyRestock));
+		this.scenarios.add(Scenario.timed("phase 4: trader and guard die", this::killShopkeepers, 30, this::verifyDeathRecorded));
+		this.scenarios.add(Scenario.timed("phase 4: one replacement arrives the next morning", this::nextMorning, 45, this::verifyReplacement));
 	}
 
 	static void forceChunks(ServerLevel level) {
@@ -1133,7 +1139,8 @@ final class SelfTestModes {
 
 		List<net.minecraft.world.item.Item> tab = com.solarquarry.registry.ModCreativeTab.orderedItems();
 		java.util.Set<net.minecraft.world.item.Item> unique = new java.util.HashSet<>(tab);
-		int registered = com.solarquarry.registry.ModBlocks.BLOCK_ITEMS.size() + com.solarquarry.registry.ModItems.ITEMS.size();
+		int registered = com.solarquarry.registry.ModBlocks.BLOCK_ITEMS.size() + com.solarquarry.registry.ModItems.ITEMS.size()
+			+ com.solarquarry.registry.ModGear.ITEMS.size();
 		SelfTest.check(unique.size() == tab.size() && tab.size() == registered, "creative tab: every item exactly once (" + tab.size() + " of " + registered + ")");
 		SelfTest.check(tab.get(0) == ModBlocks.QUARRY.asItem(), "creative tab: grouped, starting with the quarry");
 	}
@@ -1646,7 +1653,8 @@ final class SelfTestModes {
 
 	private void verifyBench(ServerLevel level) {
 		var catalogue = com.solarquarry.crafting.BenchRecipes.catalogue(level);
-		long modRecipes = level.recipeAccess().getRecipes().stream().filter(h -> h.id().identifier().getNamespace().equals(SolarQuarry.MOD_ID)).count();
+		long modRecipes = level.recipeAccess().getRecipes().stream().filter(h -> h.id().identifier().getNamespace().equals(SolarQuarry.MOD_ID))
+			.filter(h -> h.value() instanceof net.minecraft.world.item.crafting.CraftingRecipe).count();
 		SelfTest.check(catalogue.size() == modRecipes && catalogue.stream().allMatch(e -> !e.result().isEmpty() && !e.needs().isEmpty()),
 			"bench: the catalogue lists every mod recipe with its ingredients (" + catalogue.size() + "/" + modRecipes + ")");
 		SelfTest.check(catalogue.getFirst().result().is(com.solarquarry.registry.ModBlocks.QUARRY.asItem()), "bench: catalogue follows the creative tab order");
@@ -1671,5 +1679,200 @@ final class SelfTestModes {
 		SelfTest.check(com.solarquarry.crafting.BenchRecipes.craft(fake, "minecraft:chest", 1) == 0 && com.solarquarry.crafting.BenchRecipes.craft(fake, "solarquarry:nope", 1) == 0,
 			"bench: only Solar Quarry recipes can be crafted through it");
 		inventory.clearContent();
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// Phase 4: trader, guard, shop, starter kit
+	// ---------------------------------------------------------------------------------------------
+
+	private BlockPos shopCenter = BlockPos.ZERO;
+	private java.util.UUID oldTrader;
+
+	private static net.minecraft.world.phys.AABB shopArea(BlockPos center) {
+		return new net.minecraft.world.phys.AABB(center).inflate(12, 6, 12);
+	}
+
+	private static List<com.solarquarry.trader.ShopTrader> traders(ServerLevel level, BlockPos center) {
+		return level.getEntitiesOfClass(com.solarquarry.trader.ShopTrader.class, shopArea(center), e -> e.isAlive());
+	}
+
+	private static List<com.solarquarry.trader.ShopGuard> guards(ServerLevel level, BlockPos center) {
+		return level.getEntitiesOfClass(com.solarquarry.trader.ShopGuard.class, shopArea(center), e -> e.isAlive());
+	}
+
+	private void forceShopChunks(ServerLevel level, boolean force) {
+		int cx = this.shopCenter.getX() >> 4;
+		int cz = this.shopCenter.getZ() >> 4;
+		for (int x = cx - 1; x <= cx + 1; x++) {
+			for (int z = cz - 1; z <= cz + 1; z++) {
+				level.setChunkForced(x, z, force);
+			}
+		}
+	}
+
+	private void runCommand(ServerLevel level, String command) {
+		var server = level.getServer();
+		server.getCommands().performPrefixedCommand(server.createCommandSourceStack().withSuppressedOutput(), command);
+	}
+
+	private void setupShop(ServerLevel level) {
+		com.solarquarry.trader.ShopState.set(level, com.solarquarry.trader.ShopState.NONE);
+		BlockPos center = com.solarquarry.trader.ShopManager.ensureShop(level);
+		this.shopCenter = center == null ? BlockPos.ZERO : center;
+		this.forceShopChunks(level, true);
+	}
+
+	private void verifyShop(ServerLevel level) {
+		var state = com.solarquarry.trader.ShopState.get(level);
+		BlockPos center = this.shopCenter;
+		SolarQuarry.LOGGER.info("[SelfTest] shop built at {} (world spawn {})", center, level.getRespawnData().globalPos().pos());
+		SelfTest.check(state.built() && state.center().isPresent() && state.center().get().equals(center), "shop: built and remembered");
+		var traders = traders(level, center);
+		var guards = guards(level, center);
+		SelfTest.check(traders.size() == 1 && com.solarquarry.trader.ShopManager.isRegisteredTrader(level, traders.getFirst()), "shop: exactly one registered trader (" + traders.size() + ")");
+		SelfTest.check(guards.size() == 1 && com.solarquarry.trader.ShopManager.isRegisteredGuard(level, guards.getFirst())
+			&& guards.getFirst().getItemBySlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND).is(Items.IRON_SWORD), "shop: exactly one armed guard (" + guards.size() + ")");
+		if (!traders.isEmpty()) {
+			var offers = traders.getFirst().getOffers();
+			long selling = offers.stream().filter(o -> o.getCostA().is(Items.EMERALD)).count();
+			long buying = offers.stream().filter(o -> o.getResult().is(Items.EMERALD)).count();
+			SelfTest.check(selling == 10 && buying == 10, "shop: sells 10 kinds of parts and buys 10 kinds of ores and blocks");
+			boolean loop = false;
+			for (var sold : offers) {
+				for (var bought : offers) {
+					if (sold.getCostA().is(Items.EMERALD) && bought.getResult().is(Items.EMERALD) && bought.getCostA().is(sold.getResult().getItem())) {
+						loop = true;
+					}
+				}
+			}
+
+			SelfTest.check(!loop, "shop: nothing it sells can be sold straight back to it");
+		}
+
+		boolean sign = false;
+		boolean chest = false;
+		for (BlockPos pos : BlockPos.betweenClosed(center.offset(-6, 0, -6), center.offset(6, 6, 6))) {
+			if (level.getBlockEntity(pos) instanceof net.minecraft.world.level.block.entity.SignBlockEntity) {
+				sign = true;
+			}
+
+			if (level.getBlockEntity(pos) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity box && box.countItem(Items.TORCH) > 0) {
+				chest = true;
+			}
+		}
+
+		SelfTest.check(sign && chest && level.getBlockState(center.offset(0, 1, 3)).is(com.solarquarry.registry.ModBlocks.FABRICATION_BENCH),
+			"shop: sign, supply chest and Fabrication Bench are in place");
+		SelfTest.check(level.getBlockState(center.offset(-3, 1, -3)).getLightEmission() > 0 && level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, center.above()) >= 10,
+			"shop: lit inside");
+		BlockPos again = com.solarquarry.trader.ShopManager.ensureShop(level);
+		SelfTest.check(center.equals(again) && traders(level, center).size() == 1, "shop: asking again does not build a second shop or trader");
+		var codec = com.solarquarry.trader.ShopState.CODEC;
+		var encoded = codec.encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, state).getOrThrow();
+		SelfTest.check(codec.parse(net.minecraft.nbt.NbtOps.INSTANCE, encoded).getOrThrow().equals(state), "shop: state survives save/load");
+	}
+
+	private void verifyStarterKit(ServerLevel level) {
+		var player = net.fabricmc.fabric.api.entity.FakePlayer.get(level, new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "KitTest"));
+		player.getInventory().clearContent();
+		boolean first = com.solarquarry.trader.ShopManager.giveStarterKit(player);
+		boolean second = com.solarquarry.trader.ShopManager.giveStarterKit(player);
+		SelfTest.check(first && !second, "kit: given once, a second request gives nothing");
+		SelfTest.check(player.getInventory().countItem(com.solarquarry.registry.ModItems.MACHINE_FRAME) == 2
+			&& player.getInventory().countItem(com.solarquarry.registry.ModItems.DRILL_HEAD) == 1
+			&& player.getInventory().countItem(com.solarquarry.registry.ModBlocks.SOLAR_PANEL_BASIC.asItem()) == 2,
+			"kit: has the parts for a first quarry, power and pipes");
+
+		var full = net.fabricmc.fabric.api.entity.FakePlayer.get(level, new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "KitFull"));
+		full.getInventory().clearContent();
+		for (int i = 0; i < net.minecraft.world.entity.player.Inventory.INVENTORY_SIZE; i++) {
+			full.getInventory().setItem(i, new ItemStack(Items.STONE, 64));
+		}
+
+		com.solarquarry.trader.ShopManager.giveStarterKit(full);
+		var parcel = full.getAttached(com.solarquarry.trader.ShopState.PARCEL);
+		SelfTest.check(parcel != null && parcel.size() == com.solarquarry.trader.ShopManager.starterKit().size(), "kit: a full inventory keeps the whole kit as a parcel");
+		for (int i = 0; i < 20; i++) {
+			full.getInventory().setItem(i, ItemStack.EMPTY);
+		}
+
+		com.solarquarry.trader.ShopManager.deliverParcel(full);
+		SelfTest.check(full.getAttached(com.solarquarry.trader.ShopState.PARCEL) == null && full.getInventory().countItem(com.solarquarry.registry.ModItems.WRENCH) == 1,
+			"kit: the parcel arrives once there is room");
+		SelfTest.check(Boolean.TRUE.equals(full.getAttached(com.solarquarry.trader.ShopState.KIT_CLAIMED)), "kit: remembered per player");
+		player.getInventory().clearContent();
+		full.getInventory().clearContent();
+	}
+
+	private void spawnDuplicateTrader(ServerLevel level) {
+		var copy = com.solarquarry.registry.ModEntities.SHOP_TRADER.create(level, net.minecraft.world.entity.EntitySpawnReason.EVENT);
+		copy.snapTo(this.shopCenter.getX() + 1.5, this.shopCenter.getY() + 1, this.shopCenter.getZ() + 0.5, 0.0F, 0.0F);
+		copy.setShopMember(true);
+		level.addFreshEntity(copy);
+	}
+
+	private void verifyNoDuplicate(ServerLevel level) {
+		var traders = traders(level, this.shopCenter);
+		SelfTest.check(traders.size() == 1 && com.solarquarry.trader.ShopManager.isRegisteredTrader(level, traders.getFirst()),
+			"duplicates: a second shop trader removed itself (" + traders.size() + " left)");
+	}
+
+	private void exhaustStock(ServerLevel level) {
+		var trader = traders(level, this.shopCenter).getFirst();
+		var offer = trader.getOffers().getFirst();
+		while (!offer.isOutOfStock()) {
+			offer.increaseUses();
+		}
+
+		long now = level.getOverworldClockTime();
+		long target = (Math.floorDiv(now, 24000L) + 1) * 24000L + 1000L;
+		this.runCommand(level, "time add " + (target - now));
+	}
+
+	private void verifyRestock(ServerLevel level) {
+		var trader = traders(level, this.shopCenter).getFirst();
+		SelfTest.check(!trader.getOffers().getFirst().isOutOfStock(), "restock: the sold-out offer is available again the next morning");
+	}
+
+	private void killShopkeepers(ServerLevel level) {
+		var trader = traders(level, this.shopCenter).getFirst();
+		this.oldTrader = trader.getUUID();
+		trader.kill(level);
+		guards(level, this.shopCenter).getFirst().kill(level);
+	}
+
+	private void verifyDeathRecorded(ServerLevel level) {
+		var state = com.solarquarry.trader.ShopState.get(level);
+		long today = com.solarquarry.trader.ShopManager.day(level);
+		SelfTest.check(traders(level, this.shopCenter).isEmpty() && state.trader().isEmpty() && state.deathDay() == today,
+			"death: the trader's death is recorded and nobody replaces him the same day");
+		SelfTest.check(guards(level, this.shopCenter).isEmpty() && state.guardDeathDay() == today, "death: the guard's death is recorded too");
+	}
+
+	private void nextMorning(ServerLevel level) {
+		long now = level.getOverworldClockTime();
+		long target = (Math.floorDiv(now, 24000L) + 1) * 24000L + 500L;
+		this.runCommand(level, "time add " + (target - now));
+	}
+
+	private void verifyReplacement(ServerLevel level) {
+		var state = com.solarquarry.trader.ShopState.get(level);
+		var traders = traders(level, this.shopCenter);
+		SelfTest.check(traders.size() == 1 && !traders.getFirst().getUUID().equals(this.oldTrader) && state.deathDay() == -1
+			&& com.solarquarry.trader.ShopManager.isRegisteredTrader(level, traders.getFirst()) && !traders.getFirst().getOffers().isEmpty(),
+			"replacement: exactly one new trader with his shop and trades (" + traders.size() + ")");
+		SelfTest.check(guards(level, this.shopCenter).size() == 1 && state.guardDeathDay() == -1, "replacement: a new guard too");
+		com.solarquarry.trader.ShopManager.replaceIfDue(level);
+		SelfTest.check(traders(level, this.shopCenter).size() == 1, "replacement: checking again does not add another");
+		var zombie = net.minecraft.world.entity.EntityTypes.ZOMBIE.create(level, net.minecraft.world.entity.EntitySpawnReason.EVENT);
+		var creeper = net.minecraft.world.entity.EntityTypes.CREEPER.create(level, net.minecraft.world.entity.EntitySpawnReason.EVENT);
+		var enderman = net.minecraft.world.entity.EntityTypes.ENDERMAN.create(level, net.minecraft.world.entity.EntitySpawnReason.EVENT);
+		var villager = net.minecraft.world.entity.EntityTypes.VILLAGER.create(level, net.minecraft.world.entity.EntitySpawnReason.EVENT);
+		var wolf = net.minecraft.world.entity.EntityTypes.WOLF.create(level, net.minecraft.world.entity.EntitySpawnReason.EVENT);
+		SelfTest.check(com.solarquarry.trader.ShopGuard.isThreat(zombie) && !com.solarquarry.trader.ShopGuard.isThreat(creeper)
+			&& !com.solarquarry.trader.ShopGuard.isThreat(enderman) && !com.solarquarry.trader.ShopGuard.isThreat(villager)
+			&& !com.solarquarry.trader.ShopGuard.isThreat(wolf) && !com.solarquarry.trader.ShopGuard.isThreat(net.fabricmc.fabric.api.entity.FakePlayer.get(level)),
+			"guard: attacks hostile mobs only (not creepers, neutral mobs, villagers, pets or players)");
+		this.forceShopChunks(level, false);
 	}
 }

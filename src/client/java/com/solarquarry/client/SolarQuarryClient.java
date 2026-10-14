@@ -54,6 +54,8 @@ public class SolarQuarryClient implements ClientModInitializer {
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> SolarQuarryConfig.restoreLocal());
 		BlockEntityRenderers.register(ModBlockEntities.QUARRY, QuarryRenderer::new);
 		BlockEntityRenderers.register(ModBlockEntities.ITEM_PIPE, ItemPipeRenderer::new);
+		net.minecraft.client.renderer.entity.EntityRenderers.register(com.solarquarry.registry.ModEntities.SHOP_TRADER, com.solarquarry.client.render.ShopTraderRenderer::new);
+		net.minecraft.client.renderer.entity.EntityRenderers.register(com.solarquarry.registry.ModEntities.SHOP_GUARD, com.solarquarry.client.render.ShopGuardRenderer::new);
 		BlockEntityRenderers.register(ModBlockEntities.LIQUID_TANK, com.solarquarry.client.render.LiquidTankRenderer::new);
 	}
 }

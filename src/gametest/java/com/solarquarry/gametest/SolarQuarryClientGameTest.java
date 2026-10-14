@@ -319,6 +319,39 @@ public class SolarQuarryClientGameTest implements FabricClientGameTest {
 			context.takeScreenshot("17_fabrication_bench");
 			context.runOnClient(client -> client.player.closeContainer());
 			context.waitTicks(5);
+
+			// The trader's shop: in a client world the player joins, so the shop is built and the kit delivered.
+			context.waitTicks(40);
+			singleplayer.getServer().runOnServer(server -> {
+				ServerPlayer player = server.getPlayerList().getPlayers().get(0);
+				com.solarquarry.trader.ShopManager.introduce(player);
+				if (!Boolean.TRUE.equals(player.getAttached(com.solarquarry.trader.ShopState.KIT_CLAIMED))) {
+					throw new AssertionError("starter kit was not delivered on first join");
+				}
+
+				BlockPos shop = com.solarquarry.trader.ShopState.get(server.overworld()).center().orElseThrow();
+				player.teleportTo(shop.getX() + 0.5, shop.getY() + 2, shop.getZ() - 11.5);
+				player.setYRot(0.0F);
+				player.setXRot(10.0F);
+			});
+			context.waitTicks(60);
+			context.takeScreenshot("18_trader_shop");
+			singleplayer.getServer().runOnServer(server -> {
+				ServerPlayer player = server.getPlayerList().getPlayers().get(0);
+				BlockPos shop = com.solarquarry.trader.ShopState.get(server.overworld()).center().orElseThrow();
+				player.teleportTo(shop.getX() + 0.5, shop.getY() + 1, shop.getZ() - 2.5);
+				var traders = player.level().getEntitiesOfClass(com.solarquarry.trader.ShopTrader.class, new net.minecraft.world.phys.AABB(shop).inflate(10));
+				if (traders.size() != 1) {
+					throw new AssertionError("expected one trader at the shop, found " + traders.size());
+				}
+
+				traders.getFirst().mobInteract(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+			});
+			context.waitForScreen(net.minecraft.client.gui.screens.inventory.MerchantScreen.class);
+			context.waitTicks(10);
+			context.takeScreenshot("19_trader_trades");
+			context.runOnClient(client -> client.player.closeContainer());
+			context.waitTicks(5);
 		}
 	}
 

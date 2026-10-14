@@ -44,6 +44,7 @@ public class SolarQuarry implements ModInitializer {
 		ModBlocks.init();
 		ModItems.init();
 		com.solarquarry.registry.ModGear.init();
+		com.solarquarry.registry.ModEntities.init();
 		ModBlockEntities.init();
 		ModMenus.init();
 		ModCreativeTab.init();
@@ -66,10 +67,12 @@ public class SolarQuarry implements ModInitializer {
 		PayloadTypeRegistry.serverboundPlay().register(com.solarquarry.network.BenchCraftPayload.TYPE, com.solarquarry.network.BenchCraftPayload.STREAM_CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(com.solarquarry.network.BenchCraftPayload.TYPE, com.solarquarry.network.BenchCraftPayload::handle);
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> SolarQuarryCommand.sync(handler.getPlayer()));
+		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> com.solarquarry.trader.ShopManager.onJoin(handler.getPlayer()));
 		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> SolarQuarryCommand.register(dispatcher));
 		ServerLifecycleEvents.SERVER_STARTED.register(QuarryChunkLoading::restoreAll);
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
 			ProspectorScans.tick(server);
+			com.solarquarry.trader.ShopManager.tick(server);
 			QuarryChunkLoading.prune(server);
 		});
 		// Route caches hold level references: drop them when a server stops.

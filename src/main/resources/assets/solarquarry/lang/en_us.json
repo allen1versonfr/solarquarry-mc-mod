@@ -326,5 +326,15 @@
   "item.solarquarry.helionite_helmet": "Helionite Helmet",
   "item.solarquarry.helionite_chestplate": "Helionite Chestplate",
   "item.solarquarry.helionite_leggings": "Helionite Leggings",
-  "item.solarquarry.helionite_boots": "Helionite Boots"
+  "item.solarquarry.helionite_boots": "Helionite Boots",
+  "entity.solarquarry.trader": "Solar Quarry Trader",
+  "entity.solarquarry.guard": "Shop Guard",
+  "solarquarry.shop.sign.0": "SOLAR QUARRY",
+  "solarquarry.shop.sign.1": "Supply & Trade",
+  "solarquarry.shop.sign.2": "Ores bought here",
+  "solarquarry.trader.welcome": "[Solar Quarry Trader] Welcome, %s! I run the Solar Quarry supply shop near the world spawn.",
+  "solarquarry.trader.kit": "[Solar Quarry Trader] Here is a starter kit: parts for your first quarry, solar panels, cable, pipes, a wrench and a Fabrication Bench. Craft the quarry at the bench.",
+  "solarquarry.trader.shop": "[Solar Quarry Trader] Visit me at %s, %s, %s to buy parts and sell what your quarry digs up.",
+  "solarquarry.trader.parcel": "Your inventory is full: %s starter kit items will be delivered as soon as there is room.",
+  "solarquarry.trader.parcel_done": "The rest of your starter kit has been delivered."
 }

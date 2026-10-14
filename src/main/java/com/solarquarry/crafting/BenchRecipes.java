@@ -61,8 +61,9 @@ public final class BenchRecipes {
 
 			List<Need> needs = new ArrayList<>();
 			for (Requirement requirement : requirements(recipe)) {
-				List<String> options = requirement.ingredient().items()
-					.map(item -> BuiltInRegistries.ITEM.getKey(item.value()).toString())
+				List<String> options = BuiltInRegistries.ITEM.listElements()
+					.filter(item -> requirement.ingredient().acceptsItem(item))
+					.map(item -> item.key().identifier().toString())
 					.limit(16)
 					.toList();
 				needs.add(new Need(options, requirement.count()));
