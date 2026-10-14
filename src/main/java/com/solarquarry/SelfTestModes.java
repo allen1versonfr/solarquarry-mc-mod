@@ -3,6 +3,7 @@ package com.solarquarry;
 import com.solarquarry.block.QuarryBlock;
 import com.solarquarry.blockentity.BatteryBlockEntity;
 import com.solarquarry.blockentity.QuarryBlockEntity;
+import com.solarquarry.quarry.MiningPattern;
 import com.solarquarry.quarry.QuarryMode;
 import com.solarquarry.quarry.QuarryStatus;
 import com.solarquarry.registry.ModBlocks;
@@ -108,6 +109,8 @@ final class SelfTestModes {
 		if (this.index >= this.scenarios.size()) {
 			return true;
 		}
+
+		this.watchFarQuarry(level);
 
 		Scenario scenario = this.scenarios.get(this.index);
 		switch (this.stage) {
@@ -930,6 +933,30 @@ final class SelfTestModes {
 
 	private static final BlockPos FAR = new BlockPos(1000, 200, 1000);
 
+	private boolean farFinished;
+	private long farMined = -1;
+	private boolean farLoadingAfterFinish;
+	private boolean farReachedFarChunk;
+
+	/** Records what the far quarry does every tick (it may finish and unload between checks). */
+	private void watchFarQuarry(ServerLevel level) {
+		QuarryBlockEntity quarry = farQuarry(level);
+		if (quarry == null || this.farFinished) {
+			return;
+		}
+
+		this.farMined = quarry.getBlocksMined();
+		MiningPattern.Cell cursor = quarry.cursorCell();
+		if (cursor.forward() >= 40 || quarry.isFinished()) {
+			this.farReachedFarChunk |= level.isLoaded(new BlockPos(FAR.getX(), FAR.getY(), FAR.getZ() + 40));
+		}
+
+		if (quarry.isFinished()) {
+			this.farFinished = true;
+			this.farLoadingAfterFinish = quarry.isChunkLoadingActive();
+		}
+	}
+
 	private static QuarryBlockEntity farQuarry(ServerLevel level) {
 		return level.isLoaded(FAR) && level.getBlockEntity(FAR) instanceof QuarryBlockEntity q ? q : null;
 	}
@@ -973,12 +1000,10 @@ final class SelfTestModes {
 	}
 
 	private void verifyChunkLoaderFinished(ServerLevel level) {
-		QuarryBlockEntity quarry = farQuarry(level);
-		SelfTest.check(quarry != null && quarry.isFinished(), "chunk loader: the tunnel was finished through chunks no player loaded ("
-			+ (quarry == null ? "unloaded" : quarry.getStatus() + ", step " + quarry.getStep()) + ")");
-		SelfTest.check(quarry != null && quarry.getBlocksMined() == 21, "chunk loader: mined the 21 stone blocks (" + (quarry == null ? -1 : quarry.getBlocksMined()) + ")");
-		SelfTest.check(level.getBlockState(new BlockPos(FAR.getX(), FAR.getY(), FAR.getZ() + 40)).isAir(), "chunk loader: the far end of the tunnel was reached");
-		SelfTest.check(quarry != null && !quarry.isChunkLoadingActive(), "chunk loader: switches itself off when the work is complete");
+		SelfTest.check(this.farFinished, "chunk loader: the 40-block tunnel was finished with no player anywhere near");
+		SelfTest.check(this.farReachedFarChunk, "chunk loader: the last chunk of the tunnel (3 chunks away, outside the quarry's own area) was loaded for mining");
+		SelfTest.check(this.farMined == 21, "chunk loader: mined the 21 stone blocks (" + this.farMined + ")");
+		SelfTest.check(this.farFinished && !this.farLoadingAfterFinish, "chunk loader: switches itself off when the work is complete");
 		SelfTest.check(!com.solarquarry.quarry.QuarryChunkLoading.isRegistered(level, FAR), "chunk loader: forgotten by the dimension once it stops");
 	}
 
