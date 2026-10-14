@@ -24,6 +24,10 @@ public class BatteryBlockEntity extends BlockEntity implements EnergyNode {
 	private long receivedThisTick;
 	private long lastTick = Long.MIN_VALUE;
 	private int rotation;
+	private long windowIn;
+	private long windowOut;
+	private int avgIn;
+	private int avgOut;
 
 	public BatteryBlockEntity(BlockPos pos, BlockState state) {
 		super(ModBlockEntities.BATTERY, pos, state);
@@ -50,6 +54,13 @@ public class BatteryBlockEntity extends BlockEntity implements EnergyNode {
 					this.setChanged();
 				}
 			}
+		}
+
+		if (level.getGameTime() % 20 == 0) {
+			this.avgIn = (int) Math.min(Integer.MAX_VALUE, this.windowIn / 20);
+			this.avgOut = (int) Math.min(Integer.MAX_VALUE, this.windowOut / 20);
+			this.windowIn = 0;
+			this.windowOut = 0;
 		}
 
 		if (level.getGameTime() % 10 == 0) {
@@ -105,6 +116,7 @@ public class BatteryBlockEntity extends BlockEntity implements EnergyNode {
 		if (!simulate && accepted > 0) {
 			this.energy += accepted;
 			this.receivedThisTick += accepted;
+			this.windowIn += accepted;
 			this.setChanged();
 		}
 
@@ -116,6 +128,7 @@ public class BatteryBlockEntity extends BlockEntity implements EnergyNode {
 		long extracted = Math.max(0, Math.min(amount, this.energy));
 		if (!simulate && extracted > 0) {
 			this.energy -= extracted;
+			this.windowOut += extracted;
 			this.setChanged();
 		}
 
@@ -124,8 +137,17 @@ public class BatteryBlockEntity extends BlockEntity implements EnergyNode {
 
 	@Override
 	public void restoreEnergy(long amount) {
-		this.energy += Math.max(0, amount);
+		this.energy = Math.min(this.getEnergyCapacity(), this.energy + Math.max(0, amount));
+		this.windowOut = Math.max(0, this.windowOut - Math.max(0, amount));
 		this.setChanged();
+	}
+
+	public int getAverageInput() {
+		return this.avgIn;
+	}
+
+	public int getAverageOutput() {
+		return this.avgOut;
 	}
 
 	@Override

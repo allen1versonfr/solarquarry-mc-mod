@@ -4,6 +4,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import com.solarquarry.SolarQuarry;
 import com.solarquarry.blockentity.QuarryBlockEntity;
+import com.solarquarry.quarry.MiningPattern;
 import com.solarquarry.quarry.QuarryStatus;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
@@ -47,13 +48,22 @@ public class QuarryRenderer implements BlockEntityRenderer<QuarryBlockEntity, Qu
 		BlockEntityRenderer.super.extractRenderState(be, state, partialTicks, cameraPosition, breakProgress);
 		state.status = be.getStatus();
 		state.forward = be.getAreaDirection();
-		state.areaSize = be.getAreaSize();
-		state.showGantry = be.getMode() != QuarryBlockEntity.Mode.IDLE || be.getLayer() > 0 || be.getRow() > 0 || be.getCol() > 0;
+		MiningPattern pattern = be.pattern();
+		state.lMin = pattern.lateralOffset(0) - 0.5F;
+		state.lMax = pattern.lateralOffset(pattern.width() - 1) + 0.5F;
+		state.fMin = 0.5F;
+		state.fMax = pattern.length() + 0.5F;
+		state.gantryY = pattern.maxDy() + GANTRY_HEIGHT;
+		state.showGantry = be.getMode() != QuarryBlockEntity.Mode.IDLE || be.getStep() > 0 || be.getScanStep() > 0;
 
 		BlockPos origin = be.getBlockPos();
 		BlockPos target;
-		if (state.status == QuarryStatus.FINISHED || !state.showGantry) {
-			target = be.cellPos(0, 0, 0);
+		BlockPos last = be.getLastTarget();
+		if (!state.showGantry || state.status == QuarryStatus.COMPLETE || state.status == QuarryStatus.IDLE) {
+			// Parked over the first cell.
+			target = be.toWorld(pattern.cell(0), pattern).above(Math.max(0, pattern.maxDy() - pattern.cell(0).dy()));
+		} else if (last != null) {
+			target = last;
 		} else {
 			target = be.cursorPos();
 		}
@@ -86,7 +96,7 @@ public class QuarryRenderer implements BlockEntityRenderer<QuarryBlockEntity, Qu
 			}
 		}
 
-		if (state.status == QuarryStatus.RUNNING) {
+		if (state.status.isWorking()) {
 			be.clientDrillAngle = (be.clientDrillAngle + dt * 720.0F) % 360.0F;
 		}
 
@@ -100,7 +110,7 @@ public class QuarryRenderer implements BlockEntityRenderer<QuarryBlockEntity, Qu
 		if (level != null) {
 			BlockPos headPos = BlockPos.containing(origin.getX() + state.headX, origin.getY() + state.headY, origin.getZ() + state.headZ);
 			state.headLight = LightCoordsUtil.getLightCoords(level, headPos.above());
-			state.frameLight = LightCoordsUtil.getLightCoords(level, origin.above((int) GANTRY_HEIGHT));
+			state.frameLight = LightCoordsUtil.getLightCoords(level, origin.above((int) state.gantryY));
 		} else {
 			state.headLight = LightCoordsUtil.FULL_BRIGHT;
 			state.frameLight = LightCoordsUtil.FULL_BRIGHT;
@@ -116,14 +126,12 @@ public class QuarryRenderer implements BlockEntityRenderer<QuarryBlockEntity, Qu
 
 		Direction forward = state.forward;
 		Direction lateral = forward.getClockWise();
-		int size = state.areaSize;
-		int half = size / 2;
 		// Area bounds in local (lateral, forward) block units measured from the quarry block center.
-		float lMin = -half - 0.5F;
-		float lMax = size - half - 0.5F;
-		float fMin = 0.5F;
-		float fMax = size + 0.5F;
-		float gy = GANTRY_HEIGHT;
+		float lMin = state.lMin;
+		float lMax = state.lMax;
+		float fMin = state.fMin;
+		float fMax = state.fMax;
+		float gy = state.gantryY;
 
 		// Head position in local coordinates.
 		float hl = (state.headX - 0.5F) * lateral.getStepX() + (state.headZ - 0.5F) * lateral.getStepZ();

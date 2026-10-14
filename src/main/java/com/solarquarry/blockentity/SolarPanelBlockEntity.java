@@ -8,6 +8,7 @@ import com.solarquarry.energy.SolarTier;
 import com.solarquarry.registry.ModBlockEntities;
 import java.util.List;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.attribute.EnvironmentAttributes;
@@ -74,29 +75,43 @@ public class SolarPanelBlockEntity extends BlockEntity implements EnergyNode {
 	}
 
 	/**
-	 * Generation follows the sun like a daylight detector: it needs a clear view of the sky,
-	 * peaks at noon, drops in rain and storms and is zero at night.
+	 * Generation follows the sun: it needs a clear view of the sky, peaks at noon, is reduced by rain and storms
+	 * where it actually rains (not in deserts) and drops to the tier's night output after sunset.
 	 */
 	public static int computeGeneration(Level level, BlockPos pos, SolarTier tier) {
-		if (!level.canSeeSky(pos.above())) {
-			return 0;
-		}
+		return tier.generation(sunFactor(level, pos), level.canSeeSky(pos.above()), level.isRainingAt(pos.above()), level.isThundering() && level.isRainingAt(pos.above()));
+	}
 
-		int skyBrightness = level.getEffectiveSkyBrightness(pos.above());
-		if (skyBrightness <= 0) {
-			return 0;
-		}
-
+	/** 0..1, how high the sun is (1 at noon). */
+	public static float sunFactor(Level level, BlockPos pos) {
 		float sunAngle = level.environmentAttributes().getValue(EnvironmentAttributes.SUN_ANGLE, pos) * (float) (Math.PI / 180.0);
 		float offset = sunAngle < (float) Math.PI ? 0.0F : (float) (Math.PI * 2);
 		sunAngle += (offset - sunAngle) * 0.2F;
-		float sun = Mth.clamp(Mth.cos(sunAngle), 0.0F, 1.0F);
-		float factor = skyBrightness / 15.0F * sun;
-		if (factor < 0.05F) {
-			return 0;
+		return Mth.clamp(Mth.cos(sunAngle), 0.0F, 1.0F);
+	}
+
+	/** Why the panel produces what it does, for the right-click readout. */
+	public Component describe(Level level) {
+		SolarTier tier = this.getTier();
+		BlockPos pos = this.worldPosition;
+		int now = computeGeneration(level, pos, tier);
+		if (!level.canSeeSky(pos.above())) {
+			return Component.translatable("solarquarry.solar.no_sky");
 		}
 
-		return Math.max(1, Math.round(tier.peakGeneration() * factor));
+		float sun = sunFactor(level, pos);
+		String reason;
+		if (sun < 0.05F) {
+			reason = tier.nightFactor() > 0 ? "solarquarry.solar.night_cells" : "solarquarry.solar.night";
+		} else if (level.isThundering() && level.isRainingAt(pos.above())) {
+			reason = "solarquarry.solar.storm";
+		} else if (level.isRainingAt(pos.above())) {
+			reason = "solarquarry.solar.rain";
+		} else {
+			reason = "solarquarry.solar.sun";
+		}
+
+		return Component.translatable("solarquarry.solar.status", now, tier.peakGeneration(), Component.translatable(reason, Math.round(sun * 100)));
 	}
 
 	@Override

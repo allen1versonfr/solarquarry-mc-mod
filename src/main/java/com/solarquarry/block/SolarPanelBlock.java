@@ -7,6 +7,9 @@ import com.solarquarry.energy.SolarTier;
 import com.solarquarry.registry.ModBlockEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
@@ -70,5 +73,14 @@ public class SolarPanelBlock extends MachineBlock implements EnergyConnectable {
 		if (state.getValue(GENERATING) && random.nextInt(24) == 0) {
 			level.addParticle(ParticleTypes.WAX_ON, pos.getX() + random.nextDouble(), pos.getY() + 0.6, pos.getZ() + random.nextDouble(), 0.0, 0.02, 0.0);
 		}
+	}
+
+	@Override
+	protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
+		if (!level.isClientSide() && level.getBlockEntity(pos) instanceof SolarPanelBlockEntity panel) {
+			player.sendOverlayMessage(panel.describe(level));
+		}
+
+		return InteractionResult.SUCCESS;
 	}
 }

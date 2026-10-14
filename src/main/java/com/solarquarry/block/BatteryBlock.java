@@ -72,7 +72,8 @@ public class BatteryBlock extends MachineBlock implements EnergyConnectable {
 	protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
 		if (!level.isClientSide() && level.getBlockEntity(pos) instanceof BatteryBlockEntity battery) {
 			player.sendOverlayMessage(Component.translatable(
-				"solarquarry.battery.status", EnergyFormat.format(battery.getEnergy()), EnergyFormat.format(battery.getEnergyCapacity())
+				"solarquarry.battery.status", EnergyFormat.format(battery.getEnergy()), EnergyFormat.format(battery.getEnergyCapacity()),
+				battery.getAverageInput(), battery.getAverageOutput(), battery.getTier().maxTransfer()
 			));
 		}
 

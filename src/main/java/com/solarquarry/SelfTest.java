@@ -51,6 +51,7 @@ public final class SelfTest {
 	private static int noonGeneration;
 
 	private static int stage;
+	private static SelfTestModes modes;
 	private static int wait;
 	private static long batteryStart;
 	private static final List<String> failures = new ArrayList<>();
@@ -63,7 +64,7 @@ public final class SelfTest {
 		ServerTickEvents.END_SERVER_TICK.register(SelfTest::tick);
 	}
 
-	private static void check(boolean condition, String message) {
+	static void check(boolean condition, String message) {
 		if (condition) {
 			SolarQuarry.LOGGER.info("[SelfTest] OK   {}", message);
 		} else {
@@ -82,6 +83,8 @@ public final class SelfTest {
 							level.setChunkForced(cx, cz, true);
 						}
 					}
+
+					SelfTestModes.forceChunks(level);
 
 					stage = 1;
 				}
@@ -150,7 +153,7 @@ public final class SelfTest {
 				case 52 -> {
 					if (++wait >= 3) {
 						QuarryBlockEntity quarry = quarry(level);
-						check(quarry.getAreaSize() == 64, "range upgrade II expands the area to 64x64 (" + quarry.getAreaSize() + ")");
+						check(quarry.getWidth() == 64 && quarry.getLength() == 64, "range upgrade II expands the area to 64x64 (" + quarry.getWidth() + "x" + quarry.getLength() + ")");
 						quarry.removeItemNoUpdate(QuarryBlockEntity.BUFFER_SLOTS + 3);
 						quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS + 3, new ItemStack(ModItems.RANGE_UPGRADE));
 						stage = 53;
@@ -160,7 +163,7 @@ public final class SelfTest {
 				case 53 -> {
 					if (++wait >= 3) {
 						QuarryBlockEntity quarry = quarry(level);
-						check(quarry.getAreaSize() == 32, "range upgrade I expands the area to 32x32 (" + quarry.getAreaSize() + ")");
+						check(quarry.getWidth() == 32 && quarry.getLength() == 32, "range upgrade I expands the area to 32x32 (" + quarry.getWidth() + "x" + quarry.getLength() + ")");
 						quarry.removeItemNoUpdate(QuarryBlockEntity.BUFFER_SLOTS + 3);
 						quarry.pause();
 						startSolar(server, level);
@@ -172,6 +175,17 @@ public final class SelfTest {
 					// Give the light engine time to update after the panel is covered.
 					if (++wait >= 60) {
 						verifySolarCovered(level);
+						modes = new SelfTestModes();
+						stage = 8;
+						wait = 0;
+					}
+				}
+				case 8 -> {
+					if (SelfTestModes.chunksReady(level) && modes.tick(server, level)) {
+						finish(server);
+						stage = 7;
+					} else if (++wait > 40_000) {
+						check(false, "mode tests timed out");
 						finish(server);
 						stage = 7;
 					}
@@ -311,7 +325,7 @@ public final class SelfTest {
 		check(loaded instanceof QuarryBlockEntity, "quarry block entity reloads from saved data");
 		if (loaded instanceof QuarryBlockEntity copy) {
 			check(copy.getEnergy() == quarry.getEnergy(), "energy persisted");
-			check(copy.getLayer() == quarry.getLayer() && copy.getRow() == quarry.getRow() && copy.getCol() == quarry.getCol(), "mining cursor persisted");
+			check(copy.getStep() == quarry.getStep() && copy.getWidth() == quarry.getWidth() && copy.getLength() == quarry.getLength() && copy.getQuarryMode() == quarry.getQuarryMode(), "mining cursor persisted");
 			check(copy.getBlocksMined() == quarry.getBlocksMined(), "mined counter persisted");
 			check(copy.isFinished() == quarry.isFinished() && copy.getMode() == quarry.getMode(), "run state persisted");
 			check(ItemStack.matches(copy.getItem(QuarryBlockEntity.BUFFER_SLOTS), quarry.getItem(QuarryBlockEntity.BUFFER_SLOTS)), "upgrades persisted");
@@ -325,7 +339,7 @@ public final class SelfTest {
 		quarry.getVoidFilter().setItem(0, new ItemStack(Items.COBBLESTONE));
 		long energy = quarry.getEnergy();
 		long mined = quarry.getBlocksMined();
-		int layer = quarry.getLayer();
+		long stepBefore = quarry.getStep();
 		QuarryBlockEntity.Mode mode = quarry.getMode();
 
 		ItemStack carried = WrenchItem.dismantle(level, QUARRY);
@@ -338,7 +352,7 @@ public final class SelfTest {
 		BlockItem.updateCustomBlockEntityTag(level, null, QUARRY, carried);
 		QuarryBlockEntity placed = quarry(level);
 		check(placed.getEnergy() == energy, "energy restored after replacing (" + placed.getEnergy() + ")");
-		check(placed.getBlocksMined() == mined && placed.getLayer() == layer, "progress restored after replacing");
+		check(placed.getBlocksMined() == mined && placed.getStep() == stepBefore, "progress restored after replacing");
 		check(placed.getMode() == mode, "running state restored after replacing");
 		check(placed.getItem(3).is(Items.DIAMOND) && placed.getItem(3).getCount() == 7, "buffer contents restored after replacing");
 		check(placed.getItem(QuarryBlockEntity.BUFFER_SLOTS).is(ModItems.SPEED_UPGRADE), "upgrades restored after replacing");

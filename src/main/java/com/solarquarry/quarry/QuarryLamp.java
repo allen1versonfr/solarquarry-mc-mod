@@ -24,10 +24,10 @@ public enum QuarryLamp implements StringRepresentable {
 	public static QuarryLamp forStatus(QuarryStatus status) {
 		return switch (status) {
 			case IDLE -> OFF;
-			case RUNNING -> GREEN;
+			case RUNNING, SCANNING -> GREEN;
 			case PAUSED -> YELLOW;
-			case NO_ENERGY, BUFFER_FULL, BLOCKED -> RED;
-			case FINISHED -> BLUE;
+			case WAITING_FOR_POWER, OUTPUT_BLOCKED, WAITING_FOR_CHUNK -> RED;
+			case COMPLETE -> BLUE;
 		};
 	}
 }

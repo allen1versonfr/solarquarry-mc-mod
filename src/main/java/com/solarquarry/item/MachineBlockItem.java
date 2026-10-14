@@ -36,10 +36,12 @@ public class MachineBlockItem extends BlockItem {
 
 		CompoundTag tag = data.copyTagWithoutId();
 		builder.accept(Component.translatable("tooltip.solarquarry.stored_energy", EnergyFormat.format(tag.getLongOr("Energy", 0L))).withStyle(ChatFormatting.AQUA));
-		if (tag.contains("Layer")) {
+		if (tag.contains("QuarryMode") || tag.contains("Layer")) {
 			long mined = tag.getLongOr("BlocksMined", 0L);
-			int layer = tag.getIntOr("Layer", 0);
-			builder.accept(Component.translatable("tooltip.solarquarry.stored_progress", layer, mined).withStyle(ChatFormatting.GOLD));
+			String mode = tag.getStringOr("QuarryMode", "strip_mine");
+			builder.accept(Component.translatable("tooltip.solarquarry.stored_mode", Component.translatable("solarquarry.mode." + mode),
+				tag.getIntOr("Width", 16), tag.getIntOr("Length", 16)).withStyle(ChatFormatting.GOLD));
+			builder.accept(Component.translatable("tooltip.solarquarry.stored_progress", mined).withStyle(ChatFormatting.GOLD));
 			int count = tag.getListOrEmpty("Items").size();
 			builder.accept(Component.translatable("tooltip.solarquarry.stored_items", count).withStyle(ChatFormatting.DARK_GRAY));
 		}

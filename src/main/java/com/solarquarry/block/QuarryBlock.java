@@ -10,7 +10,9 @@ import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -65,6 +67,14 @@ public class QuarryBlock extends MachineBlock implements EnergyConnectable, Item
 	@Override
 	public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
 		return new QuarryBlockEntity(pos, state);
+	}
+
+	@Override
+	public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity by, ItemStack itemStack) {
+		super.setPlacedBy(level, pos, state, by, itemStack);
+		if (!level.isClientSide() && by != null && level.getBlockEntity(pos) instanceof QuarryBlockEntity quarry) {
+			quarry.setOwner(by);
+		}
 	}
 
 	@Override

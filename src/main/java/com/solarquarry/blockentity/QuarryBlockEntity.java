@@ -1,22 +1,27 @@
 package com.solarquarry.blockentity;
 
 import com.mojang.logging.LogUtils;
-import com.solarquarry.block.EnergyCableBlock;
-import com.solarquarry.block.ItemPipeBlock;
-import com.solarquarry.block.MachineBlock;
+import com.mojang.serialization.Codec;
+import com.solarquarry.SolarQuarry;
 import com.solarquarry.block.QuarryBlock;
 import com.solarquarry.energy.EnergyNode;
 import com.solarquarry.item.UpgradeItem;
 import com.solarquarry.menu.QuarryMenu;
+import com.solarquarry.quarry.MiningPattern;
 import com.solarquarry.quarry.QuarryLamp;
+import com.solarquarry.quarry.QuarryMode;
 import com.solarquarry.quarry.QuarryStatus;
 import com.solarquarry.quarry.QuarryUpgrades;
 import com.solarquarry.quarry.UpgradeType;
 import com.solarquarry.registry.ModBlockEntities;
 import com.solarquarry.registry.ModSounds;
+import com.solarquarry.registry.ModTags;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import net.fabricmc.fabric.api.menu.v1.ExtendedMenuProvider;
+import net.fabricmc.fabric.api.tag.convention.v2.ConventionalBlockTags;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemStorage;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.fabricmc.fabric.api.transfer.v1.storage.Storage;
@@ -25,7 +30,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
+import net.minecraft.core.UUIDUtil;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -36,14 +43,18 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.ProblemReporter;
+import net.minecraft.world.Container;
 import net.minecraft.world.ContainerHelper;
+import net.minecraft.world.Containers;
 import net.minecraft.world.ItemStackWithSlot;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.WorldlyContainer;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerData;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantments;
@@ -66,20 +77,35 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	public static final int UPGRADE_SLOTS = 6;
 	public static final int FILTER_SLOTS = 9;
 	public static final int TOTAL_SLOTS = BUFFER_SLOTS + UPGRADE_SLOTS;
-	public static final int DATA_COUNT = 18;
-	/** Maximum positions examined per tick while skipping air and unbreakable blocks. */
+	public static final int DATA_COUNT = 27;
+	public static final int DEFAULT_SIZE = 16;
+	public static final int DEFAULT_HEIGHT = 3;
+	/** Maximum positions examined per tick while skipping air and ignored blocks. */
 	private static final int SCAN_BUDGET = 1024;
+	/** Maximum positions examined per tick while prospecting for ores (ore priority mode). */
+	private static final int ORE_SCAN_BUDGET = 2048;
+	/** Ore positions remembered at once; scanning pauses while the queue is full. */
+	public static final int MAX_ORE_QUEUE = 2048;
 	private static final long FLUID_COST = 10;
 	private static final int[] BUFFER_SLOT_IDS = createRange(BUFFER_SLOTS);
 
+	/** What the player asked the machine to do. */
 	public enum Mode {
 		IDLE,
 		RUNNING,
 		PAUSED
 	}
 
+	/** Which ghost list a config page shows. */
+	public enum ListKind {
+		VOID,
+		SKIP,
+		ORES
+	}
+
 	private enum StepResult {
 		MINED,
+		SKIPPED,
 		SCANNING,
 		NO_ENERGY,
 		FULL,
@@ -89,33 +115,45 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 
 	// ---- persistent state ----
 	private final NonNullList<ItemStack> items = NonNullList.withSize(TOTAL_SLOTS, ItemStack.EMPTY);
-	private final SimpleContainer voidFilter = new SimpleContainer(FILTER_SLOTS) {
-		@Override
-		public void setChanged() {
-			super.setChanged();
-			QuarryBlockEntity.this.setChanged();
-		}
-	};
+	private final SimpleContainer voidFilter = this.ghostList();
+	private final SimpleContainer skipFilter = this.ghostList();
+	private final SimpleContainer oreFilter = this.ghostList();
 	private long energy;
 	private Mode mode = Mode.IDLE;
-	private boolean finished;
-	private int layer;
-	private int row;
-	private int col;
-	private int areaSize = 16;
+	private QuarryMode quarryMode = QuarryMode.STRIP_MINE;
+	private int width = DEFAULT_SIZE;
+	private int length = DEFAULT_SIZE;
+	private int height = DEFAULT_HEIGHT;
+	private boolean oresOnly;
 	private boolean hasTargetY;
 	private int targetY;
+	private long step;
+	private boolean finished;
+	private long scanStep;
+	private boolean scanComplete;
+	private final LongArrayList oreQueue = new LongArrayList();
 	private long blocksMined;
 	private int cooldown;
+	private @Nullable UUID owner;
+	private String ownerName = "";
+	private QuarryStatus status = QuarryStatus.IDLE;
+	/** Last block the drill worked on (drives the animation; synced to clients). */
+	private @Nullable BlockPos lastTarget;
 
 	// ---- runtime state (recomputed, not authoritative) ----
-	private QuarryStatus status = QuarryStatus.IDLE;
 	private QuarryUpgrades upgrades = QuarryUpgrades.NONE;
 	private @Nullable ItemStack cachedTool;
+	private @Nullable MiningPattern cachedPattern;
 	private long ticks;
 	private boolean syncDirty = true;
 	private long lastSyncTick;
 	private long energyReceivedThisTick;
+	private long windowIn;
+	private long windowUsed;
+	private int avgInput;
+	private int avgUse;
+	private boolean outputConnected;
+	private @Nullable ServerPlayer ownerThisTick;
 
 	// ---- client animation state (client only) ----
 	public float clientHeadX = Float.NaN;
@@ -129,6 +167,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		public int get(int index) {
 			QuarryBlockEntity q = QuarryBlockEntity.this;
 			long cap = q.getEnergyCapacity();
+			MiningPattern pattern = q.pattern();
 			return switch (index) {
 				case 0 -> (int) (q.energy & 0xFFFF);
 				case 1 -> (int) ((q.energy >>> 16) & 0xFFFF);
@@ -136,18 +175,28 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 				case 3 -> (int) ((cap >>> 16) & 0xFFFF);
 				case 4 -> q.status.ordinal();
 				case 5 -> q.progressPermille();
-				case 6 -> q.col;
-				case 7 -> q.row;
+				case 6 -> q.cursorCell().lateral();
+				case 7 -> q.cursorCell().forward();
 				case 8 -> q.currentY();
 				case 9 -> q.effectiveTargetY();
-				case 10 -> q.areaSize;
-				case 11 -> q.upgrades.blocksPerMinute();
-				case 12 -> (int) Math.min(q.upgrades.typicalEnergyPerBlock(), 0x7FFF);
-				case 13 -> q.mode.ordinal();
-				case 14 -> (int) (q.blocksMined & 0xFFFF);
-				case 15 -> (int) ((q.blocksMined >>> 16) & 0xFFFF);
-				case 16 -> q.upgrades.voiding() ? 1 : 0;
-				case 17 -> q.level != null ? q.level.getMinY() : 0;
+				case 10 -> q.width;
+				case 11 -> q.length;
+				case 12 -> q.height;
+				case 13 -> q.quarryMode.ordinal();
+				case 14 -> q.mode.ordinal();
+				case 15 -> (int) (q.blocksMined & 0xFFFF);
+				case 16 -> (int) ((q.blocksMined >>> 16) & 0xFFFF);
+				case 17 -> (q.upgrades.voiding() ? 1 : 0) | (q.oresOnly ? 2 : 0) | (q.outputConnected ? 4 : 0)
+					| (q.upgrades.silkTouch() ? 8 : 0) | (q.scanComplete ? 16 : 0);
+				case 18 -> q.level != null ? q.level.getMinY() : -64;
+				case 19 -> q.upgrades.maxAreaSize();
+				case 20 -> q.upgrades.blocksPerMinute();
+				case 21 -> (int) Math.min(q.upgrades.typicalEnergyPerBlock(), 0x7FFF);
+				case 22 -> Math.min(q.avgInput, 0x7FFF);
+				case 23 -> Math.min(q.avgUse, 0x7FFF);
+				case 24 -> Math.min(q.oreQueue.size(), 0x7FFF);
+				case 25 -> q.level != null ? q.level.getMaxY() : 319;
+				case 26 -> (int) Math.min(q.upgrades.typicalPowerDraw(), 0x7FFF);
 				default -> 0;
 			};
 		}
@@ -165,6 +214,21 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 
 	public QuarryBlockEntity(BlockPos pos, BlockState state) {
 		super(ModBlockEntities.QUARRY, pos, state);
+	}
+
+	private SimpleContainer ghostList() {
+		return new SimpleContainer(FILTER_SLOTS) {
+			@Override
+			public void setChanged() {
+				super.setChanged();
+				QuarryBlockEntity.this.onListChanged();
+			}
+		};
+	}
+
+	private void onListChanged() {
+		this.setChanged();
+		this.syncDirty = true;
 	}
 
 	private static int[] createRange(int size) {
@@ -189,26 +253,15 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	private void tickServer(ServerLevel level, BlockState state) {
 		this.ticks++;
 		this.energyReceivedThisTick = 0;
-		QuarryUpgrades newUpgrades = QuarryUpgrades.of(this, BUFFER_SLOTS, UPGRADE_SLOTS);
-		if (!newUpgrades.equals(this.upgrades)) {
-			this.upgrades = newUpgrades;
-			this.cachedTool = null;
-			this.syncDirty = true;
-		}
-
-		int wantedArea = this.upgrades.areaSize();
-		if (wantedArea != this.areaSize) {
-			// The area changed (range upgrade added or removed): rescan from the top layer.
-			this.areaSize = wantedArea;
-			this.resetProgress();
-		}
+		this.ownerThisTick = this.owner != null ? level.getServer().getPlayerList().getPlayer(this.owner) : null;
+		this.refreshUpgrades();
 
 		QuarryStatus previous = this.status;
 		QuarryStatus next;
 		if (this.mode == Mode.IDLE) {
 			next = QuarryStatus.IDLE;
 		} else if (this.finished) {
-			next = QuarryStatus.FINISHED;
+			next = QuarryStatus.COMPLETE;
 		} else if (this.mode == Mode.PAUSED) {
 			next = QuarryStatus.PAUSED;
 		} else {
@@ -219,26 +272,61 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 			this.pushOutput(level);
 		}
 
+		if (this.ticks % 20 == 0) {
+			this.avgInput = (int) Math.min(Integer.MAX_VALUE, this.windowIn / 20);
+			this.avgUse = (int) Math.min(Integer.MAX_VALUE, this.windowUsed / 20);
+			this.windowIn = 0;
+			this.windowUsed = 0;
+		}
+
 		if (next != previous) {
 			this.status = next;
 			this.onStatusChanged(level, state, previous, next);
 		}
 
-		if (this.status == QuarryStatus.RUNNING) {
+		if (this.status.isWorking()) {
 			if (this.ticks % 40 == 0) {
-				BlockPos head = this.cursorPos();
+				BlockPos head = this.lastTarget != null ? this.lastTarget : this.worldPosition;
 				level.playSound(null, head.getX() + 0.5, head.getY() + 0.5, head.getZ() + 0.5, ModSounds.QUARRY_DRILL, SoundSource.BLOCKS, 0.55F, 0.9F + level.getRandom().nextFloat() * 0.2F);
 			}
 
 			if (this.ticks % 20 == 0) {
 				level.sendParticles(ParticleTypes.ELECTRIC_SPARK, this.worldPosition.getX() + 0.5, this.worldPosition.getY() + 1.1, this.worldPosition.getZ() + 0.5, 2, 0.25, 0.05, 0.25, 0.02);
 			}
+		} else if (this.status.isProblem() && this.ticks % 60 == 0) {
+			level.sendParticles(ParticleTypes.SMOKE, this.worldPosition.getX() + 0.5, this.worldPosition.getY() + 1.05, this.worldPosition.getZ() + 0.5, 3, 0.2, 0.05, 0.2, 0.01);
 		}
 
 		if (this.syncDirty && this.ticks - this.lastSyncTick >= 10) {
 			this.lastSyncTick = this.ticks;
 			this.syncDirty = false;
 			level.sendBlockUpdated(this.worldPosition, state, state, Block.UPDATE_CLIENTS);
+		}
+
+		this.ownerThisTick = null;
+	}
+
+	/** Recomputes the upgrade snapshot and adapts the area when the range limit changes. */
+	private void refreshUpgrades() {
+		QuarryUpgrades newUpgrades = QuarryUpgrades.of(this, BUFFER_SLOTS, UPGRADE_SLOTS);
+		if (newUpgrades.equals(this.upgrades)) {
+			return;
+		}
+
+		int oldMax = this.upgrades.maxAreaSize();
+		this.upgrades = newUpgrades;
+		this.cachedTool = null;
+		this.syncDirty = true;
+		int newMax = newUpgrades.maxAreaSize();
+		if (oldMax != newMax && this.level != null && !this.level.isClientSide()) {
+			boolean followMax = this.width == oldMax && this.length == oldMax;
+			int newWidth = followMax ? newMax : Math.min(this.width, newMax);
+			int newLength = followMax ? newMax : Math.min(this.length, this.maxLength(newMax));
+			if (newWidth != this.width || newLength != this.length) {
+				this.width = newWidth;
+				this.length = newLength;
+				this.resetProgress();
+			}
 		}
 	}
 
@@ -248,10 +336,10 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 			level.setBlock(this.worldPosition, state.setValue(QuarryBlock.LAMP, lamp), Block.UPDATE_CLIENTS);
 		}
 
-		if (next == QuarryStatus.RUNNING && previous != QuarryStatus.RUNNING) {
+		if (next.isWorking() && !previous.isWorking()) {
 			level.playSound(null, this.worldPosition, ModSounds.MACHINE_START, SoundSource.BLOCKS, 0.7F, 1.0F);
-		} else if (previous == QuarryStatus.RUNNING && (next == QuarryStatus.NO_ENERGY || next == QuarryStatus.FINISHED || next == QuarryStatus.BUFFER_FULL)) {
-			level.playSound(null, this.worldPosition, ModSounds.POWER_DOWN, SoundSource.BLOCKS, 0.6F, next == QuarryStatus.FINISHED ? 1.2F : 1.0F);
+		} else if (previous.isWorking() && (next.isProblem() || next == QuarryStatus.COMPLETE)) {
+			level.playSound(null, this.worldPosition, ModSounds.POWER_DOWN, SoundSource.BLOCKS, 0.6F, next == QuarryStatus.COMPLETE ? 1.2F : 1.0F);
 		}
 
 		this.syncDirty = true;
@@ -262,7 +350,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	private QuarryStatus runMining(ServerLevel level) {
 		if (this.cooldown > 0) {
 			this.cooldown--;
-			return this.status == QuarryStatus.RUNNING ? QuarryStatus.RUNNING : this.status;
+			return this.status.isWorking() ? this.status : QuarryStatus.RUNNING;
 		}
 
 		StepResult result = StepResult.SCANNING;
@@ -275,108 +363,265 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		}
 
 		return switch (result) {
-			case MINED -> {
+			case MINED, SKIPPED -> {
 				this.cooldown = this.upgrades.ticksPerOperation() - 1;
 				this.syncDirty = true;
 				yield QuarryStatus.RUNNING;
 			}
 			case SCANNING -> {
 				this.syncDirty = true;
-				yield QuarryStatus.RUNNING;
+				yield this.quarryMode == QuarryMode.ORE_PRIORITY && !this.scanComplete ? QuarryStatus.SCANNING : QuarryStatus.RUNNING;
 			}
-			case NO_ENERGY -> QuarryStatus.NO_ENERGY;
-			case FULL -> QuarryStatus.BUFFER_FULL;
-			case UNLOADED -> QuarryStatus.BLOCKED;
+			case NO_ENERGY -> QuarryStatus.WAITING_FOR_POWER;
+			case FULL -> QuarryStatus.OUTPUT_BLOCKED;
+			case UNLOADED -> QuarryStatus.WAITING_FOR_CHUNK;
 			case FINISHED -> {
 				this.finished = true;
 				this.setChanged();
-				yield QuarryStatus.FINISHED;
+				yield QuarryStatus.COMPLETE;
 			}
 		};
 	}
 
 	private StepResult mineNext(ServerLevel level) {
-		int bottom = this.effectiveTargetY();
+		if (this.quarryMode == QuarryMode.ORE_PRIORITY) {
+			StepResult ore = this.mineOres(level);
+			if (ore != null) {
+				return ore;
+			}
+
+			if (this.oresOnly) {
+				return StepResult.FINISHED;
+			}
+		}
+
+		MiningPattern pattern = this.pattern();
 		for (int scanned = 0; scanned < SCAN_BUDGET; scanned++) {
-			if (this.currentY() < bottom) {
+			if (pattern.isComplete(this.step)) {
 				return StepResult.FINISHED;
 			}
 
-			BlockPos pos = this.cursorPos();
-			if (!level.isLoaded(pos)) {
-				return StepResult.UNLOADED;
-			}
-
-			BlockState target = level.getBlockState(pos);
-			if (this.shouldSkip(level, pos, target)) {
-				this.advance();
+			BlockPos pos = this.positionOf(pattern, this.step);
+			StepResult result = this.tryMine(level, pos);
+			if (result == StepResult.SKIPPED) {
+				this.step++;
 				continue;
 			}
 
-			if (target.getBlock() instanceof LiquidBlock) {
-				if (this.energy < FLUID_COST) {
-					return StepResult.NO_ENERGY;
-				}
-
-				this.energy -= FLUID_COST;
-				level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
-				this.advance();
-				this.setChanged();
-				return StepResult.MINED;
+			if (result == StepResult.MINED) {
+				this.step++;
 			}
 
-			float hardness = target.getDestroySpeed(level, pos);
-			long cost = this.upgrades.energyPerBlock(hardness);
-			if (this.energy < cost) {
-				return StepResult.NO_ENERGY;
-			}
-
-			ItemStack tool = this.getMiningTool(level);
-			BlockEntity targetEntity = target.hasBlockEntity() ? level.getBlockEntity(pos) : null;
-			List<ItemStack> drops = Block.getDrops(target, level, pos, targetEntity, null, tool);
-			List<ItemStack> kept = new ArrayList<>(drops.size());
-			for (ItemStack drop : drops) {
-				if (!drop.isEmpty() && !this.shouldVoid(drop)) {
-					kept.add(drop);
-				}
-			}
-
-			if (!this.canFitAll(kept)) {
-				return StepResult.FULL;
-			}
-
-			this.energy -= cost;
-			level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
-			target.spawnAfterBreak(level, pos, tool, false);
-			for (ItemStack stack : kept) {
-				this.insertIntoBuffer(stack);
-			}
-
-			this.blocksMined++;
-			if (this.upgrades.ticksPerOperation() >= 4 || this.blocksMined % 4 == 0) {
-				level.levelEvent(null, LevelEvent.PARTICLES_DESTROY_BLOCK, pos, Block.getId(target));
-			}
-
-			this.advance();
-			this.setChanged();
-			return StepResult.MINED;
+			return result;
 		}
 
 		return StepResult.SCANNING;
 	}
 
-	private boolean shouldSkip(ServerLevel level, BlockPos pos, BlockState state) {
+	/**
+	 * Ore priority: first drains the queue of known ore positions, then prospects further.
+	 * @return a result while ore work remains, or null once the whole volume has been scanned and every ore mined
+	 */
+	private @Nullable StepResult mineOres(ServerLevel level) {
+		int budget = SCAN_BUDGET;
+		while (!this.oreQueue.isEmpty() && budget-- > 0) {
+			BlockPos pos = BlockPos.of(this.oreQueue.getLong(0));
+			if (!level.isLoaded(pos)) {
+				return StepResult.UNLOADED;
+			}
+
+			BlockState state = level.getBlockState(pos);
+			if (!this.isPriorityOre(state)) {
+				this.oreQueue.removeLong(0);
+				continue;
+			}
+
+			StepResult result = this.tryMine(level, pos);
+			if (result == StepResult.SKIPPED || result == StepResult.MINED) {
+				this.oreQueue.removeLong(0);
+				this.setChanged();
+				if (result == StepResult.MINED) {
+					return result;
+				}
+
+				continue;
+			}
+
+			return result;
+		}
+
+		if (!this.oreQueue.isEmpty()) {
+			return StepResult.SCANNING;
+		}
+
+		if (this.scanComplete) {
+			return null;
+		}
+
+		MiningPattern pattern = this.pattern();
+		int scanned = 0;
+		while (scanned < ORE_SCAN_BUDGET && this.oreQueue.size() < MAX_ORE_QUEUE) {
+			if (pattern.isComplete(this.scanStep)) {
+				this.scanComplete = true;
+				this.setChanged();
+				return this.oreQueue.isEmpty() ? null : StepResult.SCANNING;
+			}
+
+			BlockPos pos = this.positionOf(pattern, this.scanStep);
+			if (!level.isLoaded(pos)) {
+				return StepResult.UNLOADED;
+			}
+
+			BlockState state = level.getBlockState(pos);
+			if (this.isPriorityOre(state) && !this.shouldSkip(level, pos, state)) {
+				this.oreQueue.add(pos.asLong());
+			}
+
+			this.scanStep++;
+			scanned++;
+		}
+
+		this.setChanged();
+		return StepResult.SCANNING;
+	}
+
+	/** Ores the ore-priority mode looks for: the ore list if it has entries, otherwise anything tagged c:ores. */
+	public boolean isPriorityOre(BlockState state) {
+		if (state.isAir()) {
+			return false;
+		}
+
+		boolean listed = false;
+		boolean anyEntry = false;
+		Item item = state.getBlock().asItem();
+		for (int i = 0; i < FILTER_SLOTS; i++) {
+			ItemStack entry = this.oreFilter.getItem(i);
+			if (!entry.isEmpty()) {
+				anyEntry = true;
+				if (item != Items.AIR && entry.is(item)) {
+					listed = true;
+					break;
+				}
+			}
+		}
+
+		return anyEntry ? listed : state.is(ConventionalBlockTags.ORES);
+	}
+
+	/** Mines one block if possible. Never advances any cursor itself. */
+	private StepResult tryMine(ServerLevel level, BlockPos pos) {
+		if (!level.isLoaded(pos)) {
+			return StepResult.UNLOADED;
+		}
+
+		BlockState target = level.getBlockState(pos);
+		if (this.shouldSkip(level, pos, target)) {
+			return StepResult.SKIPPED;
+		}
+
+		if (target.getBlock() instanceof LiquidBlock) {
+			if (this.energy < FLUID_COST) {
+				return StepResult.NO_ENERGY;
+			}
+
+			this.useEnergy(FLUID_COST);
+			level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+			this.lastTarget = pos.immutable();
+			this.setChanged();
+			return StepResult.MINED;
+		}
+
+		float hardness = target.getDestroySpeed(level, pos);
+		long cost = this.upgrades.energyPerBlock(hardness);
+		if (this.energy < cost) {
+			return StepResult.NO_ENERGY;
+		}
+
+		ItemStack tool = this.getMiningTool(level);
+		BlockEntity targetEntity = target.hasBlockEntity() ? level.getBlockEntity(pos) : null;
+		List<ItemStack> drops = Block.getDrops(target, level, pos, targetEntity, null, tool);
+		List<ItemStack> kept = new ArrayList<>(drops.size());
+		for (ItemStack drop : drops) {
+			if (!drop.isEmpty() && !this.shouldVoid(drop)) {
+				kept.add(drop);
+			}
+		}
+
+		if (!this.canFitAll(kept)) {
+			return StepResult.FULL;
+		}
+
+		this.useEnergy(cost);
+		level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+		target.spawnAfterBreak(level, pos, tool, false);
+		for (ItemStack stack : kept) {
+			this.insertIntoBuffer(stack);
+		}
+
+		this.blocksMined++;
+		this.lastTarget = pos.immutable();
+		if (this.upgrades.ticksPerOperation() >= 4 || this.blocksMined % 4 == 0) {
+			level.levelEvent(null, LevelEvent.PARTICLES_DESTROY_BLOCK, pos, Block.getId(target));
+		}
+
+		this.setChanged();
+		return StepResult.MINED;
+	}
+
+	private void useEnergy(long amount) {
+		this.energy = Math.max(0, this.energy - amount);
+		this.windowUsed += amount;
+	}
+
+	/**
+	 * Targets the quarry never touches: air, unbreakable blocks, anything outside the world border or the owner's
+	 * build permission (spawn protection), our own machines and cables, data-pack ignored blocks, containers
+	 * (their contents would spill) and blocks on the skip list.
+	 */
+	public boolean shouldSkip(Level level, BlockPos pos, BlockState state) {
 		if (state.isAir() || pos.equals(this.worldPosition)) {
 			return true;
 		}
 
+		if (!level.getWorldBorder().isWithinBounds(pos)) {
+			return true;
+		}
+
 		if (state.getDestroySpeed(level, pos) < 0.0F) {
-			return true; // bedrock, barriers and other unbreakable blocks
+			return true;
 		}
 
 		Block block = state.getBlock();
-		if (block instanceof MachineBlock || block instanceof EnergyCableBlock || block instanceof ItemPipeBlock) {
-			return true; // never eat our own infrastructure
+		if (SolarQuarry.MOD_ID.equals(BuiltInRegistries.BLOCK.getKey(block).getNamespace())) {
+			return true;
+		}
+
+		if (state.is(ModTags.QUARRY_IGNORED)) {
+			return true;
+		}
+
+		if (state.hasBlockEntity() && level.getBlockEntity(pos) instanceof Container) {
+			return true;
+		}
+
+		if (this.isListed(this.skipFilter, block.asItem())) {
+			return true;
+		}
+
+		ServerPlayer ownerPlayer = this.ownerThisTick;
+		return ownerPlayer != null && !level.mayInteract(ownerPlayer, pos);
+	}
+
+	private boolean isListed(Container list, Item item) {
+		if (item == Items.AIR) {
+			return false;
+		}
+
+		for (int i = 0; i < list.getContainerSize(); i++) {
+			ItemStack entry = list.getItem(i);
+			if (!entry.isEmpty() && entry.is(item)) {
+				return true;
+			}
 		}
 
 		return false;
@@ -399,40 +644,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	}
 
 	private boolean shouldVoid(ItemStack stack) {
-		if (!this.upgrades.voiding()) {
-			return false;
-		}
-
-		for (int i = 0; i < this.voidFilter.getContainerSize(); i++) {
-			ItemStack filter = this.voidFilter.getItem(i);
-			if (!filter.isEmpty() && filter.is(stack.getItem())) {
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	private void advance() {
-		this.col++;
-		if (this.col >= this.areaSize) {
-			this.col = 0;
-			this.row++;
-			if (this.row >= this.areaSize) {
-				this.row = 0;
-				this.layer++;
-			}
-		}
-	}
-
-	public void resetProgress() {
-		this.layer = 0;
-		this.row = 0;
-		this.col = 0;
-		this.finished = false;
-		this.cooldown = 0;
-		this.syncDirty = true;
-		this.setChanged();
+		return this.upgrades.voiding() && this.isListed(this.voidFilter, stack.getItem());
 	}
 
 	// =====================================================================================
@@ -444,28 +656,59 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		return state.hasProperty(QuarryBlock.FACING) ? state.getValue(QuarryBlock.FACING) : Direction.NORTH;
 	}
 
-	/** Direction from the quarry into the mining area (behind the machine). */
+	/** Direction from the quarry into the work volume (behind the machine). */
 	public Direction getAreaDirection() {
 		return this.getFacing().getOpposite();
 	}
 
-	/** World position of local cell (col,row) at the given layer. */
-	public BlockPos cellPos(int cellCol, int cellRow, int cellLayer) {
+	/** The work volume for the current settings (cached until a setting changes). */
+	public MiningPattern pattern() {
+		if (this.cachedPattern == null) {
+			int top = this.level != null ? this.level.getMaxY() : 319;
+			this.cachedPattern = MiningPattern.of(this.quarryMode, this.width, this.length, this.height, this.worldPosition.getY(), this.effectiveTargetY(), top);
+		}
+
+		return this.cachedPattern;
+	}
+
+	private void invalidatePattern() {
+		this.cachedPattern = null;
+	}
+
+	public BlockPos positionOf(MiningPattern pattern, long index) {
+		return this.toWorld(pattern.cell(index), pattern);
+	}
+
+	public BlockPos toWorld(MiningPattern.Cell cell, MiningPattern pattern) {
 		Direction forward = this.getAreaDirection();
 		Direction lateral = forward.getClockWise();
-		int half = this.areaSize / 2;
 		return this.worldPosition
-			.relative(forward, 1 + cellRow)
-			.relative(lateral, cellCol - half)
-			.below(cellLayer);
+			.relative(forward, cell.forward())
+			.relative(lateral, pattern.lateralOffset(cell.lateral()))
+			.above(cell.dy());
+	}
+
+	/** The cell the machine is currently working toward (for display). */
+	public MiningPattern.Cell cursorCell() {
+		MiningPattern pattern = this.pattern();
+		long index = this.quarryMode == QuarryMode.ORE_PRIORITY && !this.scanComplete ? this.scanStep : this.step;
+		return pattern.cell(Math.min(index, Math.max(0, pattern.total() - 1)));
 	}
 
 	public BlockPos cursorPos() {
-		return this.cellPos(this.col, this.row, this.layer);
+		return this.toWorld(this.cursorCell(), this.pattern());
+	}
+
+	public @Nullable BlockPos getLastTarget() {
+		return this.lastTarget;
 	}
 
 	public int currentY() {
-		return this.worldPosition.getY() - this.layer;
+		if (this.lastTarget != null && this.status.isWorking()) {
+			return this.lastTarget.getY();
+		}
+
+		return this.worldPosition.getY() + this.cursorCell().dy();
 	}
 
 	public int effectiveTargetY() {
@@ -475,28 +718,129 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		return Math.max(min, Math.min(start, target));
 	}
 
-	public void setTargetY(int y) {
-		int min = this.level != null ? this.level.getMinY() : -64;
-		this.targetY = Math.max(min, Math.min(this.worldPosition.getY(), y));
-		this.hasTargetY = true;
-		if (this.finished && this.currentY() >= this.targetY) {
-			this.finished = false;
-		}
-
-		this.syncDirty = true;
-		this.setChanged();
-	}
-
 	public int progressPermille() {
-		long perLayer = (long) this.areaSize * this.areaSize;
-		long layers = (long) this.worldPosition.getY() - this.effectiveTargetY() + 1;
-		long total = Math.max(1, perLayer * layers);
 		if (this.finished) {
 			return 1000;
 		}
 
-		long done = this.layer * perLayer + (long) this.row * this.areaSize + this.col;
-		return (int) Math.max(0, Math.min(1000, done * 1000 / total));
+		MiningPattern pattern = this.pattern();
+		if (this.quarryMode == QuarryMode.ORE_PRIORITY) {
+			// Scanning is the first half of the job; strip mining the rest (if enabled) the second.
+			int scan = pattern.permille(this.scanStep);
+			if (this.oresOnly) {
+				return this.scanComplete && this.oreQueue.isEmpty() ? 1000 : Math.min(999, scan);
+			}
+
+			return this.scanComplete ? 500 + pattern.permille(this.step) / 2 : scan / 2;
+		}
+
+		return pattern.permille(this.step);
+	}
+
+	// =====================================================================================
+	// Configuration (server authoritative; every setter validates and clamps)
+	// =====================================================================================
+
+	private int maxLength(int maxArea) {
+		return this.quarryMode == QuarryMode.TUNNEL_BORE ? maxArea * MiningPattern.TUNNEL_LENGTH_FACTOR : maxArea;
+	}
+
+	public int getMaxWidth() {
+		return this.upgrades.maxAreaSize();
+	}
+
+	public int getMaxLength() {
+		return this.maxLength(this.upgrades.maxAreaSize());
+	}
+
+	public int getMaxHeight() {
+		return this.quarryMode == QuarryMode.TUNNEL_BORE ? MiningPattern.MAX_TUNNEL_HEIGHT : MiningPattern.MAX_CLEAR_HEIGHT;
+	}
+
+	public void setTargetY(int y) {
+		int min = this.level != null ? this.level.getMinY() : -64;
+		int clamped = Math.max(min, Math.min(this.worldPosition.getY(), y));
+		if (this.hasTargetY && clamped == this.targetY) {
+			return;
+		}
+
+		this.targetY = clamped;
+		this.hasTargetY = true;
+		this.invalidatePattern();
+		if (this.quarryMode.usesTargetDepth()) {
+			// A deeper target keeps progress (the pattern only grows downward); a shallower one may complete the job.
+			this.finished = this.pattern().isComplete(this.step) && (this.quarryMode != QuarryMode.ORE_PRIORITY || this.scanComplete);
+			if (this.quarryMode == QuarryMode.ORE_PRIORITY && !this.pattern().isComplete(this.scanStep)) {
+				this.scanComplete = false;
+			}
+		}
+
+		this.markConfigChanged();
+	}
+
+	public void setQuarryMode(QuarryMode newMode) {
+		if (newMode == this.quarryMode) {
+			return;
+		}
+
+		this.quarryMode = newMode;
+		this.length = Math.min(this.length, this.getMaxLength());
+		this.height = Math.max(1, Math.min(this.height, this.getMaxHeight()));
+		this.resetProgress();
+	}
+
+	public void setWidth(int value) {
+		int clamped = Math.max(1, Math.min(this.getMaxWidth(), value));
+		if (clamped != this.width) {
+			this.width = clamped;
+			this.resetProgress();
+		}
+	}
+
+	public void setLength(int value) {
+		int clamped = Math.max(1, Math.min(this.getMaxLength(), value));
+		if (clamped != this.length) {
+			this.length = clamped;
+			this.resetProgress();
+		}
+	}
+
+	public void setHeight(int value) {
+		int clamped = Math.max(1, Math.min(this.getMaxHeight(), value));
+		if (clamped != this.height) {
+			this.height = clamped;
+			this.resetProgress();
+		}
+	}
+
+	public void setOresOnly(boolean value) {
+		if (value != this.oresOnly) {
+			this.oresOnly = value;
+			if (this.finished && !value && this.quarryMode == QuarryMode.ORE_PRIORITY) {
+				this.finished = false;
+			}
+
+			this.markConfigChanged();
+		}
+	}
+
+	/** Restarts the scan from the first cell of the work volume. Mined blocks are already air and are skipped quickly. */
+	public void resetProgress() {
+		this.step = 0;
+		this.scanStep = 0;
+		this.scanComplete = false;
+		this.oreQueue.clear();
+		this.finished = false;
+		this.cooldown = 0;
+		this.invalidatePattern();
+		this.markConfigChanged();
+	}
+
+	private void markConfigChanged() {
+		this.invalidatePattern();
+		this.syncDirty = true;
+		this.lastSyncTick = 0;
+		this.setChanged();
 	}
 
 	// =====================================================================================
@@ -529,6 +873,27 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		}
 	}
 
+	public void setOwner(LivingEntity placer) {
+		if (placer instanceof Player player) {
+			this.owner = player.getUUID();
+			this.ownerName = player.getGameProfile().name();
+			this.setChanged();
+		}
+	}
+
+	public @Nullable UUID getOwner() {
+		return this.owner;
+	}
+
+	public String getOwnerName() {
+		return this.ownerName;
+	}
+
+	/** Owners and server operators may control the machine remotely. */
+	public boolean isAuthorized(ServerPlayer player) {
+		return this.owner == null || this.owner.equals(player.getUUID()) || player.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER);
+	}
+
 	public Mode getMode() {
 		return this.mode;
 	}
@@ -537,20 +902,36 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		return this.status;
 	}
 
-	public int getAreaSize() {
-		return this.areaSize;
+	public QuarryMode getQuarryMode() {
+		return this.quarryMode;
 	}
 
-	public int getLayer() {
-		return this.layer;
+	public int getWidth() {
+		return this.width;
 	}
 
-	public int getRow() {
-		return this.row;
+	public int getLength() {
+		return this.length;
 	}
 
-	public int getCol() {
-		return this.col;
+	public int getHeight() {
+		return this.height;
+	}
+
+	public boolean isOresOnly() {
+		return this.oresOnly;
+	}
+
+	public long getStep() {
+		return this.step;
+	}
+
+	public long getScanStep() {
+		return this.scanStep;
+	}
+
+	public int getOreQueueSize() {
+		return this.oreQueue.size();
 	}
 
 	public long getBlocksMined() {
@@ -561,15 +942,48 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		return this.finished;
 	}
 
+	public boolean isOutputConnected() {
+		return this.outputConnected;
+	}
+
+	public QuarryUpgrades getUpgrades() {
+		return this.upgrades;
+	}
+
+	public int getAverageInput() {
+		return this.avgInput;
+	}
+
+	public int getAverageUse() {
+		return this.avgUse;
+	}
+
 	public SimpleContainer getVoidFilter() {
 		return this.voidFilter;
+	}
+
+	public SimpleContainer getSkipFilter() {
+		return this.skipFilter;
+	}
+
+	public SimpleContainer getOreFilter() {
+		return this.oreFilter;
+	}
+
+	public SimpleContainer getList(ListKind kind) {
+		return switch (kind) {
+			case VOID -> this.voidFilter;
+			case SKIP -> this.skipFilter;
+			case ORES -> this.oreFilter;
+		};
 	}
 
 	public ContainerData getDataAccess() {
 		return this.dataAccess;
 	}
 
-	public int getComparatorOutput() {
+	/** Number of non-empty buffer slots. */
+	public int getUsedBufferSlots() {
 		int filled = 0;
 		for (int i = 0; i < BUFFER_SLOTS; i++) {
 			if (!this.items.get(i).isEmpty()) {
@@ -577,6 +991,11 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 			}
 		}
 
+		return filled;
+	}
+
+	public int getComparatorOutput() {
+		int filled = this.getUsedBufferSlots();
 		return filled == 0 ? 0 : 1 + filled * 14 / BUFFER_SLOTS;
 	}
 
@@ -609,11 +1028,9 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		ItemStack remaining = stack.copy();
 		List<ItemStack> view = this.items.subList(0, BUFFER_SLOTS);
 		mergeInto(view, remaining);
-		if (!remaining.isEmpty()) {
+		if (!remaining.isEmpty() && this.level != null) {
 			// canFitAll() guarantees room; never delete items if that invariant is ever broken.
-			if (this.level != null) {
-				net.minecraft.world.Containers.dropItemStack(this.level, this.worldPosition.getX() + 0.5, this.worldPosition.getY() + 1.0, this.worldPosition.getZ() + 0.5, remaining);
-			}
+			Containers.dropItemStack(this.level, this.worldPosition.getX() + 0.5, this.worldPosition.getY() + 1.0, this.worldPosition.getZ() + 0.5, remaining);
 		}
 	}
 
@@ -640,6 +1057,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 
 	/** Pushes buffered items into adjacent item pipes or inventories. */
 	private void pushOutput(ServerLevel level) {
+		boolean connected = false;
 		for (Direction dir : Direction.values()) {
 			BlockPos neighbor = this.worldPosition.relative(dir);
 			if (!level.isLoaded(neighbor)) {
@@ -648,6 +1066,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 
 			BlockEntity be = level.getBlockEntity(neighbor);
 			if (be instanceof ItemPipeBlockEntity pipe) {
+				connected = true;
 				this.pushIntoPipe(pipe, dir.getOpposite());
 				continue;
 			}
@@ -658,8 +1077,14 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 
 			Storage<ItemVariant> storage = ItemStorage.SIDED.find(level, neighbor, dir.getOpposite());
 			if (storage != null && storage.supportsInsertion()) {
+				connected = true;
 				this.pushIntoStorage(storage);
 			}
+		}
+
+		if (connected != this.outputConnected) {
+			this.outputConnected = connected;
+			this.syncDirty = true;
 		}
 	}
 
@@ -780,7 +1205,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	}
 
 	/** Works on the block entity and on the client's mirror container (same slot layout). */
-	public static boolean canInstallUpgrade(net.minecraft.world.Container container, int slot, ItemStack itemStack) {
+	public static boolean canInstallUpgrade(Container container, int slot, ItemStack itemStack) {
 		if (!(itemStack.getItem() instanceof UpgradeItem upgrade)) {
 			return false;
 		}
@@ -808,7 +1233,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 
 	@Override
 	public boolean stillValid(Player player) {
-		return net.minecraft.world.Container.stillValidBlockEntity(this, player);
+		return Container.stillValidBlockEntity(this, player);
 	}
 
 	@Override
@@ -859,6 +1284,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		if (!simulate && accepted > 0) {
 			this.energy += accepted;
 			this.energyReceivedThisTick += accepted;
+			this.windowIn += accepted;
 			this.setChanged();
 		}
 
@@ -907,61 +1333,115 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 			ContainerHelper.loadAllItems(input, this.items);
 		}
 
-		input.child("VoidFilter").ifPresent(filter -> {
-			NonNullList<ItemStack> filterItems = NonNullList.withSize(FILTER_SLOTS, ItemStack.EMPTY);
-			ContainerHelper.loadAllItems(filter, filterItems);
-			for (int i = 0; i < FILTER_SLOTS; i++) {
-				this.voidFilter.setItem(i, filterItems.get(i));
-			}
-		});
+		loadList(input, "VoidFilter", this.voidFilter);
+		loadList(input, "SkipList", this.skipFilter);
+		loadList(input, "OreList", this.oreFilter);
 
 		this.energy = Math.max(0, input.getLongOr("Energy", this.energy));
 		int modeOrdinal = input.getIntOr("Mode", this.mode.ordinal());
 		this.mode = modeOrdinal >= 0 && modeOrdinal < Mode.values().length ? Mode.values()[modeOrdinal] : Mode.IDLE;
 		this.finished = input.getBooleanOr("Finished", this.finished);
-		this.layer = Math.max(0, input.getIntOr("Layer", this.layer));
-		this.areaSize = input.getIntOr("Area", this.areaSize);
-		if (this.areaSize != 16 && this.areaSize != 32 && this.areaSize != 64) {
-			this.areaSize = 16;
-		}
-
-		this.row = Math.max(0, Math.min(this.areaSize - 1, input.getIntOr("Row", this.row)));
-		this.col = Math.max(0, Math.min(this.areaSize - 1, input.getIntOr("Col", this.col)));
+		this.quarryMode = QuarryMode.byId(input.getStringOr("QuarryMode", this.quarryMode.id()));
 		this.hasTargetY = input.getBooleanOr("HasTargetY", this.hasTargetY);
 		this.targetY = input.getIntOr("TargetY", this.targetY);
+		this.oresOnly = input.getBooleanOr("OresOnly", this.oresOnly);
 		this.blocksMined = Math.max(0, input.getLongOr("BlocksMined", this.blocksMined));
-		this.cooldown = Math.max(0, input.getIntOr("Cooldown", this.cooldown));
-		this.status = QuarryStatus.byOrdinal(input.getIntOr("Status", this.status.ordinal()));
+		this.cooldown = Math.max(0, Math.min(20, input.getIntOr("Cooldown", this.cooldown)));
+		this.status = QuarryStatus.byName(input.getStringOr("Status", this.status.getSerializedName()));
 		this.upgrades = QuarryUpgrades.of(this, BUFFER_SLOTS, UPGRADE_SLOTS);
 		this.cachedTool = null;
+
+		int maxArea = this.upgrades.maxAreaSize();
+		if (input.getInt("Width").isPresent()) {
+			this.width = input.getIntOr("Width", DEFAULT_SIZE);
+			this.length = input.getIntOr("Length", DEFAULT_SIZE);
+			this.height = input.getIntOr("Height", DEFAULT_HEIGHT);
+			this.step = input.getLongOr("Step", 0L);
+		} else {
+			// Data written by version 1.0 (square area, layer/row/col cursor): resume at the start of the current layer.
+			int area = input.getIntOr("Area", DEFAULT_SIZE);
+			this.width = area;
+			this.length = area;
+			this.height = DEFAULT_HEIGHT;
+			this.step = (long) Math.max(0, input.getIntOr("Layer", 0)) * area * area;
+		}
+
+		this.width = Math.max(1, Math.min(maxArea, this.width));
+		this.length = Math.max(1, Math.min(this.maxLength(maxArea), this.length));
+		this.height = Math.max(1, Math.min(this.getMaxHeight(), this.height));
+		this.step = Math.max(0, this.step);
+		this.scanStep = Math.max(0, input.getLongOr("ScanStep", 0L));
+		this.scanComplete = input.getBooleanOr("ScanComplete", false);
+		this.oreQueue.clear();
+		input.read("OreQueue", Codec.LONG.listOf()).ifPresent(list -> {
+			for (int i = 0; i < list.size() && i < MAX_ORE_QUEUE; i++) {
+				this.oreQueue.add(list.get(i).longValue());
+			}
+		});
+		this.owner = input.read("Owner", UUIDUtil.CODEC).orElse(this.owner);
+		this.ownerName = input.getStringOr("OwnerName", this.ownerName);
+		this.lastTarget = input.getLong("LastTarget").map(BlockPos::of).orElse(null);
+		this.invalidatePattern();
+	}
+
+	private static void loadList(ValueInput input, String name, SimpleContainer target) {
+		input.child(name).ifPresent(child -> {
+			NonNullList<ItemStack> list = NonNullList.withSize(FILTER_SLOTS, ItemStack.EMPTY);
+			ContainerHelper.loadAllItems(child, list);
+			for (int i = 0; i < FILTER_SLOTS; i++) {
+				target.setItem(i, list.get(i));
+			}
+		});
+	}
+
+	private static void saveList(ValueOutput output, String name, SimpleContainer source) {
+		NonNullList<ItemStack> list = NonNullList.withSize(FILTER_SLOTS, ItemStack.EMPTY);
+		for (int i = 0; i < FILTER_SLOTS; i++) {
+			list.set(i, source.getItem(i));
+		}
+
+		ContainerHelper.saveAllItems(output.child(name), list, true);
 	}
 
 	@Override
 	protected void saveAdditional(ValueOutput output) {
 		super.saveAdditional(output);
 		ContainerHelper.saveAllItems(output, this.items, true);
-		NonNullList<ItemStack> filterItems = NonNullList.withSize(FILTER_SLOTS, ItemStack.EMPTY);
-		for (int i = 0; i < FILTER_SLOTS; i++) {
-			filterItems.set(i, this.voidFilter.getItem(i));
-		}
-
-		ContainerHelper.saveAllItems(output.child("VoidFilter"), filterItems, true);
+		saveList(output, "VoidFilter", this.voidFilter);
+		saveList(output, "SkipList", this.skipFilter);
+		saveList(output, "OreList", this.oreFilter);
 		output.putLong("Energy", this.energy);
 		this.writeSyncFields(output);
-		output.putBoolean("Finished", this.finished);
 		output.putLong("BlocksMined", this.blocksMined);
 		output.putInt("Cooldown", this.cooldown);
+		output.putLong("ScanStep", this.scanStep);
+		output.putBoolean("ScanComplete", this.scanComplete);
+		List<Long> queue = new ArrayList<>(this.oreQueue.size());
+		for (int i = 0; i < this.oreQueue.size(); i++) {
+			queue.add(this.oreQueue.getLong(i));
+		}
+
+		output.store("OreQueue", Codec.LONG.listOf(), queue);
+		output.storeNullable("Owner", UUIDUtil.CODEC, this.owner);
+		output.putString("OwnerName", this.ownerName);
 	}
 
+	/** Fields clients need for the renderer and GUI; also part of the saved data. */
 	private void writeSyncFields(ValueOutput output) {
 		output.putInt("Mode", this.mode.ordinal());
-		output.putInt("Layer", this.layer);
-		output.putInt("Row", this.row);
-		output.putInt("Col", this.col);
-		output.putInt("Area", this.areaSize);
+		output.putString("QuarryMode", this.quarryMode.id());
+		output.putInt("Width", this.width);
+		output.putInt("Length", this.length);
+		output.putInt("Height", this.height);
+		output.putBoolean("OresOnly", this.oresOnly);
+		output.putLong("Step", this.step);
 		output.putBoolean("HasTargetY", this.hasTargetY);
 		output.putInt("TargetY", this.targetY);
-		output.putInt("Status", this.status.ordinal());
+		output.putBoolean("Finished", this.finished);
+		output.putString("Status", this.status.getSerializedName());
+		if (this.lastTarget != null) {
+			output.putLong("LastTarget", this.lastTarget.asLong());
+		}
 	}
 
 	@Override
@@ -974,7 +1454,6 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		try (ProblemReporter.ScopedCollector reporter = new ProblemReporter.ScopedCollector(this.problemPath(), LOGGER)) {
 			TagValueOutput output = TagValueOutput.createWithContext(reporter, registries);
 			this.writeSyncFields(output);
-			output.putBoolean("Finished", this.finished);
 			return output.buildResult();
 		}
 	}
@@ -986,7 +1465,6 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	public CompoundTag extractForPickup(HolderLookup.Provider registries) {
 		CompoundTag tag = this.saveCustomOnly(registries);
 		this.items.clear();
-		this.voidFilter.clearContent();
 		this.energy = 0;
 		this.mode = Mode.IDLE;
 		this.setChanged();

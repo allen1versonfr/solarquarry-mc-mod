@@ -5,6 +5,11 @@ import com.solarquarry.energy.EnergyConnectable;
 import com.solarquarry.energy.EnergyNetwork;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import com.solarquarry.util.EnergyFormat;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.context.BlockPlaceContext;
@@ -91,5 +96,17 @@ public class EnergyCableBlock extends Block {
 	@Override
 	protected boolean isPathfindable(BlockState state, PathComputationType type) {
 		return false;
+	}
+
+	@Override
+	protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
+		if (!level.isClientSide()) {
+			EnergyNetwork.Summary summary = EnergyNetwork.summarize(level, pos);
+			player.sendSystemMessage(Component.translatable("solarquarry.network.summary",
+				summary.cables(), summary.producers(), summary.generation(), summary.storages(),
+				EnergyFormat.format(summary.stored()), EnergyFormat.format(summary.capacity()), summary.consumers()));
+		}
+
+		return InteractionResult.SUCCESS;
 	}
 }

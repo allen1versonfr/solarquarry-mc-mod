@@ -2,6 +2,7 @@ package com.solarquarry.menu;
 
 import com.solarquarry.blockentity.QuarryBlockEntity;
 import com.solarquarry.item.UpgradeItem;
+import com.solarquarry.quarry.QuarryMode;
 import com.solarquarry.quarry.QuarryStatus;
 import com.solarquarry.registry.ModMenus;
 import net.minecraft.core.BlockPos;
@@ -25,45 +26,49 @@ public class QuarryMenu extends AbstractContainerMenu {
 
 	public static final int BUFFER_START = 0;
 	public static final int UPGRADE_START = QuarryBlockEntity.BUFFER_SLOTS;
-	public static final int FILTER_START = QuarryBlockEntity.TOTAL_SLOTS;
-	public static final int PLAYER_START = FILTER_START + QuarryBlockEntity.FILTER_SLOTS;
+	public static final int LIST_START = QuarryBlockEntity.TOTAL_SLOTS;
+	public static final int LIST_COUNT = QuarryBlockEntity.FILTER_SLOTS * QuarryBlockEntity.ListKind.values().length;
+	public static final int PLAYER_START = LIST_START + LIST_COUNT;
 	public static final int PLAYER_END = PLAYER_START + 36;
 
 	// Layout shared with the screen.
 	public static final int BUFFER_X = 8;
-	public static final int BUFFER_Y = 116;
+	public static final int BUFFER_Y = 126;
 	public static final int UPGRADE_X = 196;
 	public static final int UPGRADE_Y = 36;
-	public static final int FILTER_X = 124;
-	public static final int FILTER_Y = 36;
+	public static final int LIST_X = 188;
+	public static final int LIST_Y = 38;
 	public static final int INVENTORY_X = 176;
-	public static final int INVENTORY_Y = 116;
-	public static final int HOTBAR_Y = 174;
+	public static final int INVENTORY_Y = 126;
+	public static final int HOTBAR_Y = 184;
 
 	private final Container container;
-	private final Container voidFilter;
 	private final ContainerData data;
 	private final BlockPos pos;
 	private final @Nullable QuarryBlockEntity quarry;
+	/** Client-side view state. */
 	private boolean configPage;
+	private QuarryBlockEntity.ListKind listKind = QuarryBlockEntity.ListKind.VOID;
 
 	/** Client constructor. */
 	public QuarryMenu(int containerId, Inventory inventory, BlockPos pos) {
-		this(containerId, inventory, pos, new SimpleContainer(QuarryBlockEntity.TOTAL_SLOTS), new SimpleContainer(QuarryBlockEntity.FILTER_SLOTS),
+		this(containerId, inventory, pos, new SimpleContainer(QuarryBlockEntity.TOTAL_SLOTS),
+			new SimpleContainer[] {new SimpleContainer(QuarryBlockEntity.FILTER_SLOTS), new SimpleContainer(QuarryBlockEntity.FILTER_SLOTS), new SimpleContainer(QuarryBlockEntity.FILTER_SLOTS)},
 			new SimpleContainerData(QuarryBlockEntity.DATA_COUNT), null);
 	}
 
 	/** Server constructor. */
 	public QuarryMenu(int containerId, Inventory inventory, QuarryBlockEntity quarry) {
-		this(containerId, inventory, quarry.getBlockPos(), quarry, quarry.getVoidFilter(), quarry.getDataAccess(), quarry);
+		this(containerId, inventory, quarry.getBlockPos(), quarry,
+			new SimpleContainer[] {quarry.getVoidFilter(), quarry.getSkipFilter(), quarry.getOreFilter()},
+			quarry.getDataAccess(), quarry);
 	}
 
-	private QuarryMenu(int containerId, Inventory inventory, BlockPos pos, Container container, Container voidFilter, ContainerData data, @Nullable QuarryBlockEntity quarry) {
+	private QuarryMenu(int containerId, Inventory inventory, BlockPos pos, Container container, SimpleContainer[] lists, ContainerData data, @Nullable QuarryBlockEntity quarry) {
 		super(ModMenus.QUARRY, containerId);
 		checkContainerSize(container, QuarryBlockEntity.TOTAL_SLOTS);
 		checkContainerDataCount(data, QuarryBlockEntity.DATA_COUNT);
 		this.container = container;
-		this.voidFilter = voidFilter;
 		this.data = data;
 		this.pos = pos;
 		this.quarry = quarry;
@@ -77,13 +82,18 @@ public class QuarryMenu extends AbstractContainerMenu {
 
 		for (int i = 0; i < QuarryBlockEntity.UPGRADE_SLOTS; i++) {
 			UpgradeSlot slot = new UpgradeSlot(container, UPGRADE_START + i, UPGRADE_X + (i % 2) * 18, UPGRADE_Y + (i / 2) * 18);
+			slot.setActiveCondition(() -> !this.configPage);
 			this.addSlot(slot);
 		}
 
-		for (int i = 0; i < QuarryBlockEntity.FILTER_SLOTS; i++) {
-			GhostSlot slot = new GhostSlot(voidFilter, i, FILTER_X + (i % 3) * 18, FILTER_Y + (i / 3) * 18);
-			slot.setActiveCondition(() -> this.configPage);
-			this.addSlot(slot);
+		QuarryBlockEntity.ListKind[] kinds = QuarryBlockEntity.ListKind.values();
+		for (int k = 0; k < kinds.length; k++) {
+			QuarryBlockEntity.ListKind kind = kinds[k];
+			for (int i = 0; i < QuarryBlockEntity.FILTER_SLOTS; i++) {
+				GhostSlot slot = new GhostSlot(lists[k], i, LIST_X + (i % 3) * 18, LIST_Y + (i / 3) * 18);
+				slot.setActiveCondition(() -> this.configPage && this.listKind == kind);
+				this.addSlot(slot);
+			}
 		}
 
 		for (int row = 0; row < 3; row++) {
@@ -111,10 +121,22 @@ public class QuarryMenu extends AbstractContainerMenu {
 		this.configPage = configPage;
 	}
 
+	public QuarryBlockEntity.ListKind getListKind() {
+		return this.listKind;
+	}
+
+	public void setListKind(QuarryBlockEntity.ListKind listKind) {
+		this.listKind = listKind;
+	}
+
 	// ---- synced values ----
 
 	private int unsigned(int index) {
 		return this.data.get(index) & 0xFFFF;
+	}
+
+	private int signed(int index) {
+		return (short) this.data.get(index);
 	}
 
 	public long getEnergy() {
@@ -133,50 +155,125 @@ public class QuarryMenu extends AbstractContainerMenu {
 		return this.data.get(5);
 	}
 
-	public int getCursorX() {
+	public int getCursorLateral() {
 		return this.data.get(6);
 	}
 
-	public int getCursorZ() {
+	public int getCursorForward() {
 		return this.data.get(7);
 	}
 
 	public int getCurrentY() {
-		return (short) this.data.get(8);
+		return this.signed(8);
 	}
 
 	public int getTargetY() {
-		return (short) this.data.get(9);
+		return this.signed(9);
 	}
 
-	public int getAreaSize() {
+	public int getAreaWidth() {
 		return this.data.get(10);
 	}
 
-	public int getBlocksPerMinute() {
+	public int getAreaLength() {
 		return this.data.get(11);
 	}
 
-	public int getEnergyPerBlock() {
+	public int getAreaHeight() {
 		return this.data.get(12);
 	}
 
+	public QuarryMode getQuarryMode() {
+		return QuarryMode.byOrdinal(this.data.get(13));
+	}
+
 	public QuarryBlockEntity.Mode getMode() {
-		int ordinal = this.data.get(13);
+		int ordinal = this.data.get(14);
 		QuarryBlockEntity.Mode[] modes = QuarryBlockEntity.Mode.values();
 		return ordinal >= 0 && ordinal < modes.length ? modes[ordinal] : QuarryBlockEntity.Mode.IDLE;
 	}
 
 	public long getBlocksMined() {
-		return ((long) this.unsigned(15) << 16) | this.unsigned(14);
+		return ((long) this.unsigned(16) << 16) | this.unsigned(15);
+	}
+
+	private boolean flag(int bit) {
+		return (this.data.get(17) & bit) != 0;
 	}
 
 	public boolean hasVoidUpgrade() {
-		return this.data.get(16) != 0;
+		return this.flag(1);
+	}
+
+	public boolean isOresOnly() {
+		return this.flag(2);
+	}
+
+	public boolean isOutputConnected() {
+		return this.flag(4);
+	}
+
+	public boolean hasSilkTouch() {
+		return this.flag(8);
+	}
+
+	public boolean isScanComplete() {
+		return this.flag(16);
 	}
 
 	public int getMinY() {
-		return (short) this.data.get(17);
+		return this.signed(18);
+	}
+
+	public int getMaxAreaSize() {
+		return Math.max(1, this.data.get(19));
+	}
+
+	public int getBlocksPerMinute() {
+		return this.data.get(20);
+	}
+
+	public int getEnergyPerBlock() {
+		return this.data.get(21);
+	}
+
+	public int getAverageInput() {
+		return this.data.get(22);
+	}
+
+	public int getAverageUse() {
+		return this.data.get(23);
+	}
+
+	public int getOreQueueSize() {
+		return this.data.get(24);
+	}
+
+	public int getMaxY() {
+		return this.signed(25);
+	}
+
+	public int getTypicalPowerDraw() {
+		return this.data.get(26);
+	}
+
+	public int getMaxLength() {
+		return this.getQuarryMode() == QuarryMode.TUNNEL_BORE ? this.getMaxAreaSize() * com.solarquarry.quarry.MiningPattern.TUNNEL_LENGTH_FACTOR : this.getMaxAreaSize();
+	}
+
+	public int getMaxHeight() {
+		return this.getQuarryMode() == QuarryMode.TUNNEL_BORE ? com.solarquarry.quarry.MiningPattern.MAX_TUNNEL_HEIGHT : com.solarquarry.quarry.MiningPattern.MAX_CLEAR_HEIGHT;
+	}
+
+	public int getUsedBufferSlots() {
+		int used = 0;
+		for (int i = 0; i < QuarryBlockEntity.BUFFER_SLOTS; i++) {
+			if (!this.slots.get(i).getItem().isEmpty()) {
+				used++;
+			}
+		}
+
+		return used;
 	}
 
 	// ---- interaction ----
@@ -202,7 +299,7 @@ public class QuarryMenu extends AbstractContainerMenu {
 
 	@Override
 	public void clicked(int slotIndex, int buttonNum, ContainerInput containerInput, Player player) {
-		if (slotIndex >= FILTER_START && slotIndex < PLAYER_START) {
+		if (slotIndex >= LIST_START && slotIndex < PLAYER_START) {
 			if (containerInput == ContainerInput.PICKUP || containerInput == ContainerInput.QUICK_MOVE || containerInput == ContainerInput.CLONE) {
 				ItemStack carried = this.getCarried();
 				Slot slot = this.slots.get(slotIndex);
@@ -235,11 +332,11 @@ public class QuarryMenu extends AbstractContainerMenu {
 
 		ItemStack stack = slot.getItem();
 		ItemStack original = stack.copy();
-		if (slotIndex < FILTER_START) {
+		if (slotIndex < LIST_START) {
 			if (!this.moveItemStackTo(stack, PLAYER_START, PLAYER_END, true)) {
 				return ItemStack.EMPTY;
 			}
-		} else if (stack.getItem() instanceof UpgradeItem && this.moveItemStackTo(stack, UPGRADE_START, FILTER_START, false)) {
+		} else if (stack.getItem() instanceof UpgradeItem && this.moveItemStackTo(stack, UPGRADE_START, LIST_START, false)) {
 			// moved into an upgrade slot
 		} else if (slotIndex < PLAYER_START + 27) {
 			if (!this.moveItemStackTo(stack, PLAYER_START + 27, PLAYER_END, false)) {

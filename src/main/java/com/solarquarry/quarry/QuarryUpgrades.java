@@ -52,9 +52,9 @@ public record QuarryUpgrades(int speed, int capacity, int efficiency, int fortun
 		);
 	}
 
-	/** Side length of the square mining area: 16, 32 or 64. */
-	public int areaSize() {
-		return 16 << this.rangeTier;
+	/** Largest allowed width/length of the mining area: 16, 32 or 64 (range upgrade tier 0, 1, 2). */
+	public int maxAreaSize() {
+		return 16 << Math.max(0, Math.min(2, this.rangeTier));
 	}
 
 	public int ticksPerOperation() {
@@ -88,5 +88,15 @@ public record QuarryUpgrades(int speed, int capacity, int efficiency, int fortun
 	/** Typical energy per block for stone, used for display. */
 	public long typicalEnergyPerBlock() {
 		return this.energyPerBlock(1.5F);
+	}
+
+	/** Average power draw in E/t while mining stone continuously at full speed. */
+	public long typicalPowerDraw() {
+		return Math.max(1L, this.typicalEnergyPerBlock() * this.blocksPerOperation() / this.ticksPerOperation());
+	}
+
+	/** Combined energy-cost multiplier from speed, efficiency, silk touch and fortune (for display). */
+	public double costMultiplier() {
+		return (1.0 + 0.25 * this.speed) * (1.0 - 0.15 * this.efficiency) * (this.silkTouch ? 1.25 : 1.0) * (1.0 + 0.2 * this.fortune);
 	}
 }

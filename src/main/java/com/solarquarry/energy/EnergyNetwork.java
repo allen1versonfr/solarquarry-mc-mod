@@ -134,4 +134,64 @@ public final class EnergyNetwork {
 
 		return moved;
 	}
+
+	/** What a network contains, for the cable readout and the remote terminal. */
+	public record Summary(int producers, long generation, int storages, long stored, long capacity, int consumers, int cables) {
+	}
+
+	public static Summary summarize(Level level, BlockPos origin) {
+		int producers = 0;
+		long generation = 0;
+		int storages = 0;
+		long stored = 0;
+		long capacity = 0;
+		int consumers = 0;
+		for (BlockPos pos : discoverEndpoints(level, origin)) {
+			EnergyNode node = resolve(level, pos);
+			if (node == null) {
+				continue;
+			}
+
+			switch (node.energyRole()) {
+				case PRODUCER -> {
+					producers++;
+					if (node instanceof com.solarquarry.blockentity.SolarPanelBlockEntity panel) {
+						generation += panel.getCurrentGeneration();
+					}
+				}
+				case STORAGE -> {
+					storages++;
+					stored += node.getEnergy();
+					capacity += node.getEnergyCapacity();
+				}
+				case CONSUMER -> consumers++;
+			}
+		}
+
+		return new Summary(producers, generation, storages, stored, capacity, consumers, countCables(level, origin));
+	}
+
+	private static int countCables(Level level, BlockPos origin) {
+		Set<BlockPos> visited = new HashSet<>();
+		ArrayDeque<BlockPos> queue = new ArrayDeque<>();
+		if (level.getBlockState(origin).getBlock() instanceof EnergyCableBlock) {
+			queue.add(origin);
+			visited.add(origin);
+		}
+
+		int cables = 0;
+		while (!queue.isEmpty() && cables < MAX_CABLES) {
+			BlockPos cable = queue.poll();
+			cables++;
+			for (Direction dir : Direction.values()) {
+				BlockPos next = cable.relative(dir);
+				if (level.isLoaded(next) && !visited.contains(next) && level.getBlockState(next).getBlock() instanceof EnergyCableBlock) {
+					visited.add(next.immutable());
+					queue.add(next.immutable());
+				}
+			}
+		}
+
+		return cables;
+	}
 }
