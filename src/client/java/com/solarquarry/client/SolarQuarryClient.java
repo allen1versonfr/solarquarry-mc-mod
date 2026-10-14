@@ -23,6 +23,7 @@ public class SolarQuarryClient implements ClientModInitializer {
 	public void onInitializeClient() {
 		MenuScreens.register(ModMenus.QUARRY, QuarryScreen::new);
 		MenuScreens.register(ModMenus.FILTER_PIPE, FilterPipeScreen::new);
+		MenuScreens.register(ModMenus.FABRICATION_BENCH, com.solarquarry.client.screen.FabricationBenchScreen::new);
 		MenuScreens.register(ModMenus.CRATE, com.solarquarry.client.screen.CrateScreen::new);
 		MenuScreens.register(ModMenus.SUPER_SMELTER, com.solarquarry.client.screen.SuperSmelterScreen::new);
 		MenuScreens.register(ModMenus.TERMINAL, TerminalScreen::new);
@@ -35,6 +36,12 @@ public class SolarQuarryClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(TerminalSnapshotPayload.TYPE, (payload, context) -> {
 			if (context.client().gui.screen() instanceof TerminalScreen screen) {
 				screen.accept(payload);
+			}
+		});
+		ClientPlayNetworking.registerGlobalReceiver(com.solarquarry.network.BenchCatalogPayload.TYPE, (payload, context) -> {
+			com.solarquarry.client.screen.FabricationBenchScreen.catalogue = java.util.List.copyOf(payload.entries());
+			if (context.client().gui.screen() instanceof com.solarquarry.client.screen.FabricationBenchScreen screen) {
+				screen.refresh();
 			}
 		});
 		ClientPlayNetworking.registerGlobalReceiver(com.solarquarry.network.SortingSnapshotPayload.TYPE, (payload, context) -> {

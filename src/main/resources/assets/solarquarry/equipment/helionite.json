@@ -1,0 +1,19 @@
+{
+  "layers": {
+    "humanoid": [
+      {
+        "texture": "solarquarry:helionite"
+      }
+    ],
+    "humanoid_baby": [
+      {
+        "texture": "solarquarry:helionite"
+      }
+    ],
+    "humanoid_leggings": [
+      {
+        "texture": "solarquarry:helionite"
+      }
+    ]
+  }
+}

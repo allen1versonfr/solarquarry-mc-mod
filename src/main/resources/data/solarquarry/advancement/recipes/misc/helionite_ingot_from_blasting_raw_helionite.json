@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_the_recipe": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "solarquarry:helionite_ingot_from_blasting_raw_helionite"
+      }
+    },
+    "has_raw_helionite": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "solarquarry:raw_helionite"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_raw_helionite"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "solarquarry:helionite_ingot_from_blasting_raw_helionite"
+    ]
+  }
+}

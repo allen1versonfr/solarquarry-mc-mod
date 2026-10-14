@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "solarquarry:block/deepslate_helionite_ore"
+  }
+}

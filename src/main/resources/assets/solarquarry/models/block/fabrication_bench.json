@@ -1,0 +1,9 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "solarquarry:block/fabrication_bench_front",
+    "side": "solarquarry:block/fabrication_bench_side",
+    "top": "solarquarry:block/fabrication_bench_top",
+    "particle": "solarquarry:block/fabrication_bench_side"
+  }
+}

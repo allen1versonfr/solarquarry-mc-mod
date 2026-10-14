@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "IRI",
+    "CWC",
+    "I I"
+  ],
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "R": "minecraft:redstone",
+    "C": "minecraft:copper_ingot",
+    "W": "minecraft:crafting_table"
+  },
+  "result": {
+    "id": "solarquarry:fabrication_bench",
+    "count": 1
+  }
+}

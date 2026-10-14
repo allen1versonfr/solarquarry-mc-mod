@@ -390,19 +390,25 @@ public final class SelfTest {
 	}
 
 	private static void verifyData(MinecraftServer server) {
+		// Ores and raw helionite are found, not crafted; everything else has exactly one crafting recipe named after it.
+		java.util.Set<Item> natural = java.util.Set.of(com.solarquarry.registry.ModGear.HELIONITE_ORE.asItem(),
+			com.solarquarry.registry.ModGear.DEEPSLATE_HELIONITE_ORE.asItem(), com.solarquarry.registry.ModGear.RAW_HELIONITE);
 		long recipes = server.getRecipeManager().getRecipes().stream()
 			.filter(holder -> holder.id().identifier().getNamespace().equals(SolarQuarry.MOD_ID))
+			.filter(holder -> holder.value() instanceof net.minecraft.world.item.crafting.CraftingRecipe)
 			.count();
 		long modItems = net.minecraft.core.registries.BuiltInRegistries.ITEM.keySet().stream()
 			.filter(id -> id.getNamespace().equals(SolarQuarry.MOD_ID))
-			.count();
-		check(recipes == modItems, "one crafting recipe per item loaded (" + recipes + " recipes, " + modItems + " items)");
+			.count() - natural.size();
+		check(recipes == modItems, "one crafting recipe per craftable item loaded (" + recipes + " recipes, " + modItems + " items)");
 		java.util.Set<String> recipeIds = new java.util.HashSet<>();
 		server.getRecipeManager().getRecipes().forEach(holder -> recipeIds.add(holder.id().identifier().toString()));
 		int uncraftable = 0;
 		int noUnlock = 0;
 		List<Item> all = new ArrayList<>(ModBlocks.BLOCK_ITEMS);
 		all.addAll(ModItems.ITEMS);
+		all.addAll(com.solarquarry.registry.ModGear.ITEMS);
+		all.removeAll(natural);
 		for (Item item : all) {
 			String id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item).toString();
 			if (!recipeIds.contains(id)) {
@@ -418,7 +424,7 @@ public final class SelfTest {
 
 			String path = id.substring(SolarQuarry.MOD_ID.length() + 1);
 			boolean found = false;
-			for (String category : List.of("redstone", "equipment", "misc")) {
+			for (String category : List.of("redstone", "equipment", "misc", "building")) {
 				if (server.getAdvancements().get(SolarQuarry.id("recipes/" + category + "/" + path)) != null) {
 					found = true;
 				}
@@ -433,7 +439,14 @@ public final class SelfTest {
 		check(uncraftable == 0, "every item and block (" + all.size() + ") has a crafting recipe");
 		check(noUnlock == 0, "every recipe unlocks in the recipe book");
 		int lootTables = 0;
-		for (Item item : ModBlocks.BLOCK_ITEMS) {
+		List<Item> blockItems = new ArrayList<>(ModBlocks.BLOCK_ITEMS);
+		for (Item item : com.solarquarry.registry.ModGear.ITEMS) {
+			if (item instanceof BlockItem) {
+				blockItems.add(item);
+			}
+		}
+
+		for (Item item : blockItems) {
 			Block block = ((BlockItem) item).getBlock();
 			var key = block.getLootTable();
 			if (key.isPresent() && server.reloadableRegistries().getLootTable(key.get()) != net.minecraft.world.level.storage.loot.LootTable.EMPTY) {
@@ -443,7 +456,53 @@ public final class SelfTest {
 			check(block.defaultBlockState().is(net.minecraft.tags.BlockTags.MINEABLE_WITH_PICKAXE), "pickaxe tag includes " + block);
 		}
 
-		check(lootTables == ModBlocks.BLOCK_ITEMS.size(), "loot tables loaded for every block (" + lootTables + ")");
+		check(lootTables == blockItems.size(), "loot tables loaded for every block (" + lootTables + ")");
+		verifyHelionite(server);
+	}
+
+	/** Helionite matches netherite's numbers, is an ore for the quarry, smelts to ingots and generates in the Overworld. */
+	private static void verifyHelionite(MinecraftServer server) {
+		net.minecraft.world.item.ItemStack pick = new net.minecraft.world.item.ItemStack(com.solarquarry.registry.ModGear.HELIONITE_PICKAXE);
+		net.minecraft.world.item.ItemStack netheritePick = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.NETHERITE_PICKAXE);
+		check(pick.getMaxDamage() == netheritePick.getMaxDamage(), "helionite: pickaxe durability equals netherite (" + pick.getMaxDamage() + ")");
+		check(pick.getDestroySpeed(net.minecraft.world.level.block.Blocks.OBSIDIAN.defaultBlockState()) == netheritePick.getDestroySpeed(net.minecraft.world.level.block.Blocks.OBSIDIAN.defaultBlockState())
+			&& pick.isCorrectToolForDrops(net.minecraft.world.level.block.Blocks.ANCIENT_DEBRIS.defaultBlockState()), "helionite: pickaxe speed and mining level equal netherite");
+		Item[][] pairs = {
+			{com.solarquarry.registry.ModGear.HELIONITE_SWORD, net.minecraft.world.item.Items.NETHERITE_SWORD},
+			{com.solarquarry.registry.ModGear.HELIONITE_AXE, net.minecraft.world.item.Items.NETHERITE_AXE},
+			{com.solarquarry.registry.ModGear.HELIONITE_HELMET, net.minecraft.world.item.Items.NETHERITE_HELMET},
+			{com.solarquarry.registry.ModGear.HELIONITE_CHESTPLATE, net.minecraft.world.item.Items.NETHERITE_CHESTPLATE},
+			{com.solarquarry.registry.ModGear.HELIONITE_LEGGINGS, net.minecraft.world.item.Items.NETHERITE_LEGGINGS},
+			{com.solarquarry.registry.ModGear.HELIONITE_BOOTS, net.minecraft.world.item.Items.NETHERITE_BOOTS}};
+		int matching = 0;
+		for (Item[] pair : pairs) {
+			var ours = new net.minecraft.world.item.ItemStack(pair[0]);
+			var theirs = new net.minecraft.world.item.ItemStack(pair[1]);
+			var a = ours.getOrDefault(net.minecraft.core.component.DataComponents.ATTRIBUTE_MODIFIERS, net.minecraft.world.item.component.ItemAttributeModifiers.EMPTY);
+			var b = theirs.getOrDefault(net.minecraft.core.component.DataComponents.ATTRIBUTE_MODIFIERS, net.minecraft.world.item.component.ItemAttributeModifiers.EMPTY);
+			boolean same = ours.getMaxDamage() == theirs.getMaxDamage() && a.modifiers().size() == b.modifiers().size();
+			for (int i = 0; same && i < a.modifiers().size(); i++) {
+				same = a.modifiers().get(i).attribute().equals(b.modifiers().get(i).attribute())
+					&& a.modifiers().get(i).modifier().amount() == b.modifiers().get(i).modifier().amount();
+			}
+
+			if (same) {
+				matching++;
+			} else {
+				SolarQuarry.LOGGER.error("[SelfTest] {} differs from {}", pair[0], pair[1]);
+			}
+		}
+
+		check(matching == pairs.length, "helionite: sword, axe and armour match netherite (damage, speed, defence, toughness, knockback, durability)");
+		check(com.solarquarry.registry.ModGear.DEEPSLATE_HELIONITE_ORE.defaultBlockState().is(net.fabricmc.fabric.api.tag.convention.v2.ConventionalBlockTags.ORES)
+			&& new net.minecraft.world.item.ItemStack(com.solarquarry.registry.ModGear.RAW_HELIONITE).is(net.fabricmc.fabric.api.tag.convention.v2.ConventionalItemTags.RAW_MATERIALS),
+			"helionite: tagged as an ore and a raw material (quarry ore mode, prospector, auto-smelter)");
+		ServerLevel overworld = server.overworld();
+		var smelted = com.solarquarry.smelting.Smelting.smelt(overworld, new net.minecraft.world.item.ItemStack(com.solarquarry.registry.ModGear.RAW_HELIONITE));
+		check(smelted != null && smelted.output().is(com.solarquarry.registry.ModGear.HELIONITE_INGOT), "helionite: raw helionite smelts into an ingot");
+		boolean placed = server.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.PLACED_FEATURE)
+			.get(com.solarquarry.registry.ModGear.HELIONITE_ORE_PLACED).isPresent();
+		check(placed, "helionite: the ore feature is registered for Overworld generation");
 	}
 
 	private static void startSilkTest(ServerLevel level) {

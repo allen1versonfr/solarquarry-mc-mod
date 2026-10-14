@@ -298,6 +298,27 @@ public class SolarQuarryClientGameTest implements FabricClientGameTest {
 			context.takeScreenshot("16_super_smelter");
 			context.runOnClient(client -> client.player.closeContainer());
 			context.waitTicks(5);
+
+			// Fabrication Bench: catalogue of every recipe; the player holds the ingredients for an item pipe.
+			singleplayer.getServer().runOnServer(server -> {
+				ServerPlayer player = server.getPlayerList().getPlayers().get(0);
+				BlockPos benchPos = pond.west(3);
+				player.level().setBlock(benchPos, ModBlocks.FABRICATION_BENCH.defaultBlockState(), Block.UPDATE_ALL);
+				player.getInventory().setItem(10, new ItemStack(Items.COPPER_INGOT, 6));
+				player.getInventory().setItem(11, new ItemStack(Items.GLASS_PANE, 3));
+				player.level().getBlockState(benchPos).useWithoutItem(player.level(), player,
+					new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(benchPos), Direction.UP, benchPos, false));
+			});
+			context.waitForScreen(com.solarquarry.client.screen.FabricationBenchScreen.class);
+			context.waitTicks(20);
+			context.runOnClient(client -> {
+				if (com.solarquarry.client.screen.FabricationBenchScreen.catalogue.size() < 40) {
+					throw new AssertionError("bench catalogue incomplete: " + com.solarquarry.client.screen.FabricationBenchScreen.catalogue.size());
+				}
+			});
+			context.takeScreenshot("17_fabrication_bench");
+			context.runOnClient(client -> client.player.closeContainer());
+			context.waitTicks(5);
 		}
 	}
 

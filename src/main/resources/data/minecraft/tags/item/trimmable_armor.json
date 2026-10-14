@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "solarquarry:helionite_helmet",
+    "solarquarry:helionite_chestplate",
+    "solarquarry:helionite_leggings",
+    "solarquarry:helionite_boots"
+  ]
+}

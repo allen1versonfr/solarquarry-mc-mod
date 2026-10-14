@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "solarquarry:block/fabrication_bench"
+    },
+    "facing=east": {
+      "model": "solarquarry:block/fabrication_bench",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "solarquarry:block/fabrication_bench",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "solarquarry:block/fabrication_bench",
+      "y": 270
+    }
+  }
+}

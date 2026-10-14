@@ -39,6 +39,11 @@ public class LiquidTankRenderer implements BlockEntityRenderer<LiquidTankBlockEn
 	) {
 		BlockEntityRenderer.super.extractRenderState(be, state, partialTicks, cameraPosition, breakProgress);
 		state.fill = be.fill();
+		// The tank is an opaque block, so the light inside it is zero; light the gauge like the block's faces instead.
+		if (be.getLevel() != null) {
+			state.lightCoords = LightCoordsUtil.getLightCoords(be.getLevel(), be.getBlockPos().above());
+		}
+
 		Fluid fluid = be.fluid().getFluid();
 		state.glow = fluid.defaultFluidState().is(FluidTags.LAVA);
 		state.color = fluid.defaultFluidState().is(FluidTags.WATER) ? 0xFF3F76E4 : state.glow ? 0xFFFF8A1E : 0xFF9AA4B0;

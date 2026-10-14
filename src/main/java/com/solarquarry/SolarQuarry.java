@@ -43,6 +43,7 @@ public class SolarQuarry implements ModInitializer {
 		ModSounds.init();
 		ModBlocks.init();
 		ModItems.init();
+		com.solarquarry.registry.ModGear.init();
 		ModBlockEntities.init();
 		ModMenus.init();
 		ModCreativeTab.init();
@@ -61,6 +62,9 @@ public class SolarQuarry implements ModInitializer {
 		PayloadTypeRegistry.clientboundPlay().register(com.solarquarry.network.SortingSnapshotPayload.TYPE, com.solarquarry.network.SortingSnapshotPayload.STREAM_CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(com.solarquarry.network.SortingActionPayload.TYPE, com.solarquarry.network.SortingActionPayload.STREAM_CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(com.solarquarry.network.SortingActionPayload.TYPE, com.solarquarry.network.SortingActionPayload::handle);
+		PayloadTypeRegistry.clientboundPlay().register(com.solarquarry.network.BenchCatalogPayload.TYPE, com.solarquarry.network.BenchCatalogPayload.STREAM_CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(com.solarquarry.network.BenchCraftPayload.TYPE, com.solarquarry.network.BenchCraftPayload.STREAM_CODEC);
+		ServerPlayNetworking.registerGlobalReceiver(com.solarquarry.network.BenchCraftPayload.TYPE, com.solarquarry.network.BenchCraftPayload::handle);
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> SolarQuarryCommand.sync(handler.getPlayer()));
 		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> SolarQuarryCommand.register(dispatcher));
 		ServerLifecycleEvents.SERVER_STARTED.register(QuarryChunkLoading::restoreAll);

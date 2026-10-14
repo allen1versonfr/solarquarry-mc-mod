@@ -20,6 +20,10 @@
     "solarquarry:crate_advanced",
     "solarquarry:liquid_tank",
     "solarquarry:fluid_pipe",
-    "solarquarry:super_smelter"
+    "solarquarry:super_smelter",
+    "solarquarry:fabrication_bench",
+    "solarquarry:helionite_ore",
+    "solarquarry:deepslate_helionite_ore",
+    "solarquarry:helionite_block"
   ]
 }

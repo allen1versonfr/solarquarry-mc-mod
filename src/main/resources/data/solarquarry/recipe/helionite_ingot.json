@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "solarquarry:helionite_block"
+  ],
+  "result": {
+    "id": "solarquarry:helionite_ingot",
+    "count": 9
+  }
+}

@@ -17,6 +17,10 @@ public final class ModMenus {
 	public static final ExtendedMenuType<com.solarquarry.smelting.SuperSmelterMenu, BlockPos> SUPER_SMELTER = Registry.register(
 		BuiltInRegistries.MENU, SolarQuarry.id("super_smelter"), new ExtendedMenuType<>(com.solarquarry.smelting.SuperSmelterMenu::new, BlockPos.STREAM_CODEC)
 	);
+	public static final net.minecraft.world.inventory.MenuType<com.solarquarry.crafting.FabricationBenchMenu> FABRICATION_BENCH = Registry.register(
+		BuiltInRegistries.MENU, SolarQuarry.id("fabrication_bench"),
+		new net.minecraft.world.inventory.MenuType<>(com.solarquarry.crafting.FabricationBenchMenu::new, net.minecraft.world.flag.FeatureFlags.VANILLA_SET)
+	);
 	public static final ExtendedMenuType<FilterPipeMenu, BlockPos> FILTER_PIPE = Registry.register(
 		BuiltInRegistries.MENU, SolarQuarry.id("filter_pipe"), new ExtendedMenuType<>(FilterPipeMenu::new, BlockPos.STREAM_CODEC)
 	);

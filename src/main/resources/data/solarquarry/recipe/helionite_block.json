@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": [
+    "III",
+    "III",
+    "III"
+  ],
+  "key": {
+    "I": "solarquarry:helionite_ingot"
+  },
+  "result": {
+    "id": "solarquarry:helionite_block",
+    "count": 1
+  }
+}

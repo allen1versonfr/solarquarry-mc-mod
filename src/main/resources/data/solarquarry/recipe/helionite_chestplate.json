@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "I I",
+    "III",
+    "III"
+  ],
+  "key": {
+    "I": "solarquarry:helionite_ingot"
+  },
+  "result": {
+    "id": "solarquarry:helionite_chestplate",
+    "count": 1
+  }
+}

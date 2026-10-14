@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_the_recipe": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "solarquarry:helionite_ingot_from_smelting_deepslate_helionite_ore"
+      }
+    },
+    "has_deepslate_helionite_ore": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "solarquarry:deepslate_helionite_ore"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_deepslate_helionite_ore"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "solarquarry:helionite_ingot_from_smelting_deepslate_helionite_ore"
+    ]
+  }
+}

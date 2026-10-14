@@ -21,7 +21,7 @@ public final class ModCreativeTab {
 	/** Display order, one category after another. */
 	public static final List<String> ORDER = List.of(
 		// Quarry and tools
-		"quarry", "wrench", "ore_prospector", "config_card", "remote_terminal",
+		"quarry", "fabrication_bench", "wrench", "ore_prospector", "config_card", "remote_terminal",
 		// Energy
 		"solar_panel_basic", "solar_panel_advanced", "solar_panel_elite",
 		"battery_basic", "battery_advanced", "battery_elite", "energy_cable",
@@ -41,7 +41,11 @@ public final class ModCreativeTab {
 		// Security
 		"security_drone_spawn_egg",
 		// Equipment
-		"leather_rocket_boots", "iron_rocket_boots", "diamond_rocket_boots", "netherite_rocket_boots",
+		"leather_rocket_boots", "iron_rocket_boots", "diamond_rocket_boots", "helionite_rocket_boots",
+		// Helionite
+		"helionite_ore", "deepslate_helionite_ore", "raw_helionite", "helionite_ingot", "helionite_block",
+		"helionite_sword", "helionite_pickaxe", "helionite_axe", "helionite_shovel", "helionite_hoe",
+		"helionite_helmet", "helionite_chestplate", "helionite_leggings", "helionite_boots",
 		// Components
 		"circuit_board", "advanced_circuit", "photovoltaic_cell", "machine_frame", "drill_head", "upgrade_base"
 	);

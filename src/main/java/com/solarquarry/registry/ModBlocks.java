@@ -82,6 +82,10 @@ public final class ModBlocks {
 			.lightLevel(state -> state.getValue(com.solarquarry.smelting.SuperSmelterBlock.LIT) ? 13 : 0),
 		"tooltip.solarquarry.super_smelter", Rarity.RARE);
 
+	public static final com.solarquarry.crafting.FabricationBenchBlock FABRICATION_BENCH = register("fabrication_bench", com.solarquarry.crafting.FabricationBenchBlock::new,
+		BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(2.5F, 6.0F).sound(SoundType.METAL),
+		"tooltip.solarquarry.fabrication_bench", Rarity.COMMON);
+
 	public static final TerminalBlock REMOTE_TERMINAL = register("remote_terminal", TerminalBlock::new,
 		BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.5F, 6.0F).sound(SoundType.METAL).requiresCorrectToolForDrops().lightLevel(state -> 4),
 		"tooltip.solarquarry.remote_terminal", Rarity.UNCOMMON);

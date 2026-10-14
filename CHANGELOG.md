@@ -1,5 +1,37 @@
 # Changelog
 
+## 3.0.0 (in development)
+
+### Quarry
+- **Frame you can bump into:** posts, rails and end beams are solid (no blocks or entities are placed); steel joints, base plates, braces and status lights on the posts.
+- **3D-printer style gantry:** a bridge rides both side rails on two trucks, and the carriage runs along the bridge, so the drill moves on two axes.
+- **Legs reach the ground:** a quarry placed in the air grows its legs down to the first solid block (up to 96), and a support column holds up the machine.
+- **Drill stays on the frame** after a range change (it no longer floats outside the work area).
+- **Torches:** put torches in the new torch slot and the quarry lights the pit walls every 4 layers (tunnels: every 4 slices).
+- **Experience:** mining experience is collected by the drill; take it with the XP button in the quarry screen.
+- **Measured speed** in blocks per second (10 s average), upgrade counts shown as `n/max`, efficiency limit 4.
+- **Ore Prospector** lists every ore found (no "and N more").
+
+### New upgrades
+- **Liquid Remover Upgrade:** a second arm on the gantry pumps liquid ahead of the drill. Sources go through **Fluid Pipes** into a **Liquid Tank** (64 buckets, empty it with buckets); with a Void Upgrade the liquid is deleted. The quarry only reports Complete after a final pass finds no liquid in the pit.
+- **Auto-Smelter Upgrade:** ores and raw metals are smelted (furnace recipes) before they reach the buffer, for 50 E per item (less with Efficiency). Fortune gives more ingots; Silk Touch ore blocks smelt to one ingot; void-listed items are deleted first. Smelting experience is stored with the mining experience.
+
+### Logistics and storage
+- **Pipe tiers:** Reinforced (2x speed, 32 per batch) and Advanced (5x speed, 64 per batch) Item Pipes.
+- **Sorting Terminal:** register chests on a pipe network and choose what each receives: listed items and tags only, everything except listed, or fallback for leftovers and overflow; priorities; free-space display; settings persist and recover when chests are broken or unloaded.
+- **Storage Crates:** 54, 108 and 162 slots (pages), pipe and hopper compatible, picked up full with the wrench.
+
+### Machines
+- **Super Smelter:** electric furnace with three lanes at 4x furnace speed, 16 E/t per working lane and nothing while idle. Inputs accept only smeltable items; automation inserts from the top and sides and extracts from the bottom.
+- **Fabrication Bench:** a workbench with a searchable catalogue of every Solar Quarry recipe. Pick an item to see what it needs (have / need), then craft it straight from your inventory. The normal crafting table recipes still work too.
+
+### Recipes
+- Nothing from the Nether is needed anywhere: quartz, comparators and ender eyes were replaced (amethyst shards, lapis, repeaters, ender pearls). A unit test checks every recipe.
+
+### Interface
+- Creative tab grouped by category.
+- Sorting Terminal screen fits small windows (240 px tall).
+
 ## 2.1.0
 
 ### Fixed limitations from 2.0
