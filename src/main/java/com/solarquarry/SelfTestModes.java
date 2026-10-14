@@ -941,7 +941,13 @@ final class SelfTestModes {
 	/** Records what the far quarry does every tick (it may finish and unload between checks). */
 	private void watchFarQuarry(ServerLevel level) {
 		QuarryBlockEntity quarry = farQuarry(level);
-		if (quarry == null || this.farFinished) {
+		if (quarry == null) {
+			return;
+		}
+
+		if (this.farFinished) {
+			// Keep watching after completion: chunk loading must switch off on the following tick.
+			this.farLoadingAfterFinish = quarry.isChunkLoadingActive();
 			return;
 		}
 
@@ -953,12 +959,14 @@ final class SelfTestModes {
 
 		if (quarry.isFinished()) {
 			this.farFinished = true;
-			this.farLoadingAfterFinish = quarry.isChunkLoadingActive();
+			this.farLoadingAfterFinish = true;
 		}
 	}
 
+	/** Looks at the far quarry without loading its chunk (Level#getBlockEntity would add a short loading ticket every call). */
 	private static QuarryBlockEntity farQuarry(ServerLevel level) {
-		return level.isLoaded(FAR) && level.getBlockEntity(FAR) instanceof QuarryBlockEntity q ? q : null;
+		net.minecraft.world.level.chunk.LevelChunk chunk = level.getChunkSource().getChunkNow(FAR.getX() >> 4, FAR.getZ() >> 4);
+		return chunk != null && chunk.getBlockEntity(FAR) instanceof QuarryBlockEntity q ? q : null;
 	}
 
 	private void setupChunkLoader(ServerLevel level) {
