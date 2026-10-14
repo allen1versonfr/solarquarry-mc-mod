@@ -13,10 +13,14 @@ A standalone Fabric mod for Minecraft 26.2: a solar-powered quarry with four min
 
 Nothing else is required. Install the mod on the server **and** on every client.
 
+## Download
+
+The ready-to-use mod is in this repository at [`release/solarquarry-2.1.0.jar`](release/solarquarry-2.1.0.jar).
+
 ## Which file do I want?
 
 - **`solarquarry-2.1.0.jar`**: the mod. Put it in your `mods` folder. That's all you need to play.
-- **`SolarQuarry-2.1.0-source.zip`**: the full Gradle project (source code, assets, tests, build scripts). Only needed if you want to build or change the mod.
+- **This repository** (or `SolarQuarry-2.1.0-source.zip`): the full Gradle project (source code, assets, tests, build scripts). Only needed if you want to build or change the mod.
 
 ## Building from source
 
