@@ -8,9 +8,9 @@ All results below come from the final source, built and run on the development P
 |---|---|---|
 | Clean build | `gradlew clean build --warning-mode all` | Passed. No Gradle deprecation warnings, no Java deprecation warnings. |
 | Unit tests (JUnit 5) | part of `build` | 31 / 31 passed |
-| Dedicated-server self-test | `3-selftest.bat` (`runSelftest`) | @@SELFTEST@@ |
-| Client game test | `5-clienttest.bat` (`runClientGameTest`) | @@CLIENT@@ |
-| Compatibility run | self-test and client test with the mods from your Fabulously Optimized instance | @@COMPAT@@ |
+| Dedicated-server self-test | `3-selftest.bat` (`runSelftest`) | 155 / 155 checks passed ("ALL CHECKS PASSED") |
+| Client game test | `5-clienttest.bat` (`runClientGameTest`) | Passed: drives every GUI, checks tooltips, recipe-book unlocks and the server-to-client settings sync, and saves 9 screenshots |
+| Compatibility run | self-test and client test with the mods from your Fabulously Optimized instance | Server: 155 / 155 with 101 mods loaded (Lithium, FerriteCore, ModernFix, All-in-One VeinMiner, Collective and the rest). Client: every step and all 9 screenshots completed with 166 mods loaded (Sodium, Iris, Continuity, Entity Culling, Dynamic FPS, Xaero's maps, Controlify and the rest). See below. |
 
 ### Unit tests
 - **MiningPatternTest**: every mode visits each cell exactly once and stays inside its volume; the strip order descends layer by layer; the serpentine head moves one block per step; build-limit clamping; degenerate input; progress is monotonic and bounded.
@@ -81,7 +81,10 @@ All results below come from the final source, built and run on the development P
 - **Server restart restore** was tested by calling the restore step directly in a running server (the self-test cannot restart itself). The data it reads is a standard Fabric world attachment saved with the world.
 - **Unreadable inventories:** the storage view shows "connected (unreadable)" for inventories that expose no slots through Fabric's transfer API. This is a limit of those inventories, not something the mod can read around.
 - **Recipe viewers** (JEI/REI/EMI) were not installed during testing. All recipes are standard crafting recipes, which those viewers read automatically.
-@@COMPATLIMIT@@
+- **Compatibility run details.** It used copies of the mods from your Fabulously Optimized instance. Your instance was not changed. Fabric API 0.161 was left out because the build already has 0.159, and the old Solar Quarry jar was left out too. Two things applied only to that development run:
+  - ModernFix's development-environment patch (`mixin.devenv`) crashes any development client, so it was switched off for that run. It does nothing in a normal game.
+  - After its tests finished, the modded client did not close by itself and had to be stopped. All steps and screenshots had already completed, and no error in the log mentions Solar Quarry.
+- **Shaders** were not turned on during the compatibility run (Iris was loaded, but no shader pack was active).
 
 ## Manual checks still worth doing in your own world
 
