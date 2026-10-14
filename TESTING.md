@@ -9,7 +9,7 @@ All results below come from the final source, built and run on the development P
 | Clean build | `gradlew clean build --warning-mode all` | Passed. No Gradle deprecation warnings, no Java deprecation warnings. |
 | Unit tests (JUnit 5) | part of `build` | 24 / 24 passed |
 | Dedicated-server self-test | `3-selftest.bat` (`runSelftest`) | 123 / 123 checks passed |
-| Client game test | `5-clienttest.bat` (`runClientGameTest`) | See the final report: drives every GUI, checks tooltips and recipe-book unlocks, and saves 9 screenshots |
+| Client game test | `5-clienttest.bat` (`runClientGameTest`) | Passed: drives every GUI, checks tooltips and recipe-book unlocks, and saves 9 screenshots |
 | Client log scan | client test log | No missing models, textures, resources or exceptions |
 
 ### Unit tests
