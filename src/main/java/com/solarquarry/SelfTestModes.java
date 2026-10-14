@@ -81,6 +81,8 @@ final class SelfTestModes {
 		this.scenarios.add(Scenario.timed("chunk loader: loads the chunks it mines", s -> { }, 600, this::verifyChunkLoaderFinished));
 		this.scenarios.add(Scenario.timed("chunk loader: chunks unload after it stops", s -> { }, 500, this::verifyChunkLoaderUnloaded));
 		this.scenarios.add(Scenario.timed("chunk loader: remembered quarries get their chunks back", this::restoreChunkLoader, 80, this::verifyChunkLoaderRestored));
+		this.scenarios.add(Scenario.timed("chunk loader: an unpowered quarry keeps only its own chunks", this::setupChunkLoaderNoPower, 40, this::releaseForcedChunk));
+		this.scenarios.add(Scenario.timed("chunk loader: waits for power without losing its chunks", s -> { }, 160, this::verifyChunkLoaderNoPower));
 	}
 
 	static void forceChunks(ServerLevel level) {
@@ -946,9 +948,7 @@ final class SelfTestModes {
 
 		QuarryBlockEntity quarry = farQuarry(level);
 		quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS, new ItemStack(com.solarquarry.registry.ModItems.CHUNK_LOADER_UPGRADE));
-		for (int i = 0; i < 200 && quarry.insertEnergy(Long.MAX_VALUE, true) > 0; i++) {
-			quarry.insertEnergy(Long.MAX_VALUE, false);
-		}
+		quarry.restoreEnergy(60_000L);
 
 		configure(quarry, QuarryMode.TUNNEL_BORE, 3, 40, 1, 199);
 		quarry.start();
@@ -994,5 +994,29 @@ final class SelfTestModes {
 
 	private void verifyChunkLoaderRestored(ServerLevel level) {
 		SelfTest.check(level.isLoaded(FAR) && farQuarry(level) != null, "chunk loader: a remembered quarry's chunk is loaded again at server start");
+	}
+
+	private void setupChunkLoaderNoPower(ServerLevel level) {
+		net.minecraft.world.level.ChunkPos chunk = net.minecraft.world.level.ChunkPos.containing(FAR);
+		level.setChunkForced(chunk.x(), chunk.z(), true);
+		level.getChunk(chunk.x(), chunk.z());
+		level.setBlock(FAR, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(FAR, ModBlocks.QUARRY.defaultBlockState().setValue(QuarryBlock.FACING, Direction.NORTH), Block.UPDATE_ALL);
+		level.setBlock(new BlockPos(FAR.getX(), FAR.getY(), FAR.getZ() + 1), Blocks.STONE.defaultBlockState(), Block.UPDATE_CLIENTS);
+		QuarryBlockEntity quarry = farQuarry(level);
+		quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS, new ItemStack(com.solarquarry.registry.ModItems.CHUNK_LOADER_UPGRADE));
+		configure(quarry, QuarryMode.TUNNEL_BORE, 1, 40, 1, 199);
+		quarry.start();
+	}
+
+	private void verifyChunkLoaderNoPower(ServerLevel level) {
+		QuarryBlockEntity quarry = farQuarry(level);
+		SelfTest.check(quarry != null && quarry.getStatus() == QuarryStatus.WAITING_FOR_POWER,
+			"chunk loader: without power the quarry still has its own chunks loaded and waits for power ("
+			+ (quarry == null ? "unloaded" : quarry.getStatus()) + ")");
+		SelfTest.check(!level.isLoaded(new BlockPos(FAR.getX(), FAR.getY(), FAR.getZ() + 40)), "chunk loader: without upkeep it does not load the chunks it would mine");
+		if (quarry != null) {
+			quarry.pause();
+		}
 	}
 }

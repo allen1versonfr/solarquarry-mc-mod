@@ -1,4 +1,4 @@
-# Solar Quarry 2.0
+# Solar Quarry 2.1
 
 A standalone Fabric mod for Minecraft 26.2: a solar-powered quarry with four mining modes, an energy network (solar panels, batteries, cables), real item logistics (pipes, filter pipes with tags and priorities), an ore prospector, configuration presets and a remote control terminal. No other tech mod is needed.
 
@@ -15,8 +15,8 @@ Nothing else is required. Install the mod on the server **and** on every client.
 
 ## Which file do I want?
 
-- **`solarquarry-2.0.0.jar`**: the mod. Put it in your `mods` folder. That's all you need to play.
-- **`SolarQuarry-2.0.0-source.zip`**: the full Gradle project (source code, assets, tests, build scripts). Only needed if you want to build or change the mod.
+- **`solarquarry-2.1.0.jar`**: the mod. Put it in your `mods` folder. That's all you need to play.
+- **`SolarQuarry-2.1.0-source.zip`**: the full Gradle project (source code, assets, tests, build scripts). Only needed if you want to build or change the mod.
 
 ## Building from source
 
@@ -25,9 +25,9 @@ gradlew.bat build        (Windows)
 ./gradlew build          (Linux / macOS)
 ```
 
-The jar is written to `build/libs/solarquarry-2.0.0.jar`. `build` also runs the unit tests.
+The jar is written to `build/libs/solarquarry-2.1.0.jar`. `build` also runs the unit tests.
 
-Helper scripts (Windows): `0-get-jdk.bat` downloads a portable JDK 25 into `.jdk/` if you don't have Java 25. `2-build.bat` builds and logs to `logs/build.log`. `3-selftest.bat` runs the dedicated-server self-test (about 120 automated in-world checks; results in `logs/selftest.log`). `5-clienttest.bat` runs the client game test, which saves screenshots to `run-clienttest/screenshots`.
+Helper scripts (Windows): `0-get-jdk.bat` downloads a portable JDK 25 into `.jdk/` if you don't have Java 25. `2-build.bat` builds and logs to `logs/build.log`. `3-selftest.bat` runs the dedicated-server self-test (about 120 automated in-world checks; results in `logs/selftest.log`). `5-clienttest.bat` runs the client game test, which saves screenshots to `run-clienttest/screenshots`. `4-client.bat` starts a development client with the mod loaded.
 
 ## Getting started
 
@@ -54,7 +54,9 @@ Helper scripts (Windows): `0-get-jdk.bat` downloads a portable JDK 25 into `.jdk
 - **Skip**: blocks on this list are never mined, in any mode.
 - **Ores**: if you list anything here, Ore Priority targets only those blocks. When it's empty, every block tagged `c:ores` counts.
 
-**Always skipped:** air, unbreakable blocks, anything outside the world border or inside spawn protection (when the owner is online), Solar Quarry's own blocks, containers (so chests are never broken open), and the data-pack tag `solarquarry:quarry_ignored` (spawners, portals and similar).
+**Always skipped:** air, unbreakable blocks, anything outside the world border, Solar Quarry's own blocks, containers (so chests are never broken open), and the data-pack tag `solarquarry:quarry_ignored` (spawners, portals and similar).
+
+**Claims and protection:** before breaking each block, the quarry asks the world whether its owner may break it, whether or not the owner is online. It acts as a Fabric fake player carrying the owner's profile, so vanilla spawn protection applies, and claim mods that use Fabric's standard block-break event (`PlayerBlockBreakEvents.BEFORE`) can refuse the break. Refused blocks are skipped and left alone. A server can turn this off with `respectProtection` (see Server settings).
 
 **Status** is shown in the GUI, on the front lamp and on the Remote Terminal. The bottom-left line of the GUI tells you what to do:
 
@@ -64,7 +66,7 @@ Helper scripts (Windows): `0-get-jdk.bat` downloads a portable JDK 25 into `.jdk
 | Paused (yellow) | You paused it. Resume continues from the same block. |
 | No Power (red) | Not enough stored energy for the next block. |
 | Output Full (red) | The 27-slot buffer is full. Attach a pipe or chest. |
-| Area Unloaded (red) | The next block is in an unloaded chunk. The quarry waits; it never loads chunks itself. |
+| Area Unloaded (red) | The next block is in an unloaded chunk. Without a Chunk Loader Upgrade the quarry waits until a player is nearby. |
 | Complete (blue) | The volume is finished. Start runs it again. |
 
 **Moving a quarry:** right-click it with the **Wrench**. You get one quarry item that keeps everything: progress, mode, size, depth, energy, buffer, upgrades, lists and run state. Breaking it with a pickaxe instead drops its contents.
@@ -82,8 +84,11 @@ Put them in the six upgrade slots on the quarry's main page. Hover over the **UP
 | Silk Touch | 1 | Blocks drop themselves (+25% energy). Can't be combined with Fortune. |
 | Range I / Range II | 1 | Area limit 32 × 32 / 64 × 64. |
 | Void | 1 | Enables the Void list. |
+| Chunk Loader | 1 | Keeps the quarry working with nobody nearby (see below). Costs 8 E/t while active. |
 
 Each upgrade type fits in one slot only.
+
+**Chunk Loader Upgrade:** while the quarry is running (not paused or finished) and can pay the upkeep, it keeps the 3 × 3 chunks around itself ticking, so solar panels and batteries placed there keep working, and it loads whichever chunk it is mining. The chunk tickets last 5 seconds and are renewed by the running quarry, so everything unloads on its own once the quarry stops, runs out of power, loses the upgrade or is removed. After a server restart, quarries that were loading chunks get their chunks back automatically. Hover over UPGRADES to see whether chunk loading is active. Servers can disable it (`allowChunkLoading`).
 
 ## Energy
 
@@ -118,9 +123,9 @@ Pipes connect automatically to each other, to quarries and to chests, barrels, h
 ## Ore Prospector
 
 - **Use in the air:** an exact count of the ore blocks in the chunk you're standing in, from your feet down to the world bottom.
-- **Use on a quarry:** an *estimate* of the ores left in its remaining work volume, sampled from 1 in 16 columns and clearly labelled as an estimate.
+- **Use on a quarry:** an exact count of the ores left in the part of its work volume it has not reached yet. Big volumes are scanned over a few ticks (a 64 × 64 quarry down to bedrock takes about a second), and the result arrives in chat. Blocks in unloaded chunks are reported separately, not guessed.
 
-Each use costs 1 durability (128 total; repair with copper ingots in an anvil) and has a 5-second cooldown.
+Each use costs 1 durability (128 total; repair with copper ingots in an anvil) and has a 5-second cooldown (server setting).
 
 ## Configuration Card
 
@@ -132,6 +137,28 @@ Quarry presets hold the mode, size, depth (relative to the quarry) and lists. Fi
 
 ## Remote Terminal
 
-Place it on the **same cable run** as your quarries; machines don't pass the link through, so connect the terminal's cable directly to each quarry's cable. It lists up to 32 quarries, nearest first, with status, progress, energy, power flow, buffer and the storage they deliver to (inventories, used/free slots, low-space warnings). Buttons: Start, Pause, Resume, Restart, next Mode, Deeper/Shallower (±10 blocks).
+Connect it to your quarries with energy cables. The link also passes through batteries, panels and other machines on the way, so anything on the same power network is reachable. It lists up to 32 quarries (server setting), nearest first, with status, progress, energy, power flow, buffer and the storage they deliver to (inventories, used/free slots, low-space warnings). Buttons: Start, Pause, Resume, Restart, next Mode, Deeper/Shallower (±10 blocks).
 
 You can control quarries you placed; operators can control any. Everyone else gets a read-only view. Every request is re-checked on the server. "No signal" means the data is more than 3 seconds old.
+
+## Server settings
+
+The server reads `config/solarquarry.json` (created with the defaults on first start). Values outside the allowed range are clamped, and a file that isn't valid JSON is left untouched while the defaults apply. The server sends its values to every player on join, so GUI numbers and tooltips match the server.
+
+| Setting | Default | Range | Effect |
+|---|---|---|---|
+| `energyCostMultiplier` | 1.0 | 0.1 – 10 | Multiplies the energy every mined block costs. |
+| `solarOutputMultiplier` | 1.0 | 0.1 – 10 | Multiplies solar panel output. |
+| `maxRangeTier` | 2 | 0 – 2 | Largest area allowed: 0 = 16 × 16, 1 = 32 × 32, 2 = 64 × 64. |
+| `allowChunkLoading` | true | | Lets the Chunk Loader Upgrade work. |
+| `chunkLoaderUpkeep` | 8 | 0 – 10,000 | Energy per tick a chunk-loading quarry pays. |
+| `respectProtection` | true | | Spawn protection and claim-mod checks for every mined block. |
+| `prospectorCooldownTicks` | 100 | 20 – 1,200 | Ore Prospector cooldown. |
+| `terminalMaxQuarries` | 32 | 1 – 64 | Quarries listed per Remote Terminal. |
+| `machineSoundVolume` | 1.0 | 0 – 1 | Volume of quarry and pipe sounds (0 = silent). |
+
+Commands: `/solarquarry config` shows the active values to anyone; `/solarquarry reload` (operators) re-reads the file and sends the new values to every player.
+
+## Recipe viewers
+
+All recipes are standard crafting-table recipes, so recipe viewers that read vanilla recipes (JEI, REI, EMI) list them without any extra integration. This was not tested with those mods installed.

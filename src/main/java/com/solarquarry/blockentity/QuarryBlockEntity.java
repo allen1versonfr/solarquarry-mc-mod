@@ -160,6 +160,8 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	private @Nullable ServerPlayer actorThisTick;
 	/** True while this quarry holds chunk tickets (Chunk Loader Upgrade, running, powered, allowed by the config). */
 	private boolean chunkLoadingActive;
+	/** Whether this tick's chunk-loading upkeep was paid (needed to load the chunks being mined). */
+	private boolean upkeepPaid;
 	/** Area limit the current width/length were last checked against (-1 = not yet since loading). */
 	private int appliedMaxArea = -1;
 
@@ -342,20 +344,26 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	}
 
 	/**
-	 * Chunk Loader Upgrade: while the quarry is running (not paused or finished), the upgrade is installed, chunk loading
-	 * is allowed by the server config and the upkeep can be paid, the quarry keeps its own 3 x 3 chunks ticking and the
-	 * chunk it is mining loaded. Tickets time out after 5 seconds, so they vanish on their own when any condition fails.
+	 * Chunk Loader Upgrade: while the quarry is running (not paused or finished), the upgrade is installed and chunk
+	 * loading is allowed by the server config, the quarry keeps its own 3 x 3 chunks ticking, so the panels and batteries
+	 * there keep charging it even while it waits for power. Loading the chunks it mines costs the upkeep each tick and
+	 * only happens while the upkeep can be paid. Tickets time out after 5 seconds, so they vanish on their own when any
+	 * condition fails.
 	 */
 	private void updateChunkLoading(ServerLevel level) {
 		SolarQuarryConfig config = SolarQuarryConfig.get();
-		boolean wanted = this.upgrades.chunkLoader() && config.allowChunkLoading() && this.mode == Mode.RUNNING && !this.finished;
-		long upkeep = config.chunkLoaderUpkeep();
-		boolean active = wanted && this.energy >= upkeep;
+		boolean active = this.upgrades.chunkLoader() && config.allowChunkLoading() && this.mode == Mode.RUNNING && !this.finished;
+		boolean paid = false;
 		if (active) {
-			this.useEnergy(upkeep);
+			long upkeep = config.chunkLoaderUpkeep();
+			if (this.energy >= upkeep) {
+				this.useEnergy(upkeep);
+				paid = true;
+			}
+
 			if (this.ticks % 20 == 0 || !this.chunkLoadingActive) {
 				QuarryChunkLoading.keepMachineLoaded(level, this.worldPosition);
-				if (this.lastTarget != null) {
+				if (paid && this.lastTarget != null) {
 					QuarryChunkLoading.loadTarget(level, this.lastTarget);
 				}
 
@@ -363,6 +371,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 			}
 		}
 
+		this.upkeepPaid = paid;
 		if (active != this.chunkLoadingActive) {
 			this.chunkLoadingActive = active;
 			this.syncDirty = true;
@@ -374,7 +383,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 
 	/** The next block is in an unloaded chunk: request it if chunk loading is active, and wait either way. */
 	private StepResult waitForChunk(ServerLevel level, BlockPos pos) {
-		if (this.chunkLoadingActive) {
+		if (this.chunkLoadingActive && this.upkeepPaid) {
 			QuarryChunkLoading.loadTarget(level, pos);
 		}
 

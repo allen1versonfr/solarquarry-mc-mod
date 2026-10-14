@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.1.0
+
+### Fixed limitations from 2.0
+- **Claims and protection:** every block is checked as the owner before it is broken, online or offline. The quarry uses a Fabric fake player with the owner's profile, so vanilla spawn protection applies and claim mods that use Fabric's `PlayerBlockBreakEvents.BEFORE` can refuse the break. In 2.0 spawn protection only applied while the owner was online.
+- **Chunk loading:** new **Chunk Loader Upgrade**. While running and powered, a quarry keeps its 3 × 3 chunks ticking and loads the chunk it is mining, at 8 E/t. Tickets expire on their own when it stops, and loading quarries are restored after a server restart.
+- **Remote Terminal reach:** the link now passes through batteries, panels and other machines, not only cables.
+- **Ore Prospector:** quarry scans are exact instead of a 1-in-16 estimate, spread over a few ticks so large volumes never stall the server. Unloaded blocks are reported, not guessed.
+
+### Server settings
+- New `config/solarquarry.json`: energy cost and solar output multipliers, maximum area tier, chunk loading on/off and upkeep, protection checks, prospector cooldown, terminal list size and machine sound volume. All values are validated and clamped.
+- The server sends its settings to every player on join, so GUI numbers and tooltips match the server.
+- `/solarquarry config` shows the settings; `/solarquarry reload` (operators) re-reads the file and re-syncs players.
+- Lowering the area limit shrinks existing quarry areas to fit.
+
+### Other
+- Upgrade summary tooltip shows whether chunk loading is active.
+- Recipe count is now 29 (Chunk Loader Upgrade: obsidian, ender pearls, an advanced circuit and an upgrade base). It appears in the recipe book when you pick up an ender pearl, an advanced circuit or an upgrade base.
+- `4-client.bat` (start a development client) is now part of the project.
+
 ## 2.0.0
 
 ### Quarry core
