@@ -29,9 +29,11 @@ import org.jspecify.annotations.Nullable;
  */
 public class SortingTerminalMenu extends AbstractContainerMenu {
 	public static final int GHOST_X = 8;
-	public static final int GHOST_Y = 136;
-	public static final int INVENTORY_Y = 208;
-	public static final int HOTBAR_Y = 266;
+	public static final int GHOST_Y = 158;
+	public static final int INVENTORY_Y = 158;
+	public static final int HOTBAR_Y = 216;
+	/** Player inventory sits to the right of the 3x3 template grid. */
+	public static final int INVENTORY_X = 88;
 	public static final int PLAYER_START = SortRule.MAX_ITEMS;
 	private static final int SNAPSHOT_INTERVAL = 20;
 
@@ -76,12 +78,12 @@ public class SortingTerminalMenu extends AbstractContainerMenu {
 
 		for (int row = 0; row < 3; row++) {
 			for (int col = 0; col < 9; col++) {
-				this.addSlot(new Slot(inventory, col + row * 9 + 9, 48 + col * 18, INVENTORY_Y + row * 18));
+				this.addSlot(new Slot(inventory, col + row * 9 + 9, INVENTORY_X + col * 18, INVENTORY_Y + row * 18));
 			}
 		}
 
 		for (int col = 0; col < 9; col++) {
-			this.addSlot(new Slot(inventory, col, 48 + col * 18, HOTBAR_Y));
+			this.addSlot(new Slot(inventory, col, INVENTORY_X + col * 18, HOTBAR_Y));
 		}
 	}
 

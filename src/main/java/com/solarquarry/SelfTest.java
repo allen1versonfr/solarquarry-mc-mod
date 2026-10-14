@@ -393,7 +393,10 @@ public final class SelfTest {
 		long recipes = server.getRecipeManager().getRecipes().stream()
 			.filter(holder -> holder.id().identifier().getNamespace().equals(SolarQuarry.MOD_ID))
 			.count();
-		check(recipes == 29, "all 29 crafting recipes loaded (" + recipes + ")");
+		long modItems = net.minecraft.core.registries.BuiltInRegistries.ITEM.keySet().stream()
+			.filter(id -> id.getNamespace().equals(SolarQuarry.MOD_ID))
+			.count();
+		check(recipes == modItems, "one crafting recipe per item loaded (" + recipes + " recipes, " + modItems + " items)");
 		java.util.Set<String> recipeIds = new java.util.HashSet<>();
 		server.getRecipeManager().getRecipes().forEach(holder -> recipeIds.add(holder.id().identifier().toString()));
 		int uncraftable = 0;

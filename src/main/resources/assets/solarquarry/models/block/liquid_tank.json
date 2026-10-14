@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "solarquarry:block/liquid_tank_top",
+    "side": "solarquarry:block/liquid_tank_side"
+  }
+}

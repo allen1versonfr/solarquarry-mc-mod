@@ -282,6 +282,19 @@ public class QuarryMenu extends AbstractContainerMenu {
 		return this.unsigned(28) | (this.unsigned(29) << 16);
 	}
 
+	public boolean hasLiquidRemover() {
+		return (this.data.get(30) & 1) != 0;
+	}
+
+	public boolean isFluidPipeConnected() {
+		return (this.data.get(30) & 2) != 0;
+	}
+
+	/** Liquid waiting in the Liquid Remover, in tenths of a bucket. */
+	public int getPumpTenths() {
+		return this.data.get(31);
+	}
+
 	/** Blocks actually mined per second (rolling 10 s), from the server. */
 	public double getMeasuredBlocksPerSecond() {
 		return this.data.get(27) / 100.0;

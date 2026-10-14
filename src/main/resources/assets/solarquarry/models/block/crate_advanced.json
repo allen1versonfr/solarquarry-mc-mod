@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "solarquarry:block/crate_advanced_top",
+    "side": "solarquarry:block/crate_advanced_side"
+  }
+}

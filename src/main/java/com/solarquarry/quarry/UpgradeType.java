@@ -8,7 +8,8 @@ public enum UpgradeType {
 	SILK_TOUCH("silk_touch", 1),
 	RANGE("range", 1),
 	VOID("void", 1),
-	CHUNK_LOADER("chunk_loader", 1);
+	CHUNK_LOADER("chunk_loader", 1),
+	LIQUID_REMOVER("liquid_remover", 1);
 
 	private final String id;
 	private final int maxStack;

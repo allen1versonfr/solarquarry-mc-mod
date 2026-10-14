@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "KSK",
+    "PBP",
+    "KCK"
+  ],
+  "key": {
+    "K": "minecraft:bucket",
+    "S": "minecraft:dried_kelp_block",
+    "P": "solarquarry:fluid_pipe",
+    "B": "solarquarry:upgrade_base",
+    "C": "solarquarry:circuit_board"
+  },
+  "result": {
+    "id": "solarquarry:liquid_remover_upgrade",
+    "count": 1
+  }
+}

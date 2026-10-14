@@ -118,6 +118,7 @@ public class QuarryRenderer implements BlockEntityRenderer<QuarryBlockEntity, Qu
 			be.clientDrillAngle = (be.clientDrillAngle + dt * 720.0F) % 360.0F;
 		}
 
+		this.extractPump(be, state, frame, origin, fwd, lat, dt);
 		state.headX = be.clientHeadX;
 		state.headY = be.clientHeadY;
 		state.headZ = be.clientHeadZ;
@@ -133,6 +134,78 @@ public class QuarryRenderer implements BlockEntityRenderer<QuarryBlockEntity, Qu
 			state.headLight = LightCoordsUtil.FULL_BRIGHT;
 			state.frameLight = LightCoordsUtil.FULL_BRIGHT;
 		}
+	}
+
+	/** The Liquid Remover's arm: parked at the far end of the rails, or over the liquid it is pumping. */
+	private void extractPump(QuarryBlockEntity be, QuarryRenderState state, QuarryFrame frame, BlockPos origin, Direction fwd, Direction lat, float dt) {
+		state.pump = be.hasPumpClient();
+		if (!state.pump) {
+			be.clientPumpL = Float.NaN;
+			return;
+		}
+
+		float tl = (frame.lMin() + frame.lMax()) * 0.5F;
+		float tf = frame.fMax() - 0.5F;
+		float ty = frame.gantryY() - 1.0F;
+		BlockPos target = be.getPumpTarget();
+		if (target != null && state.status.isWorking()) {
+			float l = (target.getX() - origin.getX()) * lat.getStepX() + (target.getZ() - origin.getZ()) * lat.getStepZ();
+			float f = (target.getX() - origin.getX()) * fwd.getStepX() + (target.getZ() - origin.getZ()) * fwd.getStepZ();
+			if (l >= frame.lMin() && l <= frame.lMax() && f >= frame.fMin() && f <= frame.fMax()) {
+				tl = l;
+				tf = f;
+				ty = target.getY() - origin.getY();
+			}
+		}
+
+		if (Float.isNaN(be.clientPumpL)) {
+			be.clientPumpL = tl;
+			be.clientPumpF = tf;
+			be.clientPumpY = ty;
+		} else {
+			float dl = tl - be.clientPumpL;
+			float df = tf - be.clientPumpF;
+			float dy = ty - be.clientPumpY;
+			float dist = (float) Math.sqrt(dl * dl + df * df + dy * dy);
+			float step = HEAD_SPEED * dt;
+			if (dist > 40.0F || dist <= step) {
+				be.clientPumpL = tl;
+				be.clientPumpF = tf;
+				be.clientPumpY = ty;
+			} else if (dist > 0.0F) {
+				be.clientPumpL += dl / dist * step;
+				be.clientPumpF += df / dist * step;
+				be.clientPumpY += dy / dist * step;
+			}
+		}
+
+		state.pumpL = be.clientPumpL;
+		state.pumpF = be.clientPumpF;
+		state.pumpY = be.clientPumpY;
+	}
+
+	/** Second bridge on the same rails with the pump carriage and a hose down to the liquid. */
+	private void submitPump(QuarryRenderState state, PoseStack poseStack, SubmitNodeCollector collector, Direction forward, Direction lateral, float railTop) {
+		float rl = state.railLeft;
+		float rr = state.railRight;
+		float pl = state.pumpL;
+		float pf = state.pumpF;
+		int light = state.frameLight;
+		collector.submitCustomGeometry(poseStack, RenderTypes.entityCutout(STEEL), (pose, vc) -> {
+			for (float side : new float[] {rl, rr}) {
+				this.localBox(pose, vc, forward, lateral, side - 0.2F, side + 0.2F, railTop, railTop + 0.3F, pf - 0.24F, pf + 0.24F, light);
+			}
+
+			this.localBox(pose, vc, forward, lateral, rl, rr, railTop + 0.08F, railTop + 0.16F, pf - 0.05F, pf + 0.05F, light);
+			this.localBox(pose, vc, forward, lateral, pl - 0.26F, pl + 0.26F, railTop - 0.02F, railTop + 0.3F, pf - 0.22F, pf + 0.22F, light);
+		});
+		float hoseBottom = Math.min(railTop - 0.1F, state.pumpY + 1.2F);
+		collector.submitCustomGeometry(poseStack, RenderTypes.entityCutout(DRILL), (pose, vc) -> {
+			// Blue hose and a dark intake nozzle.
+			this.localBox(pose, vc, forward, lateral, pl - 0.09F, pl + 0.09F, hoseBottom, railTop, pf - 0.09F, pf + 0.09F, 0xFF2F6FB8, light);
+			this.localBox(pose, vc, forward, lateral, pl - 0.18F, pl + 0.18F, hoseBottom - 0.3F, hoseBottom, pf - 0.18F, pf + 0.18F, 0xFF22262B, light);
+			this.localBox(pose, vc, forward, lateral, pl - 0.08F, pl + 0.08F, railTop + 0.3F, railTop + 0.42F, pf - 0.08F, pf + 0.08F, 0xFF4FA8FF, LightCoordsUtil.FULL_BRIGHT);
+		});
 	}
 
 	@Override
@@ -234,6 +307,10 @@ public class QuarryRenderer implements BlockEntityRenderer<QuarryBlockEntity, Qu
 		collector.submitCustomGeometry(poseStack, RenderTypes.entityCutout(DRILL), (pose, vc) ->
 			this.localBox(pose, vc, forward, lateral, hl - 0.12F, hl + 0.12F, gy + 0.72F, gy + 0.9F, hf - 0.12F, hf + 0.12F, lampColor, LightCoordsUtil.FULL_BRIGHT)
 		);
+
+		if (state.pump) {
+			this.submitPump(state, poseStack, collector, forward, lateral, railTop);
+		}
 
 		// Spinning drill bit.
 		poseStack.pushPose();

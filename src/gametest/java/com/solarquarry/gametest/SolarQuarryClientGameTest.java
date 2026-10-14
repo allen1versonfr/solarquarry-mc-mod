@@ -234,6 +234,58 @@ public class SolarQuarryClientGameTest implements FabricClientGameTest {
 			context.getInput().lookAt(high.offset(0, -6, 2));
 			context.waitTicks(40);
 			context.takeScreenshot("12_quarry_legs_and_support");
+
+			// Liquid Remover over a flooded pit: the pump arm drains ahead of the drill into a Liquid Tank; items go to a crate.
+			BlockPos pond = q.offset(30, 0, 0);
+			singleplayer.getServer().runOnServer(server -> buildPond(server.getPlayerList().getPlayers().get(0).level(), pond));
+			singleplayer.getServer().runCommand("tp @a " + (pond.getX() + 9) + " " + (pond.getY() + 5) + " " + (pond.getZ() - 4));
+			context.waitTicks(20);
+			context.getInput().lookAt(pond.offset(0, -2, 3));
+			context.waitTicks(120);
+			context.takeScreenshot("13_liquid_remover_pumping");
+			context.waitTicks(200);
+			singleplayer.getServer().runOnServer(server -> {
+				ServerLevel level = server.getPlayerList().getPlayers().get(0).level();
+				if (!(level.getBlockEntity(pond.north(2)) instanceof com.solarquarry.fluid.LiquidTankBlockEntity tank) || tank.amount() <= 0) {
+					throw new AssertionError("the liquid tank received no water from the quarry");
+				}
+			});
+			singleplayer.getServer().runCommand("tp @a " + (pond.getX() - 2) + " " + (pond.getY() + 1) + " " + (pond.getZ() - 4));
+			context.waitTicks(10);
+			context.getInput().lookAt(pond.north(2));
+			context.waitTicks(20);
+			context.takeScreenshot("14_liquid_tank_and_pipe");
+			singleplayer.getServer().runOnServer(server -> {
+				ServerPlayer player = server.getPlayerList().getPlayers().get(0);
+				if (player.level().getBlockEntity(pond.west()) instanceof com.solarquarry.storage.CrateBlockEntity crate) {
+					player.openMenu(crate);
+				}
+			});
+			context.waitForScreen(com.solarquarry.client.screen.CrateScreen.class);
+			context.waitTicks(10);
+			context.takeScreenshot("15_crate_screen");
+			context.runOnClient(client -> client.player.closeContainer());
+			context.waitTicks(5);
+		}
+	}
+
+	private static void buildPond(ServerLevel level, BlockPos p) {
+		BlockPos.betweenClosed(p.offset(-5, 0, -3), p.offset(5, 8, 9)).forEach(pos -> level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS));
+		BlockPos.betweenClosed(p.offset(-3, -6, 0), p.offset(3, -1, 6)).forEach(pos -> level.setBlock(pos, Blocks.STONE.defaultBlockState(), Block.UPDATE_CLIENTS));
+		BlockPos.betweenClosed(p.offset(-2, -3, 1), p.offset(2, -1, 5)).forEach(pos -> level.setBlock(pos, Blocks.WATER.defaultBlockState(), Block.UPDATE_ALL));
+		level.setBlock(p.below(), Blocks.STONE.defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(p, ModBlocks.QUARRY.defaultBlockState().setValue(QuarryBlock.FACING, Direction.NORTH), Block.UPDATE_ALL);
+		level.setBlock(p.north(), ModBlocks.FLUID_PIPE.defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(p.north(2), ModBlocks.LIQUID_TANK.defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(p.west(), ModBlocks.CRATE_REINFORCED.defaultBlockState(), Block.UPDATE_ALL);
+		if (level.getBlockEntity(p) instanceof QuarryBlockEntity quarry) {
+			quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS, new ItemStack(ModItems.LIQUID_REMOVER_UPGRADE));
+			quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS + 1, new ItemStack(ModItems.SPEED_UPGRADE, 1));
+			quarry.restoreEnergy(400_000L);
+			quarry.setWidth(5);
+			quarry.setLength(5);
+			quarry.setTargetY(p.getY() - 6);
+			quarry.start();
 		}
 	}
 

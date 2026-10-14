@@ -28,14 +28,14 @@ import org.jspecify.annotations.Nullable;
  */
 public class SortingTerminalScreen extends AbstractContainerScreen<SortingTerminalMenu> {
 	private static final int WIDTH = 256;
-	private static final int HEIGHT = 290;
+	private static final int HEIGHT = 240;
 	private static final int LIST_X = 8;
 	private static final int LIST_Y = 18;
 	private static final int LIST_W = 118;
 	private static final int ROW_H = 18;
-	private static final int ROWS = 6;
+	private static final int ROWS = 5;
 	private static final int PANEL_X = 132;
-	private static final int TAG_Y = 104;
+	private static final int TAG_Y = 96;
 	private @Nullable SortingSnapshotPayload snapshot;
 	private int scroll;
 	private IndustrialButton registerButton;
@@ -58,19 +58,19 @@ public class SortingTerminalScreen extends AbstractContainerScreen<SortingTermin
 		super.init();
 		int x = this.leftPos;
 		int y = this.topPos;
-		this.registerButton = this.addRenderableWidget(new IndustrialButton(x + PANEL_X, y + 50, 116, 14, Component.translatable("gui.solarquarry.sorting.register"),
+		this.registerButton = this.addRenderableWidget(new IndustrialButton(x + PANEL_X, y + 47, 116, 14, Component.translatable("gui.solarquarry.sorting.register"),
 			input -> this.send(this.isRegistered() ? SortingActionPayload.UNREGISTER : SortingActionPayload.REGISTER, 0, "")));
-		this.modeButton = this.addRenderableWidget(new IndustrialButton(x + PANEL_X, y + 68, 116, 14, Component.empty(),
+		this.modeButton = this.addRenderableWidget(new IndustrialButton(x + PANEL_X, y + 63, 116, 14, Component.empty(),
 			input -> this.send(SortingActionPayload.NEXT_MODE, 0, "")));
-		this.priorityDown = this.addRenderableWidget(new IndustrialButton(x + PANEL_X, y + 86, 14, 14, Component.literal("-"),
+		this.priorityDown = this.addRenderableWidget(new IndustrialButton(x + PANEL_X, y + 79, 14, 14, Component.literal("-"),
 			input -> this.send(SortingActionPayload.PRIORITY, -1, "")));
-		this.priorityUp = this.addRenderableWidget(new IndustrialButton(x + PANEL_X + 102, y + 86, 14, 14, Component.literal("+"),
+		this.priorityUp = this.addRenderableWidget(new IndustrialButton(x + PANEL_X + 102, y + 79, 14, 14, Component.literal("+"),
 			input -> this.send(SortingActionPayload.PRIORITY, 1, "")));
 		Tooltip priorityTip = Tooltip.create(Component.translatable("gui.solarquarry.sorting.priority.tooltip"));
 		this.priorityDown.setTooltip(priorityTip);
 		this.priorityUp.setTooltip(priorityTip);
 		for (int i = 0; i < this.tagBoxes.length; i++) {
-			EditBox box = new EditBox(this.font, x + PANEL_X, y + TAG_Y + i * 14, 116, 12, Component.translatable("gui.solarquarry.tag_box"));
+			EditBox box = new EditBox(this.font, x + PANEL_X, y + TAG_Y + i * 13, 116, 12, Component.translatable("gui.solarquarry.tag_box"));
 			box.setMaxLength(96);
 			box.setHint(Component.translatable("gui.solarquarry.tag_hint"));
 			final int index = i;
@@ -274,7 +274,6 @@ public class SortingTerminalScreen extends AbstractContainerScreen<SortingTermin
 	@Override
 	protected void extractLabels(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		g.text(this.font, this.title, this.titleLabelX, this.titleLabelY, 0xFFF1D8A6, true);
-		g.text(this.font, this.playerInventoryTitle, this.inventoryLabelX, this.inventoryLabelY, GuiDraw.LABEL, false);
 		if (this.snapshot == null) {
 			g.text(this.font, Component.translatable("gui.solarquarry.sorting.loading"), LIST_X + 2, LIST_Y + 2, GuiDraw.LCD_DIM, false);
 			return;
@@ -287,25 +286,25 @@ public class SortingTerminalScreen extends AbstractContainerScreen<SortingTermin
 		SortingSnapshotPayload.Entry entry = this.selectedEntry();
 		if (entry != null) {
 			ItemStack icon = iconOf(entry);
-			g.text(this.font, icon.isEmpty() ? Component.translatable("gui.solarquarry.sorting.missing") : icon.getHoverName(), PANEL_X, 20, GuiDraw.LABEL, false);
-			g.text(this.font, Component.literal(entry.pos().getX() + ", " + entry.pos().getY() + ", " + entry.pos().getZ()), PANEL_X, 30, GuiDraw.LCD_DIM, false);
+			g.text(this.font, icon.isEmpty() ? Component.translatable("gui.solarquarry.sorting.missing") : icon.getHoverName(), PANEL_X, 19, GuiDraw.LABEL, false);
+			g.text(this.font, Component.literal(entry.pos().getX() + ", " + entry.pos().getY() + ", " + entry.pos().getZ()), PANEL_X, 28, GuiDraw.LCD_DIM, false);
 			Component status = !entry.loaded() ? Component.translatable("gui.solarquarry.sorting.unloaded").withStyle(ChatFormatting.GOLD)
 				: !entry.present() ? Component.translatable("gui.solarquarry.sorting.missing").withStyle(ChatFormatting.RED)
 				: Component.translatable("gui.solarquarry.sorting.slots", entry.usedSlots(), entry.totalSlots());
-			g.text(this.font, status, PANEL_X, 40, GuiDraw.LCD_TEXT, false);
+			g.text(this.font, status, PANEL_X, 37, GuiDraw.LCD_TEXT, false);
 			if (entry.registered()) {
 				int p = entry.priority();
-				g.centeredText(this.font, Component.translatable("gui.solarquarry.sorting.priority", (p > 0 ? "+" : "") + p), PANEL_X + 58, 89, p == 0 ? GuiDraw.LABEL : 0xFFFFE066);
+				g.centeredText(this.font, Component.translatable("gui.solarquarry.sorting.priority", (p > 0 ? "+" : "") + p), PANEL_X + 58, 82, p == 0 ? GuiDraw.LABEL : 0xFFFFE066);
 				SortRule.Mode mode = SortRule.Mode.byOrdinal(entry.mode());
 				if (mode != SortRule.Mode.FALLBACK && !entry.hasEntries()) {
 					g.textWithWordWrap(this.font, Component.translatable(mode == SortRule.Mode.ALLOW ? "gui.solarquarry.sorting.warn_empty_allow" : "gui.solarquarry.sorting.note_block_all"),
-						72, 150, 176, mode == SortRule.Mode.ALLOW ? 0xFFFFB066 : GuiDraw.LCD_DIM);
+						LIST_X, 136, 240, mode == SortRule.Mode.ALLOW ? 0xFFFFB066 : GuiDraw.LCD_DIM);
 				}
 			}
 		}
 
 		if (!this.snapshot.hasFallback()) {
-			g.textWithWordWrap(this.font, Component.translatable("gui.solarquarry.sorting.no_fallback"), 72, 172, 176, GuiDraw.LCD_DIM);
+			g.textWithWordWrap(this.font, Component.translatable("gui.solarquarry.sorting.no_fallback"), LIST_X, 146, 240, GuiDraw.LCD_DIM);
 		}
 	}
 }

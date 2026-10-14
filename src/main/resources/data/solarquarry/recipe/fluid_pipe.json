@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    "CGC"
+  ],
+  "key": {
+    "C": "minecraft:copper_ingot",
+    "G": "minecraft:glass_pane"
+  },
+  "result": {
+    "id": "solarquarry:fluid_pipe",
+    "count": 4
+  }
+}

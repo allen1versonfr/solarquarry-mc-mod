@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    "DAD",
+    "GRG",
+    "DBD"
+  ],
+  "key": {
+    "D": "minecraft:diamond",
+    "A": "solarquarry:advanced_circuit",
+    "G": "minecraft:gold_ingot",
+    "R": "solarquarry:crate_reinforced",
+    "B": "solarquarry:crate_basic"
+  },
+  "result": {
+    "id": "solarquarry:crate_advanced",
+    "count": 1
+  }
+}

@@ -47,6 +47,8 @@ public class SolarQuarry implements ModInitializer {
 		ModMenus.init();
 		ModCreativeTab.init();
 		QuarryChunkLoading.init();
+		net.fabricmc.fabric.api.transfer.v1.fluid.FluidStorage.SIDED.registerForBlockEntity((tank, side) -> tank.storage, ModBlockEntities.LIQUID_TANK);
+		net.fabricmc.fabric.api.transfer.v1.fluid.FluidStorage.SIDED.registerForBlockEntity((quarry, side) -> quarry.pumpTank, ModBlockEntities.QUARRY);
 
 		PayloadTypeRegistry.serverboundPlay().register(QuarryConfigPayload.TYPE, QuarryConfigPayload.STREAM_CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(QuarryConfigPayload.TYPE, QuarryConfigPayload::handle);

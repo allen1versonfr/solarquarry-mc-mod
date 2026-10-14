@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    "IGI",
+    "BCB",
+    "IGI"
+  ],
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "G": "minecraft:gold_ingot",
+    "B": "solarquarry:crate_basic",
+    "C": "solarquarry:circuit_board"
+  },
+  "result": {
+    "id": "solarquarry:crate_reinforced",
+    "count": 1
+  }
+}

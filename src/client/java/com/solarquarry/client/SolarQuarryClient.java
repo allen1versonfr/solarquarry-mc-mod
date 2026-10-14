@@ -23,6 +23,7 @@ public class SolarQuarryClient implements ClientModInitializer {
 	public void onInitializeClient() {
 		MenuScreens.register(ModMenus.QUARRY, QuarryScreen::new);
 		MenuScreens.register(ModMenus.FILTER_PIPE, FilterPipeScreen::new);
+		MenuScreens.register(ModMenus.CRATE, com.solarquarry.client.screen.CrateScreen::new);
 		MenuScreens.register(ModMenus.TERMINAL, TerminalScreen::new);
 		MenuScreens.register(ModMenus.SORTING_TERMINAL, com.solarquarry.client.screen.SortingTerminalScreen::new);
 		ItemTooltipCallback.EVENT.register((stack, context, type, lines) -> {
@@ -45,5 +46,6 @@ public class SolarQuarryClient implements ClientModInitializer {
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> SolarQuarryConfig.restoreLocal());
 		BlockEntityRenderers.register(ModBlockEntities.QUARRY, QuarryRenderer::new);
 		BlockEntityRenderers.register(ModBlockEntities.ITEM_PIPE, ItemPipeRenderer::new);
+		BlockEntityRenderers.register(ModBlockEntities.LIQUID_TANK, com.solarquarry.client.render.LiquidTankRenderer::new);
 	}
 }

@@ -69,6 +69,14 @@ public final class ModBlocks {
 	public static final com.solarquarry.storage.CrateBlock CRATE_REINFORCED = registerCrate(com.solarquarry.storage.CrateTier.REINFORCED, Rarity.UNCOMMON);
 	public static final com.solarquarry.storage.CrateBlock CRATE_ADVANCED = registerCrate(com.solarquarry.storage.CrateTier.ADVANCED, Rarity.RARE);
 
+	public static final com.solarquarry.fluid.FluidPipeBlock FLUID_PIPE = register("fluid_pipe", com.solarquarry.fluid.FluidPipeBlock::new,
+		BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_LIGHT_BLUE).strength(1.0F).sound(SoundType.COPPER_GRATE).noOcclusion(),
+		"tooltip.solarquarry.fluid_pipe", Rarity.COMMON);
+
+	public static final com.solarquarry.fluid.LiquidTankBlock LIQUID_TANK = register("liquid_tank", com.solarquarry.fluid.LiquidTankBlock::new,
+		BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.0F, 6.0F).sound(SoundType.METAL).requiresCorrectToolForDrops(),
+		"tooltip.solarquarry.liquid_tank", Rarity.UNCOMMON);
+
 	public static final TerminalBlock REMOTE_TERMINAL = register("remote_terminal", TerminalBlock::new,
 		BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.5F, 6.0F).sound(SoundType.METAL).requiresCorrectToolForDrops().lightLevel(state -> 4),
 		"tooltip.solarquarry.remote_terminal", Rarity.UNCOMMON);

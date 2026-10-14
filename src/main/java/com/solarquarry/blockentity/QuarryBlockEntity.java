@@ -27,7 +27,10 @@ import java.util.List;
 import java.util.UUID;
 import net.fabricmc.fabric.api.menu.v1.ExtendedMenuProvider;
 import net.fabricmc.fabric.api.tag.convention.v2.ConventionalBlockTags;
+import net.fabricmc.fabric.api.transfer.v1.fluid.FluidConstants;
+import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemStorage;
+import net.fabricmc.fabric.api.transfer.v1.storage.base.SingleVariantStorage;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.fabricmc.fabric.api.transfer.v1.storage.Storage;
 import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
@@ -88,7 +91,14 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	/** Light the walls every this many layers (strip modes) or blocks of tunnel. */
 	public static final int TORCH_SPACING = 4;
 	public static final int MAX_STORED_XP = 1_000_000;
-	public static final int DATA_COUNT = 30;
+	public static final int DATA_COUNT = 32;
+	/** Fluid the Liquid Remover holds before it is pushed down the fluid pipe. */
+	public static final long PUMP_CAPACITY = 16 * FluidConstants.BUCKET;
+	/** Fluid pushed into the pipe network per push (every {@link #FLUID_PUSH_INTERVAL} ticks). */
+	public static final long FLUID_PUSH_RATE = 4 * FluidConstants.BUCKET;
+	private static final int FLUID_PUSH_INTERVAL = 10;
+	/** Positions the pump arm examines per pump tick while looking for liquid ahead of the drill. */
+	private static final int PUMP_SCAN = 256;
 	public static final int DEFAULT_SIZE = 16;
 	public static final int DEFAULT_HEIGHT = 3;
 	/** Maximum positions examined per tick while skipping air and ignored blocks. */
@@ -152,6 +162,31 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	private @Nullable BlockPos lastTarget;
 	/** Experience collected from mined blocks, handed to a player on request. */
 	private int storedXp;
+	/** Liquid Remover buffer: one fluid at a time, pushed to tanks through fluid pipes (extract-only from outside). */
+	public final SingleVariantStorage<FluidVariant> pumpTank = new SingleVariantStorage<>() {
+		@Override
+		protected FluidVariant getBlankVariant() {
+			return FluidVariant.blank();
+		}
+
+		@Override
+		protected long getCapacity(FluidVariant variant) {
+			return PUMP_CAPACITY;
+		}
+
+		@Override
+		protected boolean canInsert(FluidVariant variant) {
+			return false;
+		}
+
+		@Override
+		protected void onFinalCommit() {
+			QuarryBlockEntity.this.setChanged();
+		}
+	};
+	private long fluidPumped;
+	/** Where the pump arm last worked (synced for the renderer). */
+	private @Nullable BlockPos pumpTarget;
 
 	// ---- runtime state (recomputed, not authoritative) ----
 	private QuarryUpgrades upgrades = QuarryUpgrades.NONE;
@@ -181,6 +216,14 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	/** Bottom (dy) of each frame leg and of the support under the machine; 0 = standing at the quarry's level. */
 	private float[] legBottoms = new float[0];
 	private long legsCheckedAt = Long.MIN_VALUE;
+	/** Next pattern index the pump arm checks; runs ahead of the drill and wraps back to it. */
+	private long pumpCursor;
+	private List<com.solarquarry.fluid.FluidNetwork.Target> fluidTargets = List.of();
+	private int fluidTargetsVersion = -1;
+	private long fluidTargetsAt = Long.MIN_VALUE;
+	private boolean fluidPipeConnected;
+	/** Client copy: whether a Liquid Remover is installed (upgrade slots are not synced). */
+	public boolean clientPump;
 
 	// ---- client animation state (client only) ----
 	public float clientHeadX = Float.NaN;
@@ -188,6 +231,9 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	public float clientHeadZ;
 	public long clientLastFrameNanos;
 	public float clientDrillAngle;
+	public float clientPumpL = Float.NaN;
+	public float clientPumpF;
+	public float clientPumpY;
 
 	private final ContainerData dataAccess = new ContainerData() {
 		@Override
@@ -228,6 +274,8 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 				case 27 -> (int) Math.min(Math.round(q.mineRate.perSecond() * 100.0), 0x7FFF);
 				case 28 -> q.storedXp & 0xFFFF;
 				case 29 -> (q.storedXp >>> 16) & 0xFFFF;
+				case 30 -> (q.upgrades.liquidRemover() ? 1 : 0) | (q.fluidPipeConnected ? 2 : 0) | (q.upgrades.voiding() ? 4 : 0);
+				case 31 -> (int) Math.min(q.pumpTank.amount * 10 / FluidConstants.BUCKET, 0x7FFF);
 				default -> 0;
 			};
 		}
@@ -319,6 +367,11 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 
 		if (this.ticks % 5 == 0) {
 			this.pushOutput(level);
+		}
+
+		this.tickPump(level);
+		if (this.ticks % FLUID_PUSH_INTERVAL == 0) {
+			this.pushFluid(level);
 		}
 
 		if (this.ticks % 20 == 0) {
@@ -635,6 +688,10 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		BlockEntity targetEntity = target.hasBlockEntity() ? level.getBlockEntity(pos) : null;
 		if (!QuarryProtection.mayBreak(level, this.actor(level), pos, target, targetEntity)) {
 			return StepResult.SKIPPED;
+		}
+
+		if (target.getBlock() instanceof LiquidBlock && this.upgrades.liquidRemover()) {
+			return this.pumpLiquid(level, pos, target);
 		}
 
 		if (target.getBlock() instanceof LiquidBlock) {
@@ -1482,6 +1539,11 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		this.oresOnly = input.getBooleanOr("OresOnly", this.oresOnly);
 		this.blocksMined = Math.max(0, input.getLongOr("BlocksMined", this.blocksMined));
 		this.storedXp = Math.clamp(input.getIntOr("StoredXp", 0), 0, MAX_STORED_XP);
+		input.child("PumpTank").ifPresent(tank -> SingleVariantStorage.readValue(this.pumpTank, FluidVariant.CODEC, FluidVariant::blank, tank));
+		this.pumpTank.amount = Math.clamp(this.pumpTank.amount, 0, PUMP_CAPACITY);
+		this.fluidPumped = Math.max(0, input.getLongOr("FluidPumped", 0L));
+		this.clientPump = input.getBooleanOr("Pump", false);
+		this.pumpTarget = input.getLong("PumpTarget").map(BlockPos::of).orElse(null);
 		this.cooldown = Math.max(0, Math.min(20, input.getIntOr("Cooldown", this.cooldown)));
 		this.status = QuarryStatus.byName(input.getStringOr("Status", this.status.getSerializedName()));
 		this.upgrades = QuarryUpgrades.of(this, BUFFER_SLOTS, UPGRADE_SLOTS);
@@ -1519,6 +1581,159 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		this.lastTarget = input.getLong("LastTarget").map(BlockPos::of).orElse(null);
 		this.invalidatePattern();
 		this.refreshFrame();
+	}
+
+	// ---- liquid remover ----
+
+	/**
+	 * The pump arm: works through the layers just ahead of the drill and removes liquid there, so the drill finds dry
+	 * ground. Sources go into the buffer (or are deleted with a Void Upgrade); flowing liquid is simply removed.
+	 */
+	private void tickPump(ServerLevel level) {
+		if (!this.upgrades.liquidRemover() || this.mode != Mode.RUNNING || this.finished || this.status.isProblem()) {
+			if (this.pumpTarget != null && !this.upgrades.liquidRemover()) {
+				this.pumpTarget = null;
+				this.syncDirty = true;
+			}
+
+			return;
+		}
+
+		if (this.ticks % Math.max(1, this.upgrades.ticksPerOperation()) != 0) {
+			return;
+		}
+
+		MiningPattern pattern = this.pattern();
+		if (this.quarryMode == QuarryMode.AREA_CLEAR) {
+			return; // clearing above ground: liquid there is handled by the drill itself
+		}
+
+		long start = pattern.layerStart(Math.min(this.step, Math.max(0, pattern.total() - 1)));
+		long limit = start + pattern.cellsPerLayer() * 2;
+		if (this.pumpCursor < start || this.pumpCursor >= limit) {
+			this.pumpCursor = start;
+		}
+
+		for (int i = 0; i < PUMP_SCAN; i++) {
+			if (this.pumpCursor >= limit || pattern.isComplete(this.pumpCursor)) {
+				this.pumpCursor = start;
+				return;
+			}
+
+			BlockPos pos = this.positionOf(pattern, this.pumpCursor);
+			if (!level.isLoaded(pos)) {
+				return;
+			}
+
+			BlockState state = level.getBlockState(pos);
+			if (!(state.getBlock() instanceof LiquidBlock) || this.shouldSkip(level, pos, state)
+				|| !QuarryProtection.mayBreak(level, this.actor(level), pos, state, null)) {
+				this.pumpCursor++;
+				continue;
+			}
+
+			if (this.pumpLiquid(level, pos, state) == StepResult.MINED) {
+				this.pumpCursor++;
+			}
+
+			return; // one liquid block per pump tick
+		}
+	}
+
+	/** Removes one liquid block with the pump arm. */
+	private StepResult pumpLiquid(ServerLevel level, BlockPos pos, BlockState state) {
+		net.minecraft.world.level.material.FluidState fluid = state.getFluidState();
+		boolean keep = fluid.isSource() && !this.upgrades.voiding();
+		FluidVariant variant = keep ? FluidVariant.of(fluid.getType()) : FluidVariant.blank();
+		if (keep && (!this.pumpTank.variant.isBlank() && !this.pumpTank.variant.equals(variant)
+			|| this.pumpTank.amount + FluidConstants.BUCKET > PUMP_CAPACITY)) {
+			return StepResult.FULL;
+		}
+
+		if (this.energy < FLUID_COST) {
+			return StepResult.NO_ENERGY;
+		}
+
+		this.useEnergy(FLUID_COST);
+		level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+		if (keep) {
+			this.pumpTank.variant = variant;
+			this.pumpTank.amount += FluidConstants.BUCKET;
+			this.fluidPumped += FluidConstants.BUCKET;
+		}
+
+		this.pumpTarget = pos.immutable();
+		this.syncDirty = true;
+		this.setChanged();
+		return StepResult.MINED;
+	}
+
+	/** Pushes buffered fluid through the fluid pipes into tanks (or any fluid storage) on the network. */
+	private void pushFluid(ServerLevel level) {
+		int version = com.solarquarry.fluid.FluidNetwork.version();
+		if (version != this.fluidTargetsVersion || this.ticks - this.fluidTargetsAt >= 100) {
+			boolean[] pipes = new boolean[1];
+			this.fluidTargets = com.solarquarry.fluid.FluidNetwork.scan(level, this.worldPosition, pipes);
+			this.fluidTargetsVersion = version;
+			this.fluidTargetsAt = this.ticks;
+			this.fluidPipeConnected = pipes[0] || !this.fluidTargets.isEmpty();
+		}
+
+		if (this.pumpTank.amount <= 0 || this.pumpTank.variant.isBlank()) {
+			if (this.pumpTank.amount <= 0 && !this.pumpTank.variant.isBlank()) {
+				this.pumpTank.variant = FluidVariant.blank();
+				this.setChanged();
+			}
+
+			return;
+		}
+
+		long budget = FLUID_PUSH_RATE;
+		for (com.solarquarry.fluid.FluidNetwork.Target target : this.fluidTargets) {
+			if (budget <= 0 || this.pumpTank.amount <= 0) {
+				break;
+			}
+
+			Storage<FluidVariant> storage = target.find(level);
+			if (storage == null) {
+				continue;
+			}
+
+			try (Transaction tx = Transaction.openOuter()) {
+				long moved = storage.insert(this.pumpTank.variant, Math.min(budget, this.pumpTank.amount), tx);
+				if (moved > 0) {
+					tx.commit();
+					this.pumpTank.amount -= moved;
+					budget -= moved;
+					this.setChanged();
+				}
+			}
+		}
+
+		if (this.pumpTank.amount <= 0) {
+			this.pumpTank.amount = 0;
+			this.pumpTank.variant = FluidVariant.blank();
+		}
+	}
+
+	public FluidVariant getPumpFluid() {
+		return this.pumpTank.variant;
+	}
+
+	public long getPumpAmount() {
+		return this.pumpTank.amount;
+	}
+
+	public long getFluidPumped() {
+		return this.fluidPumped;
+	}
+
+	public @Nullable BlockPos getPumpTarget() {
+		return this.pumpTarget;
+	}
+
+	public boolean hasPumpClient() {
+		return this.clientPump;
 	}
 
 	// ---- experience ----
@@ -1777,6 +1992,8 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		this.writeSyncFields(output);
 		output.putLong("BlocksMined", this.blocksMined);
 		output.putInt("StoredXp", this.storedXp);
+		SingleVariantStorage.writeValue(this.pumpTank, FluidVariant.CODEC, output.child("PumpTank"));
+		output.putLong("FluidPumped", this.fluidPumped);
 		output.putInt("Cooldown", this.cooldown);
 		output.putLong("ScanStep", this.scanStep);
 		output.putBoolean("ScanComplete", this.scanComplete);
@@ -1805,6 +2022,11 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		output.putString("Status", this.status.getSerializedName());
 		if (this.lastTarget != null) {
 			output.putLong("LastTarget", this.lastTarget.asLong());
+		}
+
+		output.putBoolean("Pump", this.upgrades.liquidRemover());
+		if (this.pumpTarget != null && this.upgrades.liquidRemover()) {
+			output.putLong("PumpTarget", this.pumpTarget.asLong());
 		}
 	}
 

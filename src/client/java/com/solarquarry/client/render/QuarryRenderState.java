@@ -24,5 +24,10 @@ public class QuarryRenderState extends BlockEntityRenderState {
 	public boolean showGantry;
 	public float railLeft;
 	public float railRight;
+	/** Liquid Remover arm: shown when the upgrade is installed; position in local (lateral, forward) units and y. */
+	public boolean pump;
+	public float pumpL;
+	public float pumpF;
+	public float pumpY;
 	public java.util.List<com.solarquarry.quarry.QuarryFrame.Box> frame = java.util.List.of();
 }

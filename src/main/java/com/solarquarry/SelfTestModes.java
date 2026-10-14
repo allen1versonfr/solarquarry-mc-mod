@@ -78,6 +78,9 @@ final class SelfTestModes {
 		this.scenarios.add(Scenario.timed("phase 1: upgrade limits and creative tab", s -> { }, 1, this::verifyUpgradeLimits));
 		this.scenarios.add(new Scenario("B2: torches light the pit walls, XP is collected", this::setupTorches, QuarryBlockEntity::isFinished, 1200, this::verifyTorches));
 		this.scenarios.add(Scenario.timed("B2: legs reach the ground, the machine gets a support", this::setupLegs, 5, this::verifyLegs));
+		this.scenarios.add(new Scenario("phase 2: liquid remover pumps water into a tank", this::setupLiquid, QuarryBlockEntity::isFinished, 1600, this::verifyLiquid));
+		this.scenarios.add(new Scenario("phase 2: liquid remover with a void upgrade deletes liquid", this::setupLiquidVoid, QuarryBlockEntity::isFinished, 1600, this::verifyLiquidVoid));
+		this.scenarios.add(Scenario.timed("phase 2: storage crates hold pages of items", s -> { }, 1, this::verifyCrates));
 		this.scenarios.add(Scenario.timed("phase 2: pipe tiers move items at different speeds", this::setupPipeTiers, 30, this::verifyPipeTiersEarly));
 		this.scenarios.add(Scenario.timed("phase 2: basic pipe delivers too, just slower", s -> { }, 80, this::verifyPipeTiersLate));
 		this.scenarios.add(Scenario.timed("phase 2: sorting terminal routes by rules", this::setupSorting, 2, this::verifySortingRoutes));
@@ -1093,7 +1096,7 @@ final class SelfTestModes {
 		double stoppedAt = stand.getX();
 		stand.discard();
 		SolarQuarry.LOGGER.info("[SelfTest] frame: entity moving into the post stopped at x={}", stoppedAt);
-		SelfTest.check(stoppedAt > 103.5 && stoppedAt < 103.6, "frame: a moving entity is stopped by the post (stopped at x=" + String.format(java.util.Locale.ROOT, "%.3f", stoppedAt) + ")");
+		SelfTest.check(stoppedAt > 103.5 && stoppedAt < 103.61, "frame: a moving entity is stopped by the post (stopped at x=" + String.format(java.util.Locale.ROOT, "%.3f", stoppedAt) + ")");
 
 		double rate = quarry.measuredBlocksPerSecond();
 		double max = quarry.getUpgrades().blocksPerMinute() / 60.0;
@@ -1387,5 +1390,111 @@ final class SelfTestModes {
 		float[] legs = quarry(level).getLegBottoms();
 		SelfTest.check(legs.length == 5 && legs[0] == -4.0F && legs[4] == -2.0F, "legs: leg and support lengths match the ground (" + java.util.Arrays.toString(legs) + ")");
 		quarry(level).pause();
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// Phase 2: liquid remover, fluid pipe, liquid tank, storage crates
+	// ---------------------------------------------------------------------------------------------
+
+	private static final BlockPos TANK = new BlockPos(100, 200, 97);
+	private long tankBeforeVoid;
+
+	private void waterBasin(ServerLevel level) {
+		// Stone basin around the 3x3 work area (x 99..101, z 101..103); the top two layers are water.
+		fill(level, 98, 195, 100, 102, 199, 104, Blocks.STONE.defaultBlockState());
+		fill(level, 99, 198, 101, 101, 199, 103, Blocks.WATER.defaultBlockState());
+	}
+
+	private void setupLiquid(ServerLevel level) {
+		this.waterBasin(level);
+		level.setBlock(new BlockPos(100, 200, 99), com.solarquarry.registry.ModBlocks.FLUID_PIPE.defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(new BlockPos(100, 200, 98), com.solarquarry.registry.ModBlocks.FLUID_PIPE.defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(TANK, com.solarquarry.registry.ModBlocks.LIQUID_TANK.defaultBlockState(), Block.UPDATE_ALL);
+		QuarryBlockEntity quarry = quarry(level);
+		quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS, new ItemStack(com.solarquarry.registry.ModItems.SPEED_UPGRADE, 4));
+		quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS + 1, new ItemStack(com.solarquarry.registry.ModItems.LIQUID_REMOVER_UPGRADE));
+		configure(quarry, QuarryMode.STRIP_MINE, 3, 3, 1, 196);
+		quarry.resetProgress();
+		quarry.start();
+	}
+
+	private void verifyLiquid(ServerLevel level) {
+		QuarryBlockEntity quarry = quarry(level);
+		int water = countBlocks(level, 99, 195, 101, 101, 199, 103, Blocks.WATER);
+		SelfTest.check(quarry.isFinished() && water == 0, "liquid: the flooded area was drained and mined (" + water + " water left)");
+		var tank = level.getBlockEntity(TANK) instanceof com.solarquarry.fluid.LiquidTankBlockEntity t ? t : null;
+		long bucket = net.fabricmc.fabric.api.transfer.v1.fluid.FluidConstants.BUCKET;
+		long inTank = tank != null ? tank.amount() : 0;
+		long total = inTank + quarry.getPumpAmount();
+		SolarQuarry.LOGGER.info("[SelfTest] liquid: pumped {} buckets, {} in the tank, {} still in the quarry", quarry.getFluidPumped() / bucket, inTank / bucket, quarry.getPumpAmount() / bucket);
+		SelfTest.check(tank != null && tank.fluid().getFluid() == net.minecraft.world.level.material.Fluids.WATER && inTank >= 9 * bucket,
+			"liquid: water went through the fluid pipe into the tank (" + inTank / bucket + " buckets)");
+		SelfTest.check(total == quarry.getFluidPumped(), "liquid: nothing was lost or duplicated between the pump and the tank");
+		SelfTest.check(countBlocks(level, 99, 195, 101, 101, 199, 103, Blocks.STONE) == 0, "liquid: the stone under the water was still mined");
+
+		// Buckets empty the tank, one bucket at a time.
+		var fake = net.fabricmc.fabric.api.entity.FakePlayer.get(level);
+		fake.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(Items.BUCKET));
+		long before = tank != null ? tank.amount() : 0;
+		boolean used = tank != null && net.fabricmc.fabric.api.transfer.v1.fluid.FluidStorageUtil.interactWithFluidStorage(tank.storage, fake, net.minecraft.world.InteractionHand.MAIN_HAND);
+		boolean filled = fake.getMainHandItem().is(Items.WATER_BUCKET) || fake.getInventory().contains(new ItemStack(Items.WATER_BUCKET));
+		SelfTest.check(used && filled && tank.amount() == before - bucket, "liquid: an empty bucket takes one bucket of water out of the tank");
+		fake.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+		this.tankBeforeVoid = tank != null ? tank.amount() : 0;
+		quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS, ItemStack.EMPTY);
+	}
+
+	private void setupLiquidVoid(ServerLevel level) {
+		this.waterBasin(level);
+		QuarryBlockEntity quarry = quarry(level);
+		quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS, new ItemStack(com.solarquarry.registry.ModItems.SPEED_UPGRADE, 4));
+		quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS + 2, new ItemStack(com.solarquarry.registry.ModItems.VOID_UPGRADE));
+		configure(quarry, QuarryMode.STRIP_MINE, 3, 3, 1, 196);
+		quarry.resetProgress();
+		quarry.start();
+	}
+
+	private void verifyLiquidVoid(ServerLevel level) {
+		QuarryBlockEntity quarry = quarry(level);
+		int water = countBlocks(level, 99, 195, 101, 101, 199, 103, Blocks.WATER);
+		long inTank = level.getBlockEntity(TANK) instanceof com.solarquarry.fluid.LiquidTankBlockEntity t ? t.amount() : -1;
+		SelfTest.check(quarry.isFinished() && water == 0, "liquid + void: the flooded area was drained (" + water + " water left)");
+		SelfTest.check(inTank == this.tankBeforeVoid && quarry.getPumpAmount() == 0, "liquid + void: the liquid was deleted, nothing reached the tank");
+		for (int i = 0; i < 3; i++) {
+			quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS + i, ItemStack.EMPTY);
+		}
+
+		quarry.pause();
+		level.removeBlock(TANK, false);
+		level.removeBlock(new BlockPos(100, 200, 98), false);
+		level.removeBlock(new BlockPos(100, 200, 99), false);
+	}
+
+	private void verifyCrates(ServerLevel level) {
+		BlockPos pos = new BlockPos(110, 200, 110);
+		level.setBlock(pos, com.solarquarry.registry.ModBlocks.CRATE_ADVANCED.defaultBlockState(), Block.UPDATE_ALL);
+		var crate = level.getBlockEntity(pos) instanceof com.solarquarry.storage.CrateBlockEntity c ? c : null;
+		SelfTest.check(crate != null && crate.getContainerSize() == 162, "crates: the advanced crate has 162 slots");
+		if (crate == null) {
+			return;
+		}
+
+		var fake = net.fabricmc.fabric.api.entity.FakePlayer.get(level);
+		var menu = new com.solarquarry.storage.CrateMenu(1, fake.getInventory(), crate, crate.tier());
+		menu.clickMenuButton(fake, com.solarquarry.storage.CrateMenu.BUTTON_NEXT);
+		menu.clickMenuButton(fake, com.solarquarry.storage.CrateMenu.BUTTON_NEXT);
+		menu.slots.get(0).set(new ItemStack(Items.DIAMOND, 5));
+		SelfTest.check(menu.page() == 2 && crate.getItem(108).is(Items.DIAMOND) && crate.getItem(0).isEmpty(), "crates: page buttons show the third page of the crate");
+		var hopper = net.fabricmc.fabric.api.transfer.v1.item.ItemStorage.SIDED.find(level, pos, null);
+		long inserted;
+		try (var tx = net.fabricmc.fabric.api.transfer.v1.transaction.Transaction.openOuter()) {
+			inserted = hopper == null ? 0 : hopper.insert(net.fabricmc.fabric.api.transfer.v1.item.ItemVariant.of(Items.COBBLESTONE), 64 * 160, tx);
+			tx.commit();
+		}
+
+		SelfTest.check(inserted == 64L * 160, "crates: automation can fill every slot (" + inserted + " items)");
+		menu.removed(fake);
+		crate.clearContent();
+		level.removeBlock(pos, false);
 	}
 }

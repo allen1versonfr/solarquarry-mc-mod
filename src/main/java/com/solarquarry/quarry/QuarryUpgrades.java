@@ -6,10 +6,14 @@ import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
 
 /** Snapshot of the upgrades installed in a quarry and the machine stats they produce. */
-public record QuarryUpgrades(int speed, int capacity, int efficiency, int fortune, boolean silkTouch, int rangeTier, boolean voiding, boolean chunkLoader) {
+public record QuarryUpgrades(int speed, int capacity, int efficiency, int fortune, boolean silkTouch, int rangeTier, boolean voiding, boolean chunkLoader, boolean liquidRemover) {
 	public static final QuarryUpgrades NONE = new QuarryUpgrades(0, 0, 0, 0, false, 0, false, false);
 	public static final long BASE_CAPACITY = 100_000L;
 	private static final int[] INTERVALS = {10, 6, 4, 2, 1};
+
+	public QuarryUpgrades(int speed, int capacity, int efficiency, int fortune, boolean silkTouch, int rangeTier, boolean voiding, boolean chunkLoader) {
+		this(speed, capacity, efficiency, fortune, silkTouch, rangeTier, voiding, chunkLoader, false);
+	}
 
 	public static QuarryUpgrades of(Container upgrades, int first, int count) {
 		int speed = 0;
@@ -20,6 +24,7 @@ public record QuarryUpgrades(int speed, int capacity, int efficiency, int fortun
 		int range = 0;
 		boolean voiding = false;
 		boolean chunkLoader = false;
+		boolean liquid = false;
 
 		for (int i = first; i < first + count; i++) {
 			ItemStack stack = upgrades.getItem(i);
@@ -37,6 +42,7 @@ public record QuarryUpgrades(int speed, int capacity, int efficiency, int fortun
 				case RANGE -> range = Math.max(range, upgrade.tier());
 				case VOID -> voiding = true;
 				case CHUNK_LOADER -> chunkLoader = true;
+				case LIQUID_REMOVER -> liquid = true;
 			}
 		}
 
@@ -52,7 +58,8 @@ public record QuarryUpgrades(int speed, int capacity, int efficiency, int fortun
 			silk,
 			Math.min(range, 2),
 			voiding,
-			chunkLoader
+			chunkLoader,
+			liquid
 		);
 	}
 
