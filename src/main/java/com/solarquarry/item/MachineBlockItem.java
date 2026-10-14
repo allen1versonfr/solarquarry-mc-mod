@@ -8,14 +8,12 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.item.component.TypedEntityData;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 
 /** Block item that summarizes machine state carried by a wrench. */
-public class MachineBlockItem extends BlockItem {
+public class MachineBlockItem extends BlockItem implements TooltipLines {
 	private final String tooltipKey;
 
 	public MachineBlockItem(Block block, String tooltipKey, Properties properties) {
@@ -24,7 +22,7 @@ public class MachineBlockItem extends BlockItem {
 	}
 
 	@Override
-	public void appendHoverText(ItemStack itemStack, TooltipContext context, TooltipDisplay display, Consumer<Component> builder, TooltipFlag tooltipFlag) {
+	public void addTooltipLines(ItemStack itemStack, Consumer<Component> builder) {
 		if (this.tooltipKey != null) {
 			builder.accept(Component.translatable(this.tooltipKey).withStyle(ChatFormatting.GRAY));
 		}

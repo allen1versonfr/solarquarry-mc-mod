@@ -20,8 +20,6 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
@@ -36,7 +34,7 @@ import net.minecraft.world.level.block.state.BlockState;
  * </ul>
  * Each use costs durability and starts a cooldown, so it cannot map the world for free.
  */
-public class ProspectorItem extends Item implements MachineTool {
+public class ProspectorItem extends Item implements MachineTool, TooltipLines {
 	public static final int COOLDOWN_TICKS = 100;
 	private static final int MAX_SAMPLES = 200_000;
 	private static final int TOP_ENTRIES = 6;
@@ -160,7 +158,7 @@ public class ProspectorItem extends Item implements MachineTool {
 	}
 
 	@Override
-	public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay display, Consumer<Component> builder, TooltipFlag flag) {
+	public void addTooltipLines(ItemStack stack, Consumer<Component> builder) {
 		builder.accept(Component.translatable("tooltip.solarquarry.prospector.chunk").withStyle(ChatFormatting.GRAY));
 		builder.accept(Component.translatable("tooltip.solarquarry.prospector.quarry").withStyle(ChatFormatting.GRAY));
 	}

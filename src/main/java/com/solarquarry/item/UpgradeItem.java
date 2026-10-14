@@ -6,10 +6,8 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.component.TooltipDisplay;
 
-public class UpgradeItem extends Item {
+public class UpgradeItem extends Item implements TooltipLines {
 	private final UpgradeType type;
 	private final int tier;
 
@@ -29,7 +27,7 @@ public class UpgradeItem extends Item {
 	}
 
 	@Override
-	public void appendHoverText(ItemStack itemStack, TooltipContext context, TooltipDisplay display, Consumer<Component> builder, TooltipFlag tooltipFlag) {
+	public void addTooltipLines(ItemStack itemStack, Consumer<Component> builder) {
 		String key = this.type == UpgradeType.RANGE ? "tooltip.solarquarry.upgrade.range_" + this.tier : "tooltip.solarquarry.upgrade." + this.type.id();
 		builder.accept(Component.translatable(key).withStyle(ChatFormatting.GRAY));
 		if (this.type.maxStack() > 1) {

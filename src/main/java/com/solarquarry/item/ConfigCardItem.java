@@ -16,9 +16,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.component.CustomData;
-import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -28,7 +26,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
  * Sneak + use on a quarry or filter pipe: copy its settings. Use: apply the stored settings. Sneak + use in the air: clear.
  * Presets never contain items, energy or upgrades.
  */
-public class ConfigCardItem extends Item implements MachineTool {
+public class ConfigCardItem extends Item implements MachineTool, TooltipLines {
 	public ConfigCardItem(Properties properties) {
 		super(properties);
 	}
@@ -111,7 +109,7 @@ public class ConfigCardItem extends Item implements MachineTool {
 	}
 
 	@Override
-	public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay display, Consumer<Component> builder, TooltipFlag flag) {
+	public void addTooltipLines(ItemStack stack, Consumer<Component> builder) {
 		CompoundTag preset = preset(stack);
 		String kind = preset.getStringOr("Kind", "");
 		if (kind.equals("quarry")) {

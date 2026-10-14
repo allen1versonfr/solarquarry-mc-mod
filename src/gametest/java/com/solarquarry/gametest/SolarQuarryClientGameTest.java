@@ -100,12 +100,17 @@ public class SolarQuarryClientGameTest implements FabricClientGameTest {
 			context.waitForScreen(TerminalScreen.class);
 			context.waitTicks(30);
 			context.takeScreenshot("08_terminal_gui");
-			context.setScreen(() -> null);
+			// Close the way the game does (tells the server), not just by dropping the screen.
+			context.runOnClient(client -> client.player.closeContainer());
 			context.waitTicks(5);
 
 			// Recipe book: picking up an ingredient must unlock the mod's recipes for this player.
 			singleplayer.getServer().runOnServer(server -> {
 				ServerPlayer player = server.getPlayerList().getPlayers().get(0);
+				if (player.containerMenu != player.inventoryMenu) {
+					throw new AssertionError("a menu is still open on the server: " + player.containerMenu);
+				}
+
 				player.getInventory().add(new ItemStack(Items.IRON_INGOT, 1));
 			});
 			context.waitTicks(20);
@@ -116,6 +121,16 @@ public class SolarQuarryClientGameTest implements FabricClientGameTest {
 					if (!player.getRecipeBook().contains(key)) {
 						throw new AssertionError("recipe " + id + " was not unlocked in the recipe book after picking up an iron ingot");
 					}
+				}
+			});
+
+			// Tooltips are added through Fabric's ItemTooltipCallback.
+			context.runOnClient(client -> {
+				var lines = new ItemStack(ModItems.WRENCH).getTooltipLines(net.minecraft.world.item.Item.TooltipContext.of(client.level), client.player,
+					net.minecraft.world.item.TooltipFlag.NORMAL);
+				String text = lines.stream().map(net.minecraft.network.chat.Component::getString).reduce("", (a, b) -> a + "\n" + b);
+				if (!text.contains(net.minecraft.network.chat.Component.translatable("tooltip.solarquarry.wrench").getString())) {
+					throw new AssertionError("wrench tooltip line missing: " + text);
 				}
 			});
 

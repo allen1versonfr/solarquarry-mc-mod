@@ -20,8 +20,6 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.item.component.TypedEntityData;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
@@ -32,7 +30,7 @@ import net.minecraft.world.level.block.state.BlockState;
 /**
  * Dismantles Solar Quarry blocks. Quarries and batteries keep their complete state in the dropped item.
  */
-public class WrenchItem extends Item implements MachineTool {
+public class WrenchItem extends Item implements MachineTool, TooltipLines {
 	public WrenchItem(Properties properties) {
 		super(properties);
 	}
@@ -101,7 +99,7 @@ public class WrenchItem extends Item implements MachineTool {
 	}
 
 	@Override
-	public void appendHoverText(ItemStack itemStack, TooltipContext context, TooltipDisplay display, Consumer<Component> builder, TooltipFlag tooltipFlag) {
+	public void addTooltipLines(ItemStack itemStack, Consumer<Component> builder) {
 		builder.accept(Component.translatable("tooltip.solarquarry.wrench").withStyle(ChatFormatting.GRAY));
 	}
 }

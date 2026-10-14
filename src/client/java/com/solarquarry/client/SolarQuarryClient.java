@@ -7,6 +7,8 @@ import com.solarquarry.client.screen.QuarryScreen;
 import com.solarquarry.client.screen.TerminalScreen;
 import com.solarquarry.network.TerminalSnapshotPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
+import com.solarquarry.item.TooltipLines;
 import com.solarquarry.registry.ModBlockEntities;
 import com.solarquarry.registry.ModMenus;
 import net.fabricmc.api.ClientModInitializer;
@@ -19,6 +21,11 @@ public class SolarQuarryClient implements ClientModInitializer {
 		MenuScreens.register(ModMenus.QUARRY, QuarryScreen::new);
 		MenuScreens.register(ModMenus.FILTER_PIPE, FilterPipeScreen::new);
 		MenuScreens.register(ModMenus.TERMINAL, TerminalScreen::new);
+		ItemTooltipCallback.EVENT.register((stack, context, type, lines) -> {
+			if (stack.getItem() instanceof TooltipLines tooltip) {
+				tooltip.addTooltipLines(stack, lines::add);
+			}
+		});
 		ClientPlayNetworking.registerGlobalReceiver(TerminalSnapshotPayload.TYPE, (payload, context) -> {
 			if (context.client().gui.screen() instanceof TerminalScreen screen) {
 				screen.accept(payload);
