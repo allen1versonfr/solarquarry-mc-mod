@@ -28,20 +28,27 @@ VERIFIED means an automated in-world check (dedicated-server self-test or client
 - Security drones and the trader/guard: real server-side entities with persistent ownership and duplicate checks.
 - Rocket boots: store energy (E) charged from Solar Quarry batteries, consistent with the rest of the mod.
 
+## Checkpoint B — Phase 1 (commit after `e0d468f`)
+
+- **Changed:** shared frame geometry (`QuarryFrame`) used by the renderer and a collision hook (`EntityCollisionMixin`); steel joints, base plates, braces and status lights on the posts; near posts kept clear of the machine; measured blocks per second (`RateWindow`); upgrade counts `n/max` and slots used in the upgrade tooltip; efficiency limit 4; grouped creative tab.
+- **Results:** clean build, no warnings; 39/39 unit tests; 168/168 self-test checks; client game test passed with 9 screenshots.
+- **Jar:** `release/checkpoints/solarquarry-3.0.0-beta.1.jar`.
+- **Known defects:** none found.
+
 ## Feature tracker
 
 | # | Requirement | Status |
 |---|---|---|
-| 1.1 | Creative tab with every item, grouped by category | IN PROGRESS |
-| 1.2 | Frame: beams, joints, bolts, hazard markings, status lights | IN PROGRESS |
+| 1.1 | Creative tab with every item, grouped by category | VERIFIED (self-test: every item exactly once, grouped order) |
+| 1.2 | Frame: beams, joints, base plates, braces, hazard markings, status lights on the posts | VERIFIED (client screenshots) |
 | 1.3 | Frame follows range/height/mode (actual work area) | VERIFIED (2.0) |
-| 1.4 | Frame collision without temporary blocks or entities | IN PROGRESS |
+| 1.4 | Frame collision without temporary blocks or entities | VERIFIED (self-test: a moving entity stops at the post; open area has none; removed with the quarry) |
 | 1.5 | Two-axis rails, carriage, drill reaching the target | VERIFIED (2.0, screenshots) |
 | 1.6 | Drill stops / changes state when paused, unpowered, blocked, finished | VERIFIED (2.0) |
-| 1.7 | GUI: measured blocks per second (rolling window, successful mines only) | IN PROGRESS |
-| 1.8 | GUI: upgrade counts `n/max`, slots used | IN PROGRESS |
-| 1.9 | Upgrade limits: speed 4, range 2, efficiency 4, capacity 4, fortune 3, silk 1 (exclusive), void 1 | IN PROGRESS |
-| 1.10 | Invalid insertion rejected (GUI, shift-click, automation) | IMPLEMENTED, NOT VERIFIED |
+| 1.7 | GUI: measured blocks per second (10 s rolling window, successful mines only) | VERIFIED (self-test: 2.0 b/s measured at a 2.0 b/s limit) |
+| 1.8 | GUI: upgrade counts `n/max`, slots used | VERIFIED (client test reads "Speed 2/4", "Slots used: 4/6") |
+| 1.9 | Upgrade limits: speed 4, range 2, efficiency 4, capacity 4, fortune 3, silk 1 (exclusive), void 1 | VERIFIED (self-test) |
+| 1.10 | Invalid insertion rejected (GUI slot, duplicate types, automation) | VERIFIED (self-test); shift-click uses the same slot rules |
 | 1.11 | Save/reload, pickup, full output, no power | VERIFIED (2.0/2.1) |
 | 2.x | Energy, pipe tiers, Sorting Terminal | NOT STARTED |
 | 3.x | Auto-Smelter Upgrade, Super Smelter | NOT STARTED |
