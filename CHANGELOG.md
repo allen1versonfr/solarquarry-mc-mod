@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.0.0 (in development)
+## 3.0.0-beta.3
 
 ### Quarry
 - **Frame you can bump into:** posts, rails and end beams are solid (no blocks or entities are placed); steel joints, base plates, braces and status lights on the posts.
@@ -27,6 +27,10 @@
 
 - **Tree Farm:** plants saplings on a grid in front of it, uses bone meal (only when a sapling can take it), and a drone fells grown trees and collects the real drops; saplings from the leaves refill its sapling slots. Trees touching built blocks (log cabins, beams) are never cut. Growth Upgrade (extra growth ticks) and Harvest Upgrade (cuts the leaves too); quarry-only upgrades do not fit.
 
+### Drones
+- **Security Upgrade:** when hostile mobs come near the quarry it deploys up to 3 drones that fly out and zap them, paid from the quarry's energy (upkeep and per hit). They never touch players, pets, villagers, the shop guard or neutral mobs, are recalled when things calm down or power runs out, and vanish with their quarry (never saved, so no duplicates after reloads).
+- **Miner Drone:** put it in the quarry's drone slot; once the quarry's own area is finished, it tunnels from the bottom of the pit to nearby ores and sends them through the quarry's output, using the quarry's power and upgrades.
+
 ### Trader
 - On a player's first visit the Solar Quarry trader hands over a starter kit (parts for the first quarry, power, pipes, a wrench and a Fabrication Bench) once; if the inventory is full the rest arrives as soon as there is room.
 - His shop (sign, lanterns, supply chest, bench) is built once per world near spawn, with a guard who fights hostile mobs only. He sells parts and buys ores and blocks for emeralds through the normal trading screen; stock refills every morning.
@@ -38,6 +42,8 @@
 
 ### Fixes
 - A quarry whose frame legs reached into a chunk that was still loading could freeze the server; leg checks no longer load chunks.
+- Tree Farm planting and the shop's site search accept grass, podzol, moss and mud (Minecraft 26.2 moved grass out of the dirt tag).
+- Security drones strike from where they hover (they used to stay just out of reach).
 
 ### Recipes
 - Nothing from the Nether is needed anywhere: quartz, comparators and ender eyes were replaced (amethyst shards, lapis, repeaters, ender pearls). A unit test checks every recipe.

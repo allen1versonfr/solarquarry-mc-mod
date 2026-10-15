@@ -40,6 +40,7 @@ VERIFIED means an automated in-world check (dedicated-server self-test or client
 - **Covers:** Phases 2-7 plus the extra requests (torches, XP, legs, printer gantry, Liquid Remover, crates, Fabrication Bench, Helionite, miner drone, Nether-free recipes).
 - **Results:** clean build; all unit tests; 302/302 self-test checks; client game test passed (21 screenshots).
 - **Fixed during testing:** a server freeze when a quarry's chunk loaded (leg check waited on a neighbouring chunk); Tree Farm and shop site search ignored grass (26.2 moved grass out of `#minecraft:dirt`); security drones hovered just out of striking range.
+- **Compatibility:** the same self-test (302/302) and client test (21 screenshots) also pass with the 166 mods of the Fabulously Optimized instance (Sodium, Lithium, ModernFix and others).
 - **Jar:** `release/solarquarry-3.0.0-beta.3.jar`.
 
 ## Feature tracker
