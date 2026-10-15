@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    "HEH",
+    "ASA",
+    "BMB"
+  ],
+  "key": {
+    "H": "solarquarry:helionite_block",
+    "E": "solarquarry:solar_panel_elite",
+    "A": "solarquarry:advanced_circuit",
+    "S": "solarquarry:super_smelter",
+    "B": "solarquarry:battery_elite",
+    "M": "solarquarry:machine_frame"
+  },
+  "result": {
+    "id": "solarquarry:weather_control_machine",
+    "count": 1
+  }
+}

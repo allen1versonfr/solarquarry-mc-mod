@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_the_recipe": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "solarquarry:advanced_powered_pickaxe"
+      }
+    },
+    "has_reinforced_mining_pickaxe": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "solarquarry:reinforced_mining_pickaxe"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_reinforced_mining_pickaxe"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "solarquarry:advanced_powered_pickaxe"
+    ]
+  }
+}

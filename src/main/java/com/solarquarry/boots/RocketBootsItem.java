@@ -1,7 +1,6 @@
 package com.solarquarry.boots;
 
-import com.solarquarry.registry.ModItems;
-import com.solarquarry.util.EnergyFormat;
+import com.solarquarry.item.PoweredItem;
 import java.util.function.Consumer;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -10,8 +9,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
-/** Rocket Boots: crouch and jump to fire; energy is stored on the item and charged from a Solar Quarry battery. */
-public class RocketBootsItem extends Item implements com.solarquarry.item.TooltipLines {
+/** Rocket Boots: hold crouch in the air to fly; energy is stored on the item (Charging Station or a battery). */
+public class RocketBootsItem extends Item implements com.solarquarry.item.TooltipLines, PoweredItem {
 	private final RocketTier tier;
 
 	public RocketBootsItem(RocketTier tier, Properties properties) {
@@ -23,14 +22,17 @@ public class RocketBootsItem extends Item implements com.solarquarry.item.Toolti
 		return this.tier;
 	}
 
+	@Override
+	public long capacity(ItemStack stack) {
+		return this.tier.capacity();
+	}
+
 	public static long energy(ItemStack stack) {
-		return Math.max(0L, stack.getOrDefault(ModItems.ENERGY, 0L));
+		return PoweredItem.energy(stack);
 	}
 
 	public static void setEnergy(ItemStack stack, long energy) {
-		if (stack.getItem() instanceof RocketBootsItem boots) {
-			stack.set(ModItems.ENERGY, Math.clamp(energy, 0L, boots.tier.capacity()));
-		}
+		PoweredItem.setEnergy(stack, energy);
 	}
 
 	/** The rocket boots the player is wearing, or EMPTY. */
@@ -40,11 +42,26 @@ public class RocketBootsItem extends Item implements com.solarquarry.item.Toolti
 	}
 
 	@Override
+	public boolean isBarVisible(ItemStack stack) {
+		return !stack.isDamaged() || super.isBarVisible(stack);
+	}
+
+	@Override
+	public int getBarWidth(ItemStack stack) {
+		return stack.isDamaged() ? super.getBarWidth(stack) : PoweredItem.barWidth(stack);
+	}
+
+	@Override
+	public int getBarColor(ItemStack stack) {
+		return stack.isDamaged() ? super.getBarColor(stack) : PoweredItem.barColor(stack);
+	}
+
+	@Override
 	public void addTooltipLines(ItemStack stack, Consumer<Component> builder) {
-		builder.accept(Component.translatable("tooltip.solarquarry.rocket_boots.energy", EnergyFormat.format(energy(stack)), EnergyFormat.format(this.tier.capacity()))
-			.withStyle(energy(stack) >= RocketTier.JUMP_COST ? ChatFormatting.GREEN : ChatFormatting.RED));
-		builder.accept(Component.translatable("tooltip.solarquarry.rocket_boots.jump",
-			String.format(java.util.Locale.ROOT, "%.1f", RocketTier.jumpHeight(this.tier.launch())), RocketTier.JUMP_COST).withStyle(ChatFormatting.GRAY));
+		builder.accept(PoweredItem.chargeLine(stack, this.tier.thrustCost()));
+		builder.accept(Component.translatable("tooltip.solarquarry.rocket_boots.flight",
+			String.format(java.util.Locale.ROOT, "%.1f", this.tier.climb() * 20.0), this.tier.thrustCost(),
+			Math.round(this.tier.flightSeconds())).withStyle(ChatFormatting.GRAY));
 		builder.accept(Component.translatable("tooltip.solarquarry.rocket_boots.fall", Math.round(this.tier.fallProtection() * 100), RocketTier.FALL_COST_PER_POINT)
 			.withStyle(ChatFormatting.GRAY));
 		builder.accept(Component.translatable("tooltip.solarquarry.rocket_boots.use").withStyle(ChatFormatting.DARK_GRAY));

@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_the_recipe": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "solarquarry:portable_power_cell"
+      }
+    },
+    "has_battery_basic": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "solarquarry:battery_basic"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_battery_basic"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "solarquarry:portable_power_cell"
+    ]
+  }
+}

@@ -37,6 +37,16 @@ public final class ModBlockEntities {
 	public static final BlockEntityType<com.solarquarry.smelting.SuperSmelterBlockEntity> SUPER_SMELTER = register("super_smelter",
 		FabricBlockEntityTypeBuilder.create(com.solarquarry.smelting.SuperSmelterBlockEntity::new, ModBlocks.SUPER_SMELTER).build());
 
+	public static final BlockEntityType<com.solarquarry.charging.ChargingStationBlockEntity> CHARGING_STATION = register("charging_station",
+		FabricBlockEntityTypeBuilder.create(com.solarquarry.charging.ChargingStationBlockEntity::new, ModBlocks.CHARGING_STATION).build());
+
+	public static final BlockEntityType<com.solarquarry.turret.LaserTurretBlockEntity> LASER_TURRET = register("laser_turret",
+		FabricBlockEntityTypeBuilder.create(com.solarquarry.turret.LaserTurretBlockEntity::new, ModBlocks.LASER_TURRET_BASIC, ModBlocks.LASER_TURRET_ADVANCED,
+			ModBlocks.LASER_TURRET_ELITE).build());
+
+	public static final BlockEntityType<com.solarquarry.weather.WeatherMachineBlockEntity> WEATHER_MACHINE = register("weather_control_machine",
+		FabricBlockEntityTypeBuilder.create(com.solarquarry.weather.WeatherMachineBlockEntity::new, ModBlocks.WEATHER_MACHINE).build());
+
 	public static final BlockEntityType<com.solarquarry.treefarm.TreeFarmBlockEntity> TREE_FARM = register("tree_farm",
 		FabricBlockEntityTypeBuilder.create(com.solarquarry.treefarm.TreeFarmBlockEntity::new, ModBlocks.TREE_FARM).build());
 

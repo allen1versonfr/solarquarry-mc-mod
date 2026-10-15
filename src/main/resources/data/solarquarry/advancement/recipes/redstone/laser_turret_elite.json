@@ -1,0 +1,43 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_the_recipe": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "solarquarry:laser_turret_elite"
+      }
+    },
+    "has_laser_turret_advanced": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "solarquarry:laser_turret_advanced"
+          }
+        ]
+      }
+    },
+    "has_helionite_ingot": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "solarquarry:helionite_ingot"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_laser_turret_advanced",
+      "has_helionite_ingot"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "solarquarry:laser_turret_elite"
+    ]
+  }
+}

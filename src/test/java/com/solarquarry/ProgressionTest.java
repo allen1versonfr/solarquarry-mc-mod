@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 /** Tier 4 (high-end) recipes need Helionite, so the ore has a purpose beyond its own gear (docs/PROGRESSION.md). */
 class ProgressionTest {
 	/** Tier 4 items; new high-end items are added here as they are created. */
-	static final List<String> TIER_4 = List.of("solar_panel_elite", "battery_elite", "helionite_rocket_boots");
+	static final List<String> TIER_4 = List.of("solar_panel_elite", "battery_elite", "helionite_rocket_boots", "laser_turret_elite", "weather_control_machine");
 
 	@Test
 	void tierFourRecipesNeedHelionite() throws IOException {
@@ -20,7 +20,7 @@ class ProgressionTest {
 		for (String id : TIER_4) {
 			Path file = Path.of("src/main/resources/data/solarquarry/recipe/" + id + ".json");
 			assertTrue(Files.exists(file), "no recipe for " + id);
-			if (!Files.readString(file).contains("solarquarry:helionite_ingot")) {
+			if (!Files.readString(file).contains("solarquarry:helionite_ingot") && !Files.readString(file).contains("solarquarry:helionite_block")) {
 				missing.add(id);
 			}
 		}

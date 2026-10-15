@@ -27,6 +27,11 @@
     "solarquarry:helionite_block",
     "solarquarry:tree_farm",
     "solarquarry:filtered_splitter",
-    "solarquarry:kelp_farm"
+    "solarquarry:kelp_farm",
+    "solarquarry:charging_station",
+    "solarquarry:laser_turret_basic",
+    "solarquarry:laser_turret_advanced",
+    "solarquarry:laser_turret_elite",
+    "solarquarry:weather_control_machine"
   ]
 }

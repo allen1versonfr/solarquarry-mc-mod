@@ -1,0 +1,8 @@
+{
+  "type": "solarquarry:industrial",
+  "biomes": "#solarquarry:has_structure/automated_factory",
+  "step": "surface_structures",
+  "spawn_overrides": {},
+  "terrain_adaptation": "beard_thin",
+  "layout": "automated_factory"
+}

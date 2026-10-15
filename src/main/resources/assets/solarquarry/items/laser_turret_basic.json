@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "solarquarry:block/laser_turret_basic"
+  }
+}

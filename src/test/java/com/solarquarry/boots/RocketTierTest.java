@@ -7,17 +7,25 @@ import org.junit.jupiter.api.Test;
 
 class RocketTierTest {
 	@Test
-	void everyTierJumpsHigherHoldsMoreAndProtectsMore() {
+	void everyTierClimbsFasterHoldsMoreFliesLongerAndProtectsMore() {
 		RocketTier[] tiers = RocketTier.values();
-		double vanilla = RocketTier.jumpHeight(0.42);
 		for (int i = 0; i < tiers.length; i++) {
-			assertTrue(RocketTier.jumpHeight(tiers[i].launch()) > vanilla * 2, tiers[i] + " jumps well above a normal jump");
+			assertTrue(tiers[i].climb() > 0.2, tiers[i] + " climbs");
 			if (i > 0) {
-				assertTrue(tiers[i].launch() > tiers[i - 1].launch());
+				assertTrue(tiers[i].climb() > tiers[i - 1].climb());
 				assertTrue(tiers[i].capacity() > tiers[i - 1].capacity());
+				assertTrue(tiers[i].flightSeconds() > tiers[i - 1].flightSeconds());
 				assertTrue(tiers[i].fallProtection() > tiers[i - 1].fallProtection());
 			}
 		}
+	}
+
+	@Test
+	void thrustAcceleratesUpToTheClimbSpeedOnly() {
+		assertEquals(0.16, RocketTier.thrust(0.0, 0.5), 1e-9);
+		assertEquals(0.5, RocketTier.thrust(0.45, 0.5), 1e-9);
+		assertEquals(0.8, RocketTier.thrust(0.8, 0.5), 1e-9, "never slows a faster rise");
+		assertEquals(-0.34, RocketTier.thrust(-0.5, 0.5), 1e-9, "brakes a fall gradually");
 	}
 
 	@Test

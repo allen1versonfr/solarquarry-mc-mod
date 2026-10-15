@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/handheld",
+  "textures": {
+    "layer0": "solarquarry:item/reinforced_mining_pickaxe"
+  }
+}

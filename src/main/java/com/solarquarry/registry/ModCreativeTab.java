@@ -21,7 +21,7 @@ public final class ModCreativeTab {
 	/** Display order, one category after another. */
 	public static final List<String> ORDER = List.of(
 		// Quarry and tools
-		"quarry", "fabrication_bench", "wrench", "ore_prospector", "config_card", "remote_terminal",
+		"quarry", "fabrication_bench", "wrench", "config_card", "remote_terminal",
 		// Energy
 		"solar_panel_basic", "solar_panel_advanced", "solar_panel_elite",
 		"battery_basic", "battery_advanced", "battery_elite", "energy_cable",
@@ -34,15 +34,20 @@ public final class ModCreativeTab {
 		"range_upgrade", "range_upgrade_2", "void_upgrade", "chunk_loader_upgrade", "liquid_remover_upgrade", "auto_smelter_upgrade", "security_upgrade", "miner_drone",
 		// Smelting
 		"super_smelter",
+		// Endgame
+		"weather_control_machine",
 		// Tree farming
 		"tree_farm", "growth_upgrade", "harvest_upgrade",
 		// Kelp farming
 		"kelp_farm",
-		// Trader
+		// Mechanic
 		"trader_spawn_egg", "guard_spawn_egg",
 		// Security
-		"security_drone_spawn_egg",
-		// Equipment
+		"laser_turret_basic", "laser_turret_advanced", "laser_turret_elite", "security_drone_spawn_egg",
+		// Powered equipment
+		"charging_station", "ore_prospector", "liquid_prospector", "slime_prospector", "advanced_mining_scanner", "scanner_helmet",
+		"night_vision_goggles", "mining_helmet", "portable_power_cell", "prototype_battery", "emergency_energy_injector", "industrial_repair_kit",
+		"industrial_power_hammer", "reinforced_mining_pickaxe", "advanced_powered_pickaxe",
 		"leather_rocket_boots", "iron_rocket_boots", "diamond_rocket_boots", "helionite_rocket_boots",
 		// Helionite
 		"helionite_ore", "deepslate_helionite_ore", "raw_helionite", "helionite_ingot", "helionite_block",

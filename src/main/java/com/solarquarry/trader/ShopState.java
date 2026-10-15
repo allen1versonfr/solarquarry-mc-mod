@@ -20,8 +20,13 @@ import net.minecraft.world.item.ItemStack;
  * @param deathDay day number (game time / 24000) the trader died on, or -1 while it lives
  * @param guardDeathDay the same for the guard
  */
-public record ShopState(boolean built, Optional<BlockPos> center, Optional<UUID> trader, Optional<UUID> guard, long deathDay, long guardDeathDay) {
-	public static final ShopState NONE = new ShopState(false, Optional.empty(), Optional.empty(), Optional.empty(), -1L, -1L);
+public record ShopState(boolean built, Optional<BlockPos> center, Optional<UUID> trader, Optional<UUID> guard, long deathDay, long guardDeathDay, int house) {
+	/** {@link #house} for the 3.x shop (placed at once, kept as it is). */
+	public static final int LEGACY_SHOP = 1;
+	/** {@link #house} for the Mechanic's house (built by him, 4.0). */
+	public static final int MECHANIC_HOUSE = 2;
+
+	public static final ShopState NONE = new ShopState(false, Optional.empty(), Optional.empty(), Optional.empty(), -1L, -1L, MECHANIC_HOUSE);
 
 	public static final Codec<ShopState> CODEC = RecordCodecBuilder.create(i -> i.group(
 		Codec.BOOL.optionalFieldOf("built", false).forGetter(ShopState::built),
@@ -29,11 +34,16 @@ public record ShopState(boolean built, Optional<BlockPos> center, Optional<UUID>
 		UUIDUtil.CODEC.optionalFieldOf("trader").forGetter(ShopState::trader),
 		UUIDUtil.CODEC.optionalFieldOf("guard").forGetter(ShopState::guard),
 		Codec.LONG.optionalFieldOf("death_day", -1L).forGetter(ShopState::deathDay),
-		Codec.LONG.optionalFieldOf("guard_death_day", -1L).forGetter(ShopState::guardDeathDay)
+		Codec.LONG.optionalFieldOf("guard_death_day", -1L).forGetter(ShopState::guardDeathDay),
+		// Saves from 3.x have no "house" field: their shop is the legacy one.
+		Codec.INT.optionalFieldOf("house", LEGACY_SHOP).forGetter(ShopState::house)
 	).apply(i, ShopState::new));
 
 	/** The world's shop (on the Overworld). */
 	public static final AttachmentType<ShopState> SHOP = AttachmentRegistry.createPersistent(SolarQuarry.id("trader_shop"), CODEC);
+	/** The Mechanic's house construction (site, supplies given), on the Overworld. */
+	public static final AttachmentType<net.minecraft.nbt.CompoundTag> HOUSE_SITE = AttachmentRegistry.createPersistent(SolarQuarry.id("mechanic_house"),
+		net.minecraft.nbt.CompoundTag.CODEC);
 	/** Per player: the starter kit was delivered (or is waiting as a parcel). Survives death. */
 	public static final AttachmentType<Boolean> KIT_CLAIMED = AttachmentRegistry.create(SolarQuarry.id("starter_kit_claimed"),
 		builder -> builder.persistent(Codec.BOOL).copyOnDeath());
@@ -50,23 +60,31 @@ public record ShopState(boolean built, Optional<BlockPos> center, Optional<UUID>
 	}
 
 	public ShopState withBuilt(BlockPos pos) {
-		return new ShopState(true, Optional.of(pos), this.trader, this.guard, this.deathDay, this.guardDeathDay);
+		return new ShopState(true, Optional.of(pos), this.trader, this.guard, this.deathDay, this.guardDeathDay, this.house);
+	}
+
+	public ShopState withHouse(int house) {
+		return new ShopState(this.built, this.center, this.trader, this.guard, this.deathDay, this.guardDeathDay, house);
+	}
+
+	public boolean isMechanicHouse() {
+		return this.house == MECHANIC_HOUSE;
 	}
 
 	public ShopState withTrader(UUID id) {
-		return new ShopState(this.built, this.center, Optional.of(id), this.guard, -1L, this.guardDeathDay);
+		return new ShopState(this.built, this.center, Optional.of(id), this.guard, -1L, this.guardDeathDay, this.house);
 	}
 
 	public ShopState withGuard(UUID id) {
-		return new ShopState(this.built, this.center, this.trader, Optional.of(id), this.deathDay, -1L);
+		return new ShopState(this.built, this.center, this.trader, Optional.of(id), this.deathDay, -1L, this.house);
 	}
 
 	public ShopState withTraderDead(long day) {
-		return new ShopState(this.built, this.center, Optional.empty(), this.guard, day, this.guardDeathDay);
+		return new ShopState(this.built, this.center, Optional.empty(), this.guard, day, this.guardDeathDay, this.house);
 	}
 
 	public ShopState withGuardDead(long day) {
-		return new ShopState(this.built, this.center, this.trader, Optional.empty(), this.deathDay, day);
+		return new ShopState(this.built, this.center, this.trader, Optional.empty(), this.deathDay, day, this.house);
 	}
 
 	/** Whether a replacement is due: one died on an earlier day and it is now morning (0..12000 of the day). */

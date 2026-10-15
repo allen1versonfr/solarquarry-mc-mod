@@ -1,0 +1,8 @@
+{
+  "type": "solarquarry:industrial",
+  "biomes": "#solarquarry:has_structure/supply_bunker",
+  "step": "underground_structures",
+  "spawn_overrides": {},
+  "terrain_adaptation": "none",
+  "layout": "supply_bunker"
+}

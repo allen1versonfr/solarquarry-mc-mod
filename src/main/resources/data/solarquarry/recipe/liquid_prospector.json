@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "GBG",
+    "CPC",
+    "GRG"
+  ],
+  "key": {
+    "G": "minecraft:copper_ingot",
+    "B": "minecraft:bucket",
+    "C": "solarquarry:circuit_board",
+    "P": "solarquarry:photovoltaic_cell",
+    "R": "minecraft:redstone"
+  },
+  "result": {
+    "id": "solarquarry:liquid_prospector",
+    "count": 1
+  }
+}

@@ -403,6 +403,70 @@ public class SolarQuarryClientGameTest implements FabricClientGameTest {
 				}
 			});
 
+			// 4.0 machines: Charging Station, Elite Laser Turret and the Weather Control Machine (screen and animation).
+			BlockPos machines = farmPos.offset(0, 0, -12);
+			singleplayer.getServer().runOnServer(server -> {
+				ServerPlayer player = server.getPlayerList().getPlayers().get(0);
+				ServerLevel level = player.level();
+				BlockPos.betweenClosed(machines.offset(-4, 0, -4), machines.offset(4, 8, 4)).forEach(p -> level.setBlock(p, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS));
+				level.setBlock(machines.west(3), ModBlocks.CHARGING_STATION.defaultBlockState(), Block.UPDATE_ALL);
+				if (level.getBlockEntity(machines.west(3)) instanceof com.solarquarry.charging.ChargingStationBlockEntity station) {
+					station.restoreEnergy(150_000L);
+					station.setItem(com.solarquarry.charging.ChargingStationBlockEntity.INPUT, new ItemStack(ModItems.DIAMOND_ROCKET_BOOTS));
+					player.openMenu(station);
+				}
+			});
+			context.waitForScreen(com.solarquarry.client.screen.ChargingStationScreen.class);
+			context.waitTicks(30);
+			context.takeScreenshot("22_charging_station");
+			context.runOnClient(client -> client.player.closeContainer());
+			context.waitTicks(5);
+			singleplayer.getServer().runOnServer(server -> {
+				ServerPlayer player = server.getPlayerList().getPlayers().get(0);
+				ServerLevel level = player.level();
+				level.setBlock(machines.east(3), ModBlocks.LASER_TURRET_ELITE.defaultBlockState(), Block.UPDATE_ALL);
+				if (level.getBlockEntity(machines.east(3)) instanceof com.solarquarry.turret.LaserTurretBlockEntity turret) {
+					turret.restoreEnergy(com.solarquarry.turret.TurretTier.ELITE.capacity());
+					player.openMenu(turret);
+				}
+			});
+			context.waitForScreen(com.solarquarry.client.screen.LaserTurretScreen.class);
+			context.waitTicks(10);
+			context.takeScreenshot("23_laser_turret");
+			context.runOnClient(client -> client.player.closeContainer());
+			context.waitTicks(5);
+			singleplayer.getServer().runOnServer(server -> {
+				ServerPlayer player = server.getPlayerList().getPlayers().get(0);
+				ServerLevel level = player.level();
+				level.setBlock(machines, ModBlocks.WEATHER_MACHINE.defaultBlockState(), Block.UPDATE_ALL);
+				if (level.getBlockEntity(machines) instanceof com.solarquarry.weather.WeatherMachineBlockEntity weather) {
+					weather.restoreEnergy(com.solarquarry.weather.WeatherMachineBlockEntity.CAPACITY);
+					player.openMenu(weather);
+				}
+			});
+			context.waitForScreen(com.solarquarry.client.screen.WeatherMachineScreen.class);
+			context.waitTicks(10);
+			context.takeScreenshot("24_weather_machine_gui");
+			context.runOnClient(client -> client.player.closeContainer());
+			context.waitTicks(5);
+			singleplayer.getServer().runOnServer(server -> {
+				ServerPlayer player = server.getPlayerList().getPlayers().get(0);
+				if (player.level().getBlockEntity(machines) instanceof com.solarquarry.weather.WeatherMachineBlockEntity weather) {
+					var error = weather.startWeather(player.level(), com.solarquarry.weather.WeatherOperation.THUNDER);
+					if (error != com.solarquarry.weather.WeatherMachineBlockEntity.Error.NONE) {
+						throw new AssertionError("weather machine refused a thunderstorm: " + error);
+					}
+				}
+
+				player.teleportTo(machines.getX() + 0.5, machines.getY() + 2, machines.getZ() - 6.5);
+			});
+			context.waitTicks(10);
+			context.getInput().lookAt(machines.above());
+			context.waitTicks(80);
+			context.takeScreenshot("25_weather_machine_charging");
+			context.waitTicks(100);
+			context.takeScreenshot("26_weather_machine_storm");
+
 			// The trader's shop: in a client world the player joins, so the shop is built and the kit delivered.
 			context.waitTicks(40);
 			singleplayer.getServer().runOnServer(server -> {

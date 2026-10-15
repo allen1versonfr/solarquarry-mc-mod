@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "solarquarry:block/weather_control_machine"
+    }
+  }
+}

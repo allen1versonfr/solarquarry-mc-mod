@@ -470,6 +470,17 @@ public class QuarryScreen extends AbstractContainerScreen<QuarryMenu> {
 			int tenths = this.menu.getPumpTenths();
 			lines.add(Component.translatable("gui.solarquarry.upgrades.liquid", tenths / 10 + "." + tenths % 10,
 				com.solarquarry.blockentity.QuarryBlockEntity.PUMP_CAPACITY / net.fabricmc.fabric.api.transfer.v1.fluid.FluidConstants.BUCKET));
+			if (this.menu.getPocketPhase() == 1) {
+				lines.add(Component.translatable("gui.solarquarry.upgrades.liquid.mapping").withStyle(ChatFormatting.AQUA));
+			} else if (this.menu.getPocketPhase() == 2) {
+				lines.add(Component.translatable("gui.solarquarry.upgrades.liquid.pocket", this.menu.getPocketRemoved(), this.menu.getPocketTotal(),
+					this.menu.getPocketPass() + 1).withStyle(ChatFormatting.AQUA));
+			}
+
+			if (this.menu.isPocketInflow()) {
+				lines.add(Component.translatable("gui.solarquarry.upgrades.liquid.inflow").withStyle(ChatFormatting.RED));
+			}
+
 			if (this.menu.hasVoidUpgrade()) {
 				lines.add(Component.translatable("gui.solarquarry.upgrades.liquid.void").withStyle(ChatFormatting.DARK_PURPLE));
 			} else if (!this.menu.isFluidPipeConnected()) {

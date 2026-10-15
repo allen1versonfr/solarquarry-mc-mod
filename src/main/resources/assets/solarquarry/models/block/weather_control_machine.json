@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "side": "solarquarry:block/weather_control_machine_side",
+    "top": "solarquarry:block/weather_control_machine_top",
+    "bottom": "solarquarry:block/weather_control_machine_top"
+  }
+}

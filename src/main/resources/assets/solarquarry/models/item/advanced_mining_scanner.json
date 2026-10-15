@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/handheld",
+  "textures": {
+    "layer0": "solarquarry:item/advanced_mining_scanner"
+  }
+}

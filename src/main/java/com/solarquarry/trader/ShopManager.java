@@ -24,7 +24,7 @@ import net.minecraft.world.item.Items;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Runs the trader feature: the first-join introduction and starter kit (once per player), the shop (built once per
+ * Runs the Mechanic feature: the first-join introduction and starter kit (once per player), the shop (built once per
  * world), and next-morning replacement of a dead trader or guard. All state is persistent ({@link ShopState}), so
  * restarts, unloaded chunks and repeated events never create duplicates or a second kit.
  */
@@ -80,6 +80,7 @@ public final class ShopManager {
 			}
 		}
 
+		MechanicHouseSite.tick(server);
 		if (server.getTickCount() % 20 == 0) {
 			ServerLevel overworld = server.overworld();
 			replaceIfDue(overworld);
@@ -159,7 +160,10 @@ public final class ShopManager {
 		}
 	}
 
-	/** Builds the shop and its occupants once per world; returns the shop's floor centre (null if it could not be built). */
+	/**
+	 * Picks the Mechanic's building site once per world, starts the construction of his house and brings him and his
+	 * guard there. Returns the floor centre. Worlds from 3.x keep their finished shop as it is.
+	 */
 	public static @Nullable BlockPos ensureShop(ServerLevel overworld) {
 		ShopState state = ShopState.get(overworld);
 		if (state.built() && state.center().isPresent()) {
@@ -168,20 +172,25 @@ public final class ShopManager {
 
 		BlockPos spawn = overworld.getRespawnData().globalPos().pos();
 		overworld.getChunk(spawn); // make sure the area is generated
-		BlockPos site = ShopBuilder.findSite(overworld, spawn);
-		if (site == null) {
-			int y = overworld.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, spawn.getX() + 8, spawn.getZ() + 8);
-			site = new BlockPos(spawn.getX() + 8, Math.max(overworld.getSeaLevel(), y), spawn.getZ() + 8);
-			SolarQuarry.LOGGER.info("No natural site for the trader's shop near spawn; building on a platform at {}", site);
-		}
-
-		ShopBuilder.build(overworld, site);
-		state = state.withBuilt(site);
+		BlockPos site = MechanicHouse.findSite(overworld, spawn);
+		state = state.withBuilt(site).withHouse(ShopState.MECHANIC_HOUSE);
 		ShopState.set(overworld, state);
+		MechanicHouseSite.start(overworld, site);
 		spawnTrader(overworld);
 		spawnGuard(overworld);
-		SolarQuarry.LOGGER.info("Built the Solar Quarry trader's shop at {}", site);
+		SolarQuarry.LOGGER.info("The Mechanic starts building his house at {}", site);
 		return site;
+	}
+
+	/** Where the Mechanic stands and the guard waits, for the house this world has. */
+	public static BlockPos traderSpot(ShopState state) {
+		BlockPos floor = state.center().orElseThrow();
+		return state.isMechanicHouse() ? MechanicHouse.traderSpot(floor) : floor.offset(0, 1, 1);
+	}
+
+	public static BlockPos guardSpot(ShopState state) {
+		BlockPos floor = state.center().orElseThrow();
+		return state.isMechanicHouse() ? MechanicHouse.guardSpot(floor) : floor.offset(2, 1, -2);
 	}
 
 	public static @Nullable ShopTrader spawnTrader(ServerLevel overworld) {
@@ -190,7 +199,7 @@ public final class ShopManager {
 			return null;
 		}
 
-		BlockPos spot = ShopBuilder.traderSpot(state.center().get());
+		BlockPos spot = traderSpot(state);
 		overworld.getChunk(spot);
 		ShopTrader trader = ModEntities.SHOP_TRADER.create(overworld, EntitySpawnReason.EVENT);
 		if (trader == null) {
@@ -198,7 +207,13 @@ public final class ShopManager {
 		}
 
 		trader.snapTo(spot.getX() + 0.5, spot.getY(), spot.getZ() + 0.5, 180.0F, 0.0F);
-		trader.anchorTo(spot);
+		var site = MechanicHouseSite.site(overworld);
+		if (state.isMechanicHouse() && site != null && site.isUnderConstruction()) {
+			trader.setHomeTo(state.center().get(), 12); // he is still building
+		} else {
+			trader.anchorTo(spot);
+		}
+
 		trader.setShopMember(true);
 		ShopState.set(overworld, ShopState.get(overworld).withTrader(trader.getUUID()));
 		overworld.addFreshEntity(trader);
@@ -211,7 +226,7 @@ public final class ShopManager {
 			return null;
 		}
 
-		BlockPos spot = ShopBuilder.guardSpot(state.center().get());
+		BlockPos spot = guardSpot(state);
 		overworld.getChunk(spot);
 		ShopGuard guard = ModEntities.SHOP_GUARD.create(overworld, EntitySpawnReason.EVENT);
 		if (guard == null) {

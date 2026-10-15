@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "solarquarry:prototype_facility",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 160,
+    "separation": 56,
+    "salt": 74175744
+  }
+}

@@ -1,14 +1,10 @@
 package com.solarquarry.boots;
 
-import com.solarquarry.SolarQuarry;
-import io.netty.buffer.ByteBuf;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -18,85 +14,116 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Server side of the Rocket Boots. The client only asks ("I crouch-jumped"); the server checks everything (boots worn,
- * energy, crouching, on the ground a moment ago, cooldown), then launches the player itself. Nothing changes the
+ * Server side of the Rocket Boots: <b>crouch to fly</b>. While a player wearing charged boots holds crouch in the air,
+ * the thrusters push them upward (up to the tier's climb speed) and burn energy every tick; letting go of crouch ends
+ * the thrust and they fall normally (the boots then absorb part of the landing). Everything is decided on the server
+ * from the player's own movement state, so the client cannot fly without paying: no packet asks for thrust.
+ *
+ * <p>Not while on the ground (crouching there still just sneaks), in water or lava, on a ladder or vine, gliding with
+ * an elytra, riding, sleeping, spectating, flying in creative, or with a container screen open. Nothing changes the
  * player's attributes, so nothing can stay stuck after swapping boots, dying or changing dimension.
  */
 public final class RocketBoots {
-	/** Ticks after leaving the ground in which a rocket jump is still accepted (covers network delay). */
-	public static final int GROUND_GRACE = 6;
-	private static final Map<UUID, Long> LAST_ON_GROUND = new HashMap<>();
-	private static final Map<UUID, Long> LAST_LAUNCH = new HashMap<>();
-
-	/** Client to server: "I crouch-jumped". */
-	public record JumpPayload() implements CustomPacketPayload {
-		public static final CustomPacketPayload.Type<JumpPayload> TYPE = new CustomPacketPayload.Type<>(SolarQuarry.id("rocket_jump"));
-		public static final StreamCodec<ByteBuf, JumpPayload> STREAM_CODEC = StreamCodec.unit(new JumpPayload());
-
-		@Override
-		public Type<? extends CustomPacketPayload> type() {
-			return TYPE;
-		}
-	}
+	private static final Set<UUID> THRUSTING = new HashSet<>();
 
 	private RocketBoots() {
 	}
 
 	public static void tick(MinecraftServer server) {
-		long now = server.getTickCount();
 		for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-			if (player.onGround()) {
-				LAST_ON_GROUND.put(player.getUUID(), now);
-			}
+			tickPlayer(player);
 		}
-	}
-
-	/** Marks a player as standing on the ground now (used by the self-test, which has no real players). */
-	public static void markOnGround(UUID player, long tick) {
-		LAST_ON_GROUND.put(player, tick);
 	}
 
 	public static void forget(UUID player) {
-		LAST_ON_GROUND.remove(player);
-		LAST_LAUNCH.remove(player);
+		THRUSTING.remove(player);
 	}
 
-	public static void handle(JumpPayload payload, ServerPlayNetworking.Context context) {
-		tryLaunch(context.player());
+	public static boolean isThrusting(UUID player) {
+		return THRUSTING.contains(player);
 	}
 
-	/** Validates and performs a rocket jump. Returns true if the player was launched. */
-	public static boolean tryLaunch(ServerPlayer player) {
-		ItemStack boots = RocketBootsItem.worn(player);
-		if (boots.isEmpty() || !player.isAlive() || player.isSpectator() || player.isPassenger() || player.isFallFlying()) {
-			return false;
+	/** Why the thrusters may not fire right now, or null if they may. */
+	public static String blockedReason(ServerPlayer player) {
+		if (RocketBootsItem.worn(player).isEmpty()) {
+			return "no_boots";
 		}
 
-		long now = player.level().getServer().getTickCount();
-		long ground = LAST_ON_GROUND.getOrDefault(player.getUUID(), Long.MIN_VALUE / 2);
-		long last = LAST_LAUNCH.getOrDefault(player.getUUID(), Long.MIN_VALUE / 2);
-		if (!player.isShiftKeyDown() || now - ground > GROUND_GRACE || now - last < RocketTier.COOLDOWN) {
+		if (!player.isShiftKeyDown()) {
+			return "not_crouching";
+		}
+
+		if (!player.isAlive() || player.isSpectator() || player.isPassenger() || player.isSleeping() || player.getAbilities().flying) {
+			return "state";
+		}
+
+		if (player.onGround()) {
+			return "on_ground";
+		}
+
+		if (player.isInWater() || player.isInLava() || player.onClimbable() || player.isFallFlying()) {
+			return "terrain";
+		}
+
+		if (player.containerMenu != player.inventoryMenu) {
+			return "screen";
+		}
+
+		return null;
+	}
+
+	/** One tick of the boots for one player; returns true if the thrusters fired. */
+	public static boolean tickPlayer(ServerPlayer player) {
+		boolean was = THRUSTING.contains(player.getUUID());
+		String blocked = blockedReason(player);
+		ItemStack boots = RocketBootsItem.worn(player);
+		if (blocked != null) {
+			if (was) {
+				stop(player, false);
+			}
+
 			return false;
 		}
 
 		RocketTier tier = ((RocketBootsItem) boots.getItem()).tier();
-		long energy = RocketBootsItem.energy(boots);
-		if (energy < RocketTier.JUMP_COST) {
-			player.sendOverlayMessage(net.minecraft.network.chat.Component.translatable("solarquarry.rocket_boots.empty"));
+		if (!com.solarquarry.item.PoweredItem.use(boots, tier.thrustCost())) {
+			if (was) {
+				stop(player, true);
+			} else if (player.tickCount % 20 == 0) {
+				player.sendOverlayMessage(Component.translatable("solarquarry.rocket_boots.empty"));
+			}
+
 			return false;
 		}
 
-		RocketBootsItem.setEnergy(boots, energy - RocketTier.JUMP_COST);
-		LAST_LAUNCH.put(player.getUUID(), now);
 		Vec3 motion = player.getDeltaMovement();
-		player.setDeltaMovement(motion.x * 1.2, Math.max(motion.y, tier.launch()), motion.z * 1.2);
+		player.setDeltaMovement(motion.x, RocketTier.thrust(motion.y, tier.climb()), motion.z);
 		player.connection.send(new ClientboundSetEntityMotionPacket(player));
-		// Landing at or above the launch height never hurts (the game's own impulse rule, like wind charges).
-		player.setIgnoreFallDamageFromCurrentImpulse(true, player.position());
-		player.level().sendParticles(ParticleTypes.FLAME, player.getX(), player.getY(), player.getZ(), 12, 0.15, 0.05, 0.15, 0.02);
-		player.level().sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY(), player.getZ(), 6, 0.2, 0.05, 0.2, 0.01);
-		player.level().playSound(null, player.blockPosition(), SoundEvents.FIREWORK_ROCKET_LAUNCH, SoundSource.PLAYERS, 0.8F, 1.2F);
+		player.connection.resetFlyingTicks(); // powered flight, not a cheat
+		player.resetFallDistance(); // the fall counts from where the thrust ends
+		if (!was) {
+			THRUSTING.add(player.getUUID());
+			player.level().playSound(null, player.blockPosition(), SoundEvents.FIREWORK_ROCKET_LAUNCH, SoundSource.PLAYERS, 0.7F, 1.3F);
+		}
+
+		if (player.tickCount % 2 == 0) {
+			player.level().sendParticles(ParticleTypes.FLAME, player.getX(), player.getY() - 0.1, player.getZ(), 3, 0.12, 0.02, 0.12, 0.01);
+			player.level().sendParticles(ParticleTypes.SMOKE, player.getX(), player.getY() - 0.2, player.getZ(), 2, 0.15, 0.02, 0.15, 0.01);
+		}
+
+		if (player.tickCount % 8 == 0) {
+			player.level().playSound(null, player.blockPosition(), SoundEvents.BLAZE_SHOOT, SoundSource.PLAYERS, 0.15F, 1.8F);
+		}
+
 		return true;
+	}
+
+	private static void stop(ServerPlayer player, boolean empty) {
+		THRUSTING.remove(player.getUUID());
+		player.level().playSound(null, player.blockPosition(), SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 0.4F, 1.6F);
+		if (empty) {
+			player.sendOverlayMessage(Component.translatable("solarquarry.rocket_boots.empty"));
+		}
 	}
 
 	/** Fall damage after the boots absorb their share (called from the fall-damage hook, server side). */

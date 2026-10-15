@@ -1,6 +1,48 @@
 # Changelog
 
-## 4.0.0-beta.1 (in progress)
+## 4.0.0-beta.3 (in progress)
+
+Includes everything from 4.0.0-beta.1 and beta.2 below.
+
+### Filtered Splitter (beta.2)
+- New block next to the Filter Pipe (which is unchanged): items that match its list or tags leave through the green side, everything else through the orange side. Whitelist or blacklist, exact-components option, configurable faces, a 9-slot buffer when an output is full (nothing is ever deleted) and a status line.
+
+### Storage Terminal (beta.2)
+- The Sorting Terminal is now the **Storage Terminal** (same block, existing worlds keep it): one searchable list of every chest, barrel, shulker box and crate on the pipe network, with totals. Withdraw and deposit from the list; deposits follow the sorting rules. **Rules** opens the old rules screen.
+
+### Kelp Farm (beta.2)
+- Builds a glass basin around a 5 x 5 water area, fills it from the bottom up, plants kelp and harvests it with real growth (random ticks, bone meal, Growth Upgrades). Breaking the farm removes basin, water and kelp.
+- Tree Farm: posts moved out of the trees' way, bone meal goes round-robin over all saplings (before, one stuck sapling took all of it and the farm produced nothing), faster leaf clearing.
+
+### The Mechanic
+- The trader is now **the Mechanic**. He builds his own house next to spawn (trading hall, living room, workshop) block by block, walks to the work with a wrench, and never replaces a player's block. A finished house is left alone, so it cannot be farmed for blocks.
+- He sells **every** Solar Quarry item except ores, spawn eggs and the loot-only Prototype Battery and Emergency Energy Injector, priced from the recipe (materials plus 50%), with unlimited stock. He still buys ores and blocks, restocked every morning.
+- **The Mechanic's Guard** wears dark industrial armour and defends the Mechanic.
+
+### Powered gear
+- New **Charging Station** (200k E buffer, up to 1,000 E/t): charges any powered item; full items move to the output slot.
+- **Rocket Boots** now fly: hold crouch in the air to climb. Each tier climbs faster and longer; flying costs energy per tick and fall damage absorption is unchanged. No key binding or client packet is needed.
+- **Ore Prospector** runs on energy (20k E, 400 E per scan) instead of durability.
+- New **Liquid Prospector** (water and lava sources in the chunk, nearest of each), **Slime Prospector** (slime chunks using the game's own rule, plus the direction of the nearest), **Scanner Helmet** (HUD showing whether the light where you stand lets mobs spawn; 2 E/t).
+
+### Liquid Remover
+- The Liquid Remover now finds the whole connected liquid pocket the drill opens (up to 8,192 cells), drains it from the top layer down and backs off when liquid keeps flowing in. Flowing liquid costs a fifth of a source. Progress shows in the quarry screen and survives save/load.
+
+### Laser Turrets
+- Basic, Advanced and Elite **Laser Turrets** (range 12 / 18 / 24, damage 4 / 7 / 12). They shoot hostile mobs only (never players, pets, villagers, golems or the Mechanic's Guard), need line of sight, pay energy per shot and have a mode that leaves creepers alone.
+
+### Equipment
+- **Industrial Power Hammer**, **Reinforced Mining Pickaxe**, **Advanced Powered Pickaxe** (crouch-use toggles a 3 x 3 area mode, 100 E per extra block; never breaks harder blocks or bedrock).
+- **Portable Power Cell** (100k E, charges the powered gear in your inventory), **Industrial Repair Kit** (repairs the most worn Solar Quarry item), **Mining Helmet** (Haste below y=50), **Night-Vision Goggles** (3 E/t), **Advanced Mining Scanner**.
+- Loot only: **Prototype Battery** (1M E) and **Emergency Energy Injector**.
+
+### Industrial structures
+- Ten new structures generate in the Overworld: Mining Facility, Power Station, Research Laboratory, Automated Factory, Tree Farm, Supply Bunker, Substation, Prototype Facility, Train Depot and Solar Array. Each has its own loot table with Solar Quarry parts; some are guarded by Laser Turrets that are either wrecked or have a limited charge.
+
+### Weather Control Machine
+- An endgame machine (5M E buffer) that sets clear skies, rain or a thunderstorm, jumps to a time of day or moves time forward gradually. Starting an operation costs 200k–2M E and keeping it running costs upkeep per tick; it stops when the power runs out. Its own animation, sounds and screen.
+
+## 4.0.0-beta.1
 
 ### Self-building machines (shared construction framework)
 - New construction engine used by every machine that builds a structure: blueprints, visible step-by-step building, pauses when power runs out, when a block is in the way (it is never replaced) or when the chunk is not loaded, resumes after save/load without placing anything twice, and repairs missing blocks.

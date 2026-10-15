@@ -1,0 +1,8 @@
+{
+  "type": "solarquarry:industrial",
+  "biomes": "#solarquarry:has_structure/train_depot",
+  "step": "surface_structures",
+  "spawn_overrides": {},
+  "terrain_adaptation": "beard_thin",
+  "layout": "train_depot"
+}

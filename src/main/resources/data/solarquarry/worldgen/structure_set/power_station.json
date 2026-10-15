@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "solarquarry:power_station",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 64,
+    "separation": 22,
+    "salt": 74128230
+  }
+}

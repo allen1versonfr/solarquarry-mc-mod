@@ -45,6 +45,7 @@ public class SolarQuarry implements ModInitializer {
 		com.solarquarry.construction.ConstructionBlocks.init();
 		ModItems.init();
 		com.solarquarry.registry.ModGear.init();
+		com.solarquarry.worldgen.ModStructures.init();
 		com.solarquarry.registry.ModEntities.init();
 		ModBlockEntities.init();
 		ModMenus.init();
@@ -69,8 +70,6 @@ public class SolarQuarry implements ModInitializer {
 		PayloadTypeRegistry.clientboundPlay().register(com.solarquarry.network.SortingSnapshotPayload.TYPE, com.solarquarry.network.SortingSnapshotPayload.STREAM_CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(com.solarquarry.network.SortingActionPayload.TYPE, com.solarquarry.network.SortingActionPayload.STREAM_CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(com.solarquarry.network.SortingActionPayload.TYPE, com.solarquarry.network.SortingActionPayload::handle);
-		PayloadTypeRegistry.serverboundPlay().register(com.solarquarry.boots.RocketBoots.JumpPayload.TYPE, com.solarquarry.boots.RocketBoots.JumpPayload.STREAM_CODEC);
-		ServerPlayNetworking.registerGlobalReceiver(com.solarquarry.boots.RocketBoots.JumpPayload.TYPE, com.solarquarry.boots.RocketBoots::handle);
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> com.solarquarry.boots.RocketBoots.forget(handler.getPlayer().getUUID()));
 		PayloadTypeRegistry.clientboundPlay().register(com.solarquarry.network.BenchCatalogPayload.TYPE, com.solarquarry.network.BenchCatalogPayload.STREAM_CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(com.solarquarry.network.BenchCraftPayload.TYPE, com.solarquarry.network.BenchCraftPayload.STREAM_CODEC);
@@ -83,10 +82,23 @@ public class SolarQuarry implements ModInitializer {
 			ProspectorScans.tick(server);
 			com.solarquarry.trader.ShopManager.tick(server);
 			com.solarquarry.boots.RocketBoots.tick(server);
+			com.solarquarry.item.ScannerHelmetItem.tick(server);
+			com.solarquarry.gear.WornGear.tick(server);
 			QuarryChunkLoading.prune(server);
 		});
 		// Route caches hold level references: drop them when a server stops.
+		net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents.AFTER.register((level, player, pos, state, blockEntity) -> {
+			if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+				com.solarquarry.gear.PoweredPickaxeItem.afterBreak(serverPlayer, pos, state);
+			}
+		});
+		ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
+			if (com.solarquarry.trader.MechanicHouseSite.site(server.overworld()) != null) {
+				com.solarquarry.trader.MechanicHouseSite.save(server.overworld());
+			}
+		});
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
+			com.solarquarry.trader.MechanicHouseSite.forget();
 			PipeRouter.invalidateCache();
 			EnergyNetwork.markTopologyChanged();
 			ProspectorScans.clear();

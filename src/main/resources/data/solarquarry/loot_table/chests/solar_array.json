@@ -1,0 +1,163 @@
+{
+  "type": "minecraft:chest",
+  "pools": [
+    {
+      "rolls": {
+        "type": "minecraft:uniform",
+        "min": 2,
+        "max": 4
+      },
+      "bonus_rolls": 0,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "solarquarry:photovoltaic_cell",
+          "weight": 12,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 1,
+                "max": 4
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "solarquarry:energy_cable",
+          "weight": 12,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 6,
+                "max": 18
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:glass",
+          "weight": 8,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 4,
+                "max": 12
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:copper_ingot",
+          "weight": 8,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 2,
+                "max": 6
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:redstone",
+          "weight": 8,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 2,
+                "max": 8
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "rolls": {
+        "type": "minecraft:uniform",
+        "min": 1,
+        "max": 2
+      },
+      "bonus_rolls": 0,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "solarquarry:solar_panel_basic",
+          "weight": 12
+        },
+        {
+          "type": "minecraft:item",
+          "name": "solarquarry:battery_basic",
+          "weight": 8
+        },
+        {
+          "type": "minecraft:item",
+          "name": "solarquarry:solar_panel_advanced",
+          "weight": 4
+        },
+        {
+          "type": "minecraft:item",
+          "name": "solarquarry:battery_advanced",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "name": "solarquarry:portable_power_cell",
+          "weight": 4,
+          "functions": [
+            {
+              "function": "minecraft:set_components",
+              "components": {
+                "solarquarry:energy": 40000
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "solarquarry:emergency_energy_injector",
+          "weight": 2
+        }
+      ]
+    },
+    {
+      "rolls": {
+        "type": "minecraft:uniform",
+        "min": 0,
+        "max": 1
+      },
+      "bonus_rolls": 0,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "solarquarry:solar_panel_elite",
+          "weight": 1
+        },
+        {
+          "type": "minecraft:item",
+          "name": "solarquarry:charging_station",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:empty",
+          "weight": 12
+        }
+      ]
+    }
+  ],
+  "random_sequence": "solarquarry:chests/solar_array"
+}

@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    " L ",
+    "ICI",
+    "IBI"
+  ],
+  "key": {
+    "L": "minecraft:redstone_torch",
+    "I": "minecraft:iron_ingot",
+    "C": "solarquarry:circuit_board",
+    "B": "solarquarry:battery_basic"
+  },
+  "result": {
+    "id": "solarquarry:laser_turret_basic",
+    "count": 1
+  }
+}

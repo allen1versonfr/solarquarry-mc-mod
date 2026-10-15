@@ -81,6 +81,7 @@ final class SelfTestModes {
 		this.scenarios.add(Scenario.timed("B2: legs reach the ground, the machine gets a support", this::setupLegs, 5, this::verifyLegs));
 		this.scenarios.add(new Scenario("phase 2: liquid remover pumps water into a tank", this::setupLiquid, q -> q.isFinished() && q.getPumpAmount() == 0, 1600, this::verifyLiquid));
 		this.scenarios.add(new Scenario("phase 2: liquid remover with a void upgrade deletes liquid", this::setupLiquidVoid, QuarryBlockEntity::isFinished, 1600, this::verifyLiquidVoid));
+		this.scenarios.add(new Scenario("4.0 liquid remover: drains a large pocket as one job", this::setupPocket, QuarryBlockEntity::isFinished, 3000, this::verifyPocket));
 		this.scenarios.add(Scenario.timed("phase 2: storage crates hold pages of items", s -> { }, 1, this::verifyCrates));
 		this.scenarios.add(Scenario.timed("phase 3: super smelter runs three lanes at 4x speed", this::setupSmelter, 120, this::verifySmelterRun));
 		this.scenarios.add(Scenario.timed("phase 3: super smelter pauses without power", this::starveSmelter, 30, this::verifySmelterStarved));
@@ -121,8 +122,31 @@ final class SelfTestModes {
 		this.scenarios.add(Scenario.timed("phase 6: the miner drone tunnels to ores after the area is done", this::setupMiner, 500, this::verifyMiner));
 		this.scenarios.add(Scenario.timed("phase 6: security drones fight hostile mobs only", this::setupSecurity, 140, this::verifySecurity));
 		this.scenarios.add(Scenario.timed("phase 6: drones vanish with their quarry", s -> { }, 5, this::verifyDronesGone));
-		this.scenarios.add(Scenario.timed("phase 7: rocket boots launch, absorb falls and charge", s -> { }, 1, this::verifyRocketBoots));
-		this.scenarios.add(Scenario.timed("phase 4: the shop is built once, with its trader and guard", this::setupShop, 40, this::verifyShop));
+		this.scenarios.add(Scenario.timed("4.0 rocket boots: crouch to fly, absorb falls, charge", s -> { }, 1, this::verifyRocketBoots));
+		this.scenarios.add(Scenario.timed("4.0 charging station: charges powered gear", SelfTestPowered::setupStation, 40, SelfTestPowered::verifyStationCharging));
+		this.scenarios.add(Scenario.timed("4.0 charging station: full items move out, no power stops", SelfTestPowered::fillStation, 10, SelfTestPowered::verifyStationDone));
+		this.scenarios.add(Scenario.timed("4.0 laser turret: shoots hostile mobs only", SelfTestTurrets::setup, 100, SelfTestTurrets::verifyFiring));
+		this.scenarios.add(Scenario.timed("4.0 laser turret: no power, no shots", s -> { }, 40, SelfTestTurrets::verifyNoPower));
+		this.scenarios.add(Scenario.timed("4.0 laser turret: switched off", s -> { }, 40, SelfTestTurrets::verifyOff));
+		this.scenarios.add(Scenario.timed("4.0 laser turret: damaged structure turret", s -> { }, 40, SelfTestTurrets::verifyDamaged));
+		this.scenarios.add(Scenario.timed("4.0 laser turret: all-hostiles mode", s -> { }, 300, SelfTestTurrets::verifyCreeper));
+		this.scenarios.add(Scenario.timed("4.0 powered tools: prospectors and the Scanner Helmet", s -> { }, 1, SelfTestPowered::verifyTools));
+		this.scenarios.add(Scenario.timed("4.0 scanner helmet: light rule", s -> { }, 20, SelfTestPowered::verifyLight));
+		this.scenarios.add(Scenario.timed("4.0 equipment: power cell, repair kit, injector, helmet, goggles, area pickaxe", s -> { }, 1, SelfTestGear::verifyItems));
+		this.scenarios.add(Scenario.timed("4.0 weather machine: thunderstorm", SelfTestWeather::setupThunder, 200, SelfTestWeather::verifyThunder));
+		this.scenarios.add(Scenario.timed("4.0 weather machine: sustained clear skies", SelfTestWeather::setupSustainedClear, 170, SelfTestWeather::verifySustainedClear));
+		this.scenarios.add(Scenario.timed("4.0 weather machine: upkeep", s -> { }, 40, SelfTestWeather::verifyUpkeep));
+		this.scenarios.add(Scenario.timed("4.0 weather machine: power loss", s -> { }, 50, SelfTestWeather::verifyPowerLoss));
+		this.scenarios.add(Scenario.timed("4.0 weather machine: time preset", SelfTestWeather::setupTime, 200, SelfTestWeather::verifyTime));
+		this.scenarios.add(Scenario.timed("4.0 weather machine: gradual time change", SelfTestWeather::setupGradual, 460, SelfTestWeather::verifyGradual));
+		this.scenarios.add(Scenario.timed("4.0 structures: all ten build with loot and turrets", SelfTestStructures::setup, 5, SelfTestStructures::verify));
+		this.scenarios.add(Scenario.timed("4.0 structures: generation through the game's structure code", s -> { }, 1, SelfTestStructures::verifyGeneration));
+		this.scenarios.add(Scenario.timed("4.0 mechanic: picks a site and starts building", this::setupShop, 20, l -> SelfTestMechanic.verifyBuilding(l, this.shopCenter)));
+		this.scenarios.add(Scenario.timed("4.0 mechanic: construction stops at a player block", s -> { }, 300, l -> SelfTestMechanic.verifyBlocked(l, this.shopCenter)));
+		this.scenarios.add(Scenario.timed("4.0 mechanic: the house is finished", s -> { }, 400, l -> SelfTestMechanic.verifyFinished(l, this.shopCenter)));
+		this.scenarios.add(Scenario.timed("4.0 mechanic: a finished house is not maintained", s -> { }, 60, l -> SelfTestMechanic.verifyNotRebuilt(l, this.shopCenter)));
+		this.scenarios.add(Scenario.timed("4.0 mechanic: trades for every item, unlimited stock, guard", s -> { }, 30, l -> SelfTestMechanic.verifyTrades(l, this.shopCenter)));
+		this.scenarios.add(Scenario.timed("phase 4: the shop is built once, with its trader and guard", s -> { }, 1, this::verifyShop));
 		this.scenarios.add(Scenario.timed("phase 4: starter kit once per player, parcel when the inventory is full", s -> { }, 1, this::verifyStarterKit));
 		this.scenarios.add(Scenario.timed("phase 4: extra copies of the trader remove themselves", this::spawnDuplicateTrader, 45, this::verifyNoDuplicate));
 		this.scenarios.add(Scenario.timed("phase 4: stock refills the next morning", this::exhaustStock, 45, this::verifyRestock));
@@ -1482,6 +1506,42 @@ final class SelfTestModes {
 		fake.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
 	}
 
+	private void setupPocket(ServerLevel level) {
+		// A 15 x 10 x 4 flooded cavern (600 water sources) filling the work area, sealed by stone; water outside the
+		// area's east wall must stay where it is.
+		fill(level, 92, 194, 100, 108, 199, 111, Blocks.STONE.defaultBlockState());
+		fill(level, 93, 196, 101, 107, 199, 110, Blocks.WATER.defaultBlockState());
+		level.setBlock(new BlockPos(109, 198, 105), Blocks.WATER.defaultBlockState(), Block.UPDATE_CLIENTS);
+		fill(level, 109, 197, 104, 110, 197, 106, Blocks.STONE.defaultBlockState());
+		QuarryBlockEntity quarry = quarry(level);
+		quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS, new ItemStack(com.solarquarry.registry.ModItems.SPEED_UPGRADE, 4));
+		quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS + 1, new ItemStack(com.solarquarry.registry.ModItems.LIQUID_REMOVER_UPGRADE));
+		quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS + 2, new ItemStack(com.solarquarry.registry.ModItems.VOID_UPGRADE));
+		configure(quarry, QuarryMode.STRIP_MINE, 15, 10, 1, 196);
+		quarry.resetProgress();
+		quarry.start();
+	}
+
+	private void verifyPocket(ServerLevel level) {
+		QuarryBlockEntity quarry = quarry(level);
+		int water = countBlocks(level, 93, 196, 101, 107, 199, 110, Blocks.WATER);
+		var pocket = quarry.getPocket();
+		SolarQuarry.LOGGER.info("[SelfTest] pocket: {} passes, last pass {} of {} cells, inflow {}, finished {}", pocket.passes(), pocket.removed(), pocket.total(),
+			pocket.inflow(), quarry.isFinished());
+		SelfTest.check(quarry.isFinished() && water == 0, "pocket: the flooded cavern was drained and mined (" + water + " water left)");
+		SelfTest.check(pocket.passes() >= 1 && pocket.passes() <= com.solarquarry.quarry.LiquidPocket.MAX_PASSES && !pocket.inflow(),
+			"pocket: drained as a mapped job without endless refilling (" + pocket.passes() + " passes)");
+		SelfTest.check(level.getBlockState(new BlockPos(109, 198, 105)).is(Blocks.WATER) && level.getBlockState(new BlockPos(108, 198, 105)).is(Blocks.STONE),
+			"pocket: water outside the work area and the wall around it are untouched");
+		SelfTest.check(countBlocks(level, 93, 196, 101, 107, 199, 110, Blocks.STONE) == 0, "pocket: the ground under the water was mined too");
+		for (int i = 0; i < 3; i++) {
+			quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS + i, ItemStack.EMPTY);
+		}
+
+		quarry.pause();
+		fill(level, 92, 194, 100, 110, 199, 111, Blocks.AIR.defaultBlockState());
+	}
+
 	private void setupLiquidVoid(ServerLevel level) {
 		this.setupLiquid(level);
 		QuarryBlockEntity quarry = quarry(level);
@@ -1744,9 +1804,7 @@ final class SelfTestModes {
 	}
 
 	private void setupShop(ServerLevel level) {
-		com.solarquarry.trader.ShopState.set(level, com.solarquarry.trader.ShopState.NONE);
-		BlockPos center = com.solarquarry.trader.ShopManager.ensureShop(level);
-		this.shopCenter = center == null ? BlockPos.ZERO : center;
+		this.shopCenter = SelfTestMechanic.setup(level);
 		this.forceShopChunks(level, true);
 	}
 
@@ -1764,7 +1822,7 @@ final class SelfTestModes {
 			var offers = traders.getFirst().getOffers();
 			long selling = offers.stream().filter(o -> o.getCostA().is(Items.EMERALD)).count();
 			long buying = offers.stream().filter(o -> o.getResult().is(Items.EMERALD)).count();
-			SelfTest.check(selling == 10 && buying == 10, "shop: sells 10 kinds of parts and buys 10 kinds of ores and blocks");
+			SelfTest.check(selling >= 60 && buying == 10, "shop: sells " + selling + " kinds of parts and buys 10 kinds of ores and blocks");
 			boolean loop = false;
 			for (var sold : offers) {
 				for (var bought : offers) {
@@ -1789,9 +1847,9 @@ final class SelfTestModes {
 			}
 		}
 
-		SelfTest.check(sign && chest && level.getBlockState(center.offset(0, 1, 3)).is(com.solarquarry.registry.ModBlocks.FABRICATION_BENCH),
+		SelfTest.check(sign && chest && level.getBlockState(com.solarquarry.trader.MechanicHouse.benchPos(center)).is(com.solarquarry.registry.ModBlocks.FABRICATION_BENCH),
 			"shop: sign, supply chest and Fabrication Bench are in place");
-		SelfTest.check(level.getBlockState(center.offset(-3, 1, -3)).getLightEmission() > 0 && level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, center.above()) > 0,
+		SelfTest.check(level.getBlockState(center.offset(-5, 1, -4)).getLightEmission() > 0 && level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, center.above()) > 0,
 			"shop: lit inside");
 		BlockPos again = com.solarquarry.trader.ShopManager.ensureShop(level);
 		SelfTest.check(center.equals(again) && traders(level, center).size() == 1, "shop: asking again does not build a second shop or trader");
@@ -1847,7 +1905,7 @@ final class SelfTestModes {
 
 	private void exhaustStock(ServerLevel level) {
 		var trader = traders(level, this.shopCenter).getFirst();
-		var offer = trader.getOffers().getFirst();
+		var offer = trader.getOffers().stream().filter(o -> o.getResult().is(Items.EMERALD)).findFirst().orElseThrow(); // a buy offer: those restock daily
 		while (!offer.isOutOfStock()) {
 			offer.increaseUses();
 		}
@@ -1859,7 +1917,8 @@ final class SelfTestModes {
 
 	private void verifyRestock(ServerLevel level) {
 		var trader = traders(level, this.shopCenter).getFirst();
-		SelfTest.check(!trader.getOffers().getFirst().isOutOfStock(), "restock: the sold-out offer is available again the next morning");
+		SelfTest.check(trader.getOffers().stream().filter(o -> o.getResult().is(Items.EMERALD)).noneMatch(o -> o.isOutOfStock()),
+			"restock: the sold-out offer is available again the next morning");
 	}
 
 	private void killShopkeepers(ServerLevel level) {
@@ -1902,6 +1961,7 @@ final class SelfTestModes {
 			&& !com.solarquarry.trader.ShopGuard.isThreat(wolf) && !com.solarquarry.trader.ShopGuard.isThreat(net.fabricmc.fabric.api.entity.FakePlayer.get(level)),
 			"guard: attacks hostile mobs only (not creepers, neutral mobs, villagers, pets or players)");
 		this.forceShopChunks(level, false);
+		SelfTestMechanic.restoreSpeed();
 	}
 
 	// ---------------------------------------------------------------------------------------------
@@ -1995,41 +2055,7 @@ final class SelfTestModes {
 	// ---------------------------------------------------------------------------------------------
 
 	private void verifyRocketBoots(ServerLevel level) {
-		var player = net.fabricmc.fabric.api.entity.FakePlayer.get(level, new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "BootsTest"));
-		player.snapTo(110.5, 205, 110.5, 0, 0);
-		ItemStack boots = new ItemStack(com.solarquarry.registry.ModItems.IRON_ROCKET_BOOTS);
-		player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, boots);
-		long now = level.getServer().getTickCount();
-		com.solarquarry.boots.RocketBoots.markOnGround(player.getUUID(), now);
-		player.setShiftKeyDown(true);
-		SelfTest.check(!com.solarquarry.boots.RocketBoots.tryLaunch(player), "boots: an empty pair does not fire");
-		com.solarquarry.boots.RocketBootsItem.setEnergy(boots, 10_000);
-		player.setShiftKeyDown(false);
-		SelfTest.check(!com.solarquarry.boots.RocketBoots.tryLaunch(player), "boots: no rocket jump without crouching");
-		player.setShiftKeyDown(true);
-		boolean launched = com.solarquarry.boots.RocketBoots.tryLaunch(player);
-		SelfTest.check(launched && player.getDeltaMovement().y >= com.solarquarry.boots.RocketTier.IRON.launch() - 1.0E-6
-			&& com.solarquarry.boots.RocketBootsItem.energy(boots) == 10_000 - com.solarquarry.boots.RocketTier.JUMP_COST,
-			"boots: crouch-jump launches the player and costs energy");
-		SelfTest.check(!com.solarquarry.boots.RocketBoots.tryLaunch(player), "boots: cooldown between jumps");
-		com.solarquarry.boots.RocketBoots.markOnGround(player.getUUID(), now - 100);
-		int left = com.solarquarry.boots.RocketBoots.reduceFallDamage(player, 10);
-		SelfTest.check(left == 4 && com.solarquarry.boots.RocketBootsItem.energy(boots) == 10_000 - com.solarquarry.boots.RocketTier.JUMP_COST
-			- 6 * com.solarquarry.boots.RocketTier.FALL_COST_PER_POINT, "boots: iron boots absorb 60% of fall damage, paid with energy (" + left + " left)");
-		player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, ItemStack.EMPTY);
-		SelfTest.check(com.solarquarry.boots.RocketBoots.reduceFallDamage(player, 10) == 10 && !com.solarquarry.boots.RocketBoots.tryLaunch(player),
-			"boots: taking them off ends every effect");
-		BlockPos cell = new BlockPos(110, 205, 112);
-		level.setBlock(cell, com.solarquarry.registry.ModBlocks.BATTERY_BASIC.defaultBlockState(), Block.UPDATE_ALL);
-		((BatteryBlockEntity) level.getBlockEntity(cell)).restoreEnergy(1_000_000L);
-		ItemStack hand = new ItemStack(com.solarquarry.registry.ModItems.DIAMOND_ROCKET_BOOTS);
-		player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, hand);
-		level.getBlockState(cell).useItemOn(hand, level, player, net.minecraft.world.InteractionHand.MAIN_HAND,
-			new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(cell), Direction.UP, cell, false));
-		SelfTest.check(com.solarquarry.boots.RocketBootsItem.energy(hand) > 0, "boots: a battery charges them (" + com.solarquarry.boots.RocketBootsItem.energy(hand) + " E)");
-		player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
-		level.removeBlock(cell, false);
-		com.solarquarry.boots.RocketBoots.forget(player.getUUID());
+		SelfTestPowered.verifyRocketBoots(level);
 	}
 
 	// ---------------------------------------------------------------------------------------------

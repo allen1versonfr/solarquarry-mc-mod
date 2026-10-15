@@ -86,6 +86,20 @@ public final class ModBlocks {
 			.lightLevel(state -> state.getValue(com.solarquarry.smelting.SuperSmelterBlock.LIT) ? 13 : 0),
 		"tooltip.solarquarry.super_smelter", Rarity.RARE);
 
+	public static final com.solarquarry.charging.ChargingStationBlock CHARGING_STATION = register("charging_station", com.solarquarry.charging.ChargingStationBlock::new,
+		BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.0F, 6.0F).sound(SoundType.METAL).requiresCorrectToolForDrops()
+			.lightLevel(state -> state.getValue(com.solarquarry.charging.ChargingStationBlock.LIT) ? 8 : 0),
+		"tooltip.solarquarry.charging_station", Rarity.UNCOMMON);
+
+	public static final com.solarquarry.turret.LaserTurretBlock LASER_TURRET_BASIC = registerTurret(com.solarquarry.turret.TurretTier.BASIC, Rarity.UNCOMMON);
+	public static final com.solarquarry.turret.LaserTurretBlock LASER_TURRET_ADVANCED = registerTurret(com.solarquarry.turret.TurretTier.ADVANCED, Rarity.RARE);
+	public static final com.solarquarry.turret.LaserTurretBlock LASER_TURRET_ELITE = registerTurret(com.solarquarry.turret.TurretTier.ELITE, Rarity.EPIC);
+
+	public static final com.solarquarry.weather.WeatherMachineBlock WEATHER_MACHINE = register("weather_control_machine", com.solarquarry.weather.WeatherMachineBlock::new,
+		BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_BLACK).strength(6.0F, 20.0F).sound(SoundType.NETHERITE_BLOCK).requiresCorrectToolForDrops()
+			.noOcclusion().lightLevel(state -> 7),
+		"tooltip.solarquarry.weather_control_machine", Rarity.EPIC);
+
 	public static final com.solarquarry.crafting.FabricationBenchBlock FABRICATION_BENCH = register("fabrication_bench", com.solarquarry.crafting.FabricationBenchBlock::new,
 		BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(2.5F, 6.0F).sound(SoundType.METAL),
 		"tooltip.solarquarry.fabrication_bench", Rarity.COMMON);
@@ -115,6 +129,12 @@ public final class ModBlocks {
 		return register("crate_" + tier.id(), p -> new com.solarquarry.storage.CrateBlock(tier, p),
 			BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.0F, 6.0F).sound(SoundType.METAL).requiresCorrectToolForDrops(),
 			"tooltip.solarquarry.crate_" + tier.id(), rarity);
+	}
+
+	private static com.solarquarry.turret.LaserTurretBlock registerTurret(com.solarquarry.turret.TurretTier tier, Rarity rarity) {
+		return register("laser_turret_" + tier.id(), p -> new com.solarquarry.turret.LaserTurretBlock(tier, p),
+			BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_GRAY).strength(4.0F, 8.0F).sound(SoundType.METAL).requiresCorrectToolForDrops().noOcclusion(),
+			"tooltip.solarquarry.laser_turret_" + tier.id(), rarity);
 	}
 
 	private static BatteryBlock registerBattery(BatteryTier tier, Rarity rarity) {

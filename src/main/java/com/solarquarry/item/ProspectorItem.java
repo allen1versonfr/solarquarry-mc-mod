@@ -33,12 +33,45 @@ import net.minecraft.world.level.block.state.BlockState;
  * <li>Use on a quarry: exact count of the ores left in its remaining work volume, scanned over a few ticks
  * ({@link ProspectorScans}).</li>
  * </ul>
- * Each use costs durability and starts a cooldown, so it cannot map the world for free.
+ * Each scan costs energy ({@link #SCAN_COST} E, checked and taken on the server before scanning) and starts a cooldown,
+ * so it cannot map the world for free. Charge it in the Charging Station or on a battery.
  */
-public class ProspectorItem extends Item implements MachineTool, TooltipLines {
+public class ProspectorItem extends Item implements MachineTool, TooltipLines, PoweredItem {
+	public static final long CAPACITY = 20_000;
+	public static final long SCAN_COST = 400;
 
 	public ProspectorItem(Properties properties) {
 		super(properties);
+	}
+
+	@Override
+	public long capacity(ItemStack stack) {
+		return CAPACITY;
+	}
+
+	/** Takes the scan's energy on the server; tells the player when the tool needs charging. */
+	static boolean pay(Player player, ItemStack stack, long cost) {
+		if (PoweredItem.use(stack, cost)) {
+			return true;
+		}
+
+		player.sendOverlayMessage(Component.translatable("solarquarry.powered.needs_charge", stack.getHoverName(), cost).withStyle(ChatFormatting.RED));
+		return false;
+	}
+
+	@Override
+	public boolean isBarVisible(ItemStack stack) {
+		return true;
+	}
+
+	@Override
+	public int getBarWidth(ItemStack stack) {
+		return PoweredItem.barWidth(stack);
+	}
+
+	@Override
+	public int getBarColor(ItemStack stack) {
+		return PoweredItem.barColor(stack);
 	}
 
 	@Override
@@ -49,6 +82,10 @@ public class ProspectorItem extends Item implements MachineTool, TooltipLines {
 		}
 
 		if (level instanceof ServerLevel serverLevel) {
+			if (!pay(player, stack, SCAN_COST)) {
+				return InteractionResult.FAIL;
+			}
+
 			ChunkPos chunk = player.chunkPosition();
 			int top = Math.min(level.getMaxY(), player.getBlockY());
 			Object2IntOpenHashMap<Block> counts = new Object2IntOpenHashMap<>();
@@ -91,6 +128,10 @@ public class ProspectorItem extends Item implements MachineTool, TooltipLines {
 				return InteractionResult.FAIL;
 			}
 
+			if (!pay(player, stack, SCAN_COST)) {
+				return InteractionResult.FAIL;
+			}
+
 			long blocks = ProspectorScans.start(serverPlayer, serverLevel, quarry);
 			player.sendSystemMessage(Component.translatable("solarquarry.prospector.scanning", blocks).withStyle(ChatFormatting.AQUA));
 			this.spend(serverLevel, player, stack, context.getHand());
@@ -102,7 +143,6 @@ public class ProspectorItem extends Item implements MachineTool, TooltipLines {
 	private void spend(ServerLevel level, Player player, ItemStack stack, InteractionHand hand) {
 		player.getCooldowns().addCooldown(stack, SolarQuarryConfig.get().prospectorCooldownTicks());
 		level.playSound(null, player.blockPosition(), SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS, 0.6F, 1.6F);
-		stack.hurtAndBreak(1, player, hand);
 	}
 
 	/** The complete list: a total line, then every ore kind with its count, most common first (one per line). */
@@ -133,6 +173,8 @@ public class ProspectorItem extends Item implements MachineTool, TooltipLines {
 
 	@Override
 	public void addTooltipLines(ItemStack stack, Consumer<Component> builder) {
+		builder.accept(PoweredItem.chargeLine(stack, SCAN_COST));
+		builder.accept(Component.translatable("tooltip.solarquarry.powered.scan_cost", SCAN_COST).withStyle(ChatFormatting.GRAY));
 		builder.accept(Component.translatable("tooltip.solarquarry.prospector.chunk").withStyle(ChatFormatting.GRAY));
 		builder.accept(Component.translatable("tooltip.solarquarry.prospector.quarry").withStyle(ChatFormatting.GRAY));
 	}

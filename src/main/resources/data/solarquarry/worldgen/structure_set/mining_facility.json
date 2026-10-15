@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "solarquarry:mining_facility",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 52,
+    "separation": 16,
+    "salt": 74120311
+  }
+}

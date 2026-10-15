@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "ICI",
+    "GAG"
+  ],
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "C": "solarquarry:circuit_board",
+    "G": "minecraft:glass_pane",
+    "A": "solarquarry:advanced_circuit"
+  },
+  "result": {
+    "id": "solarquarry:night_vision_goggles",
+    "count": 1
+  }
+}

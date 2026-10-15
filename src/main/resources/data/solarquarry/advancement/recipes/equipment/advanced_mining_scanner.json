@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_the_recipe": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "solarquarry:advanced_mining_scanner"
+      }
+    },
+    "has_ore_prospector": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "solarquarry:ore_prospector"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_ore_prospector"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "solarquarry:advanced_mining_scanner"
+    ]
+  }
+}

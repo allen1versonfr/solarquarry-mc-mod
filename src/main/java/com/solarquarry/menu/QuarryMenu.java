@@ -317,6 +317,27 @@ public class QuarryMenu extends AbstractContainerMenu {
 		return (this.data.get(30) & 2) != 0;
 	}
 
+	/** Liquid Remover pocket job: cells found / removed in this pass, phase (0 idle, 1 mapping, 2 draining). */
+	public int getPocketTotal() {
+		return this.data.get(34);
+	}
+
+	public int getPocketRemoved() {
+		return this.data.get(35);
+	}
+
+	public int getPocketPhase() {
+		return this.data.get(36) & 3;
+	}
+
+	public boolean isPocketInflow() {
+		return (this.data.get(36) & 4) != 0;
+	}
+
+	public int getPocketPass() {
+		return (this.data.get(36) >> 4) & 15;
+	}
+
 	/** Liquid waiting in the Liquid Remover, in tenths of a bucket. */
 	public int getPumpTenths() {
 		return this.data.get(31);

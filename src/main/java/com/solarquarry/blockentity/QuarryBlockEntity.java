@@ -94,7 +94,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	/** Light the walls every this many layers (strip modes) or blocks of tunnel. */
 	public static final int TORCH_SPACING = 4;
 	public static final int MAX_STORED_XP = 1_000_000;
-	public static final int DATA_COUNT = 34;
+	public static final int DATA_COUNT = 37;
 	/** Construction steps per frame part (a post rises, a rail extends in this many stages). */
 	public static final int FRAME_SEGMENTS = 4;
 	/** Energy per frame construction step. */
@@ -197,6 +197,13 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		}
 	};
 	private long fluidPumped;
+	/** Liquid Remover: the pocket being mapped or drained (see {@link com.solarquarry.quarry.LiquidPocket}). */
+	private final com.solarquarry.quarry.LiquidPocket pocket = new com.solarquarry.quarry.LiquidPocket();
+	private long pocketBackoffUntil;
+	/** A pocket job was saved: map it again from its seed once the pattern is known. */
+	private @Nullable BlockPos pendingPocketSeed;
+	private int pendingPocketPasses;
+	private boolean pendingPocketInflow;
 	/** Miner Drone: where it is, the ores it knows about, how far its scan got, and whether it has run out of ores. */
 	private @Nullable BlockPos minerPos;
 	private final LongArrayList minerOres = new LongArrayList();
@@ -314,6 +321,9 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 				case 31 -> (int) Math.min(q.pumpTank.amount * 10 / FluidConstants.BUCKET, 0x7FFF);
 				case 32 -> (q.hasUpgrade(UpgradeType.SECURITY) ? 0x100 : 0) | q.drones.size();
 				case 33 -> q.frameSite.percent();
+				case 34 -> Math.min(0x7FFF, q.pocket.total());
+				case 35 -> Math.min(0x7FFF, q.pocket.removed());
+				case 36 -> q.pocket.phase().ordinal() | (q.pocket.inflow() ? 4 : 0) | (q.pocket.truncated() ? 8 : 0) | (Math.min(15, q.pocket.passes()) << 4);
 				default -> 0;
 			};
 		}
@@ -921,6 +931,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 
 	private void invalidatePattern() {
 		this.cachedPattern = null;
+		this.pocket.reset();
 	}
 
 	public BlockPos positionOf(MiningPattern pattern, long index) {
@@ -1074,6 +1085,8 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 
 	/** Restarts the scan from the first cell of the work volume. Mined blocks are already air and are skipped quickly. */
 	public void resetProgress() {
+		this.pocket.reset();
+		this.pocketBackoffUntil = 0;
 		this.step = 0;
 		this.scanStep = 0;
 		this.scanComplete = false;
@@ -1620,6 +1633,9 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		input.child("PumpTank").ifPresent(tank -> SingleVariantStorage.readValue(this.pumpTank, FluidVariant.CODEC, FluidVariant::blank, tank));
 		this.pumpTank.amount = Math.clamp(this.pumpTank.amount, 0, PUMP_CAPACITY);
 		this.fluidPumped = Math.max(0, input.getLongOr("FluidPumped", 0L));
+		this.pendingPocketSeed = input.getLong("PocketSeed").map(BlockPos::of).orElse(null);
+		this.pendingPocketPasses = input.getIntOr("PocketPasses", 0);
+		this.pendingPocketInflow = input.getBooleanOr("PocketInflow", false);
 		this.minerScan = Math.max(0, input.getLongOr("MinerScan", 0L));
 		this.minerDone = input.getBooleanOr("MinerDone", false);
 		this.minerOres.clear();
@@ -1688,6 +1704,10 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 				this.syncDirty = true;
 			}
 
+			if (!this.upgrades.liquidRemover() && this.pocket.active()) {
+				this.pocket.reset();
+			}
+
 			return;
 		}
 
@@ -1698,6 +1718,16 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		MiningPattern pattern = this.pattern();
 		if (this.quarryMode == QuarryMode.AREA_CLEAR) {
 			return; // clearing above ground: liquid there is handled by the drill itself
+		}
+
+		if (this.pendingPocketSeed != null) {
+			this.pocket.restore(this.pendingPocketSeed, this.workBounds(pattern), this.pendingPocketPasses, this.pendingPocketInflow);
+			this.pendingPocketSeed = null;
+		}
+
+		if (this.pocket.active()) {
+			this.tickPocket(level, pattern);
+			return;
 		}
 
 		long start = pattern.layerStart(Math.min(this.step, Math.max(0, pattern.total() - 1)));
@@ -1722,6 +1752,13 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 				|| !QuarryProtection.mayBreak(level, this.actor(level), pos, state, null)) {
 				this.pumpCursor++;
 				continue;
+			}
+
+			if (this.ticks >= this.pocketBackoffUntil) {
+				// Liquid found: map the whole connected pocket and drain it as one job.
+				this.pocket.start(pos, this.workBounds(pattern), true);
+				this.syncDirty = true;
+				return;
 			}
 
 			if (this.pumpLiquid(level, pos, state) == StepResult.MINED) {
@@ -1772,8 +1809,82 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		return StepResult.SCANNING;
 	}
 
+	/** The work volume as a box (all cells of the pattern). */
+	public net.minecraft.world.level.levelgen.structure.BoundingBox workBounds(MiningPattern pattern) {
+		BlockPos a = this.toWorld(new MiningPattern.Cell(0, pattern.minDy(), 1), pattern);
+		BlockPos b = this.toWorld(new MiningPattern.Cell(pattern.width() - 1, pattern.maxDy(), pattern.length()), pattern);
+		return net.minecraft.world.level.levelgen.structure.BoundingBox.fromCorners(a, b);
+	}
+
+	/** Liquid cells removed per pump tick while draining a pocket (more with Speed upgrades). */
+	public int pocketBudget() {
+		return 16 * (1 + this.upgrades.speed());
+	}
+
+	/** One pump tick of the pocket job: map a slice, or drain the next cells from the top layer down. */
+	private void tickPocket(ServerLevel level, MiningPattern pattern) {
+		if (this.pocket.phase() == com.solarquarry.quarry.LiquidPocket.Phase.MAPPING) {
+			this.pocket.map(pos -> {
+				if (!level.isLoaded(pos)) {
+					return com.solarquarry.quarry.LiquidPocket.NONE;
+				}
+
+				BlockState state = level.getBlockState(pos);
+				if (!(state.getBlock() instanceof LiquidBlock)) {
+					return com.solarquarry.quarry.LiquidPocket.NONE;
+				}
+
+				return state.getFluidState().isSource() ? com.solarquarry.quarry.LiquidPocket.SOURCE : com.solarquarry.quarry.LiquidPocket.FLOWING;
+			}, com.solarquarry.quarry.LiquidPocket.MAP_PER_TICK);
+			this.syncDirty = true;
+			return;
+		}
+
+		for (int i = 0; i < this.pocketBudget(); i++) {
+			BlockPos pos = this.pocket.peek();
+			if (pos == null) {
+				BlockPos seed = this.pocket.seed();
+				if (this.pocket.finishPass()) {
+					this.pocket.start(seed, this.workBounds(pattern), false); // check again: liquid may have come back
+				} else if (this.pocket.inflow()) {
+					this.pocketBackoffUntil = this.ticks + com.solarquarry.quarry.LiquidPocket.INFLOW_BACKOFF;
+				}
+
+				this.syncDirty = true;
+				return;
+			}
+
+			BlockState state = level.isLoaded(pos) ? level.getBlockState(pos) : null;
+			if (state == null || !(state.getBlock() instanceof LiquidBlock) || this.shouldSkip(level, pos, state)
+				|| !QuarryProtection.mayBreak(level, this.actor(level), pos, state, null)) {
+				this.pocket.advance(false);
+				continue;
+			}
+
+			StepResult result = this.drainLiquid(level, pos, state, true);
+			if (result != StepResult.MINED) {
+				return; // buffer full or no energy: wait, nothing lost
+			}
+
+			this.pocket.advance(true);
+		}
+	}
+
+	public com.solarquarry.quarry.LiquidPocket getPocket() {
+		return this.pocket;
+	}
+
 	/** Removes one liquid block with the pump arm. */
 	private StepResult pumpLiquid(ServerLevel level, BlockPos pos, BlockState state) {
+		return this.drainLiquid(level, pos, state, false);
+	}
+
+	/**
+	 * Removes one liquid block. Sources are kept in the buffer (or deleted with a Void Upgrade); flowing liquid is
+	 * removed for a fifth of the energy. {@code quiet} (pocket draining) does not wake the neighbouring liquid, so the
+	 * rest of the pocket does not flow into the gap while it is drained.
+	 */
+	private StepResult drainLiquid(ServerLevel level, BlockPos pos, BlockState state, boolean quiet) {
 		net.minecraft.world.level.material.FluidState fluid = state.getFluidState();
 		boolean keep = fluid.isSource() && !this.upgrades.voiding();
 		FluidVariant variant = keep ? FluidVariant.of(fluid.getType()) : FluidVariant.blank();
@@ -1782,12 +1893,13 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 			return StepResult.FULL;
 		}
 
-		if (this.energy < FLUID_COST) {
+		long cost = fluid.isSource() ? FLUID_COST : Math.max(1, FLUID_COST / 5);
+		if (this.energy < cost) {
 			return StepResult.NO_ENERGY;
 		}
 
-		this.useEnergy(FLUID_COST);
-		level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+		this.useEnergy(cost);
+		level.setBlock(pos, Blocks.AIR.defaultBlockState(), quiet ? Block.UPDATE_CLIENTS : Block.UPDATE_ALL);
 		if (keep) {
 			this.pumpTank.variant = variant;
 			this.pumpTank.amount += FluidConstants.BUCKET;
@@ -2482,6 +2594,11 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		output.putInt("StoredXp", this.storedXp);
 		SingleVariantStorage.writeValue(this.pumpTank, FluidVariant.CODEC, output.child("PumpTank"));
 		output.putLong("FluidPumped", this.fluidPumped);
+		if (this.pocket.active()) {
+			output.putLong("PocketSeed", this.pocket.seed().asLong());
+			output.putInt("PocketPasses", this.pocket.passes());
+			output.putBoolean("PocketInflow", this.pocket.inflow());
+		}
 		output.putLong("MinerScan", this.minerScan);
 		output.putBoolean("MinerDone", this.minerDone);
 		List<Long> minerOres = new ArrayList<>(this.minerOres.size());

@@ -21,6 +21,15 @@ public final class ModMenus {
 		BuiltInRegistries.MENU, SolarQuarry.id("fabrication_bench"),
 		new net.minecraft.world.inventory.MenuType<>(com.solarquarry.crafting.FabricationBenchMenu::new, net.minecraft.world.flag.FeatureFlags.VANILLA_SET)
 	);
+	public static final ExtendedMenuType<com.solarquarry.charging.ChargingStationMenu, BlockPos> CHARGING_STATION = Registry.register(
+		BuiltInRegistries.MENU, SolarQuarry.id("charging_station"), new ExtendedMenuType<>(com.solarquarry.charging.ChargingStationMenu::new, BlockPos.STREAM_CODEC)
+	);
+	public static final ExtendedMenuType<com.solarquarry.turret.LaserTurretMenu, BlockPos> LASER_TURRET = Registry.register(
+		BuiltInRegistries.MENU, SolarQuarry.id("laser_turret"), new ExtendedMenuType<>(com.solarquarry.turret.LaserTurretMenu::new, BlockPos.STREAM_CODEC)
+	);
+	public static final ExtendedMenuType<com.solarquarry.weather.WeatherMachineMenu, BlockPos> WEATHER_MACHINE = Registry.register(
+		BuiltInRegistries.MENU, SolarQuarry.id("weather_control_machine"), new ExtendedMenuType<>(com.solarquarry.weather.WeatherMachineMenu::new, BlockPos.STREAM_CODEC)
+	);
 	public static final ExtendedMenuType<com.solarquarry.treefarm.TreeFarmMenu, BlockPos> TREE_FARM = Registry.register(
 		BuiltInRegistries.MENU, SolarQuarry.id("tree_farm"), new ExtendedMenuType<>(com.solarquarry.treefarm.TreeFarmMenu::new, BlockPos.STREAM_CODEC)
 	);

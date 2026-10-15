@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "IAI",
+    "GHG",
+    " R "
+  ],
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "A": "solarquarry:advanced_circuit",
+    "G": "minecraft:glass_pane",
+    "H": "minecraft:iron_helmet",
+    "R": "minecraft:redstone"
+  },
+  "result": {
+    "id": "solarquarry:scanner_helmet",
+    "count": 1
+  }
+}

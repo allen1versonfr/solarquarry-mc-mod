@@ -30,8 +30,8 @@ import net.minecraft.world.level.ServerLevelAccessor;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The shop's guard: patrols near the shop and fights hostile mobs that come close. It never targets players, pets,
- * villagers, the trader or neutral mobs (endermen, piglins...), and keeps away from creepers' explosions by ignoring
+ * The Mechanic's guard: patrols near the house, fights hostile mobs that come close and whatever hurts the Mechanic.
+ * It never targets players, pets, villagers, the Mechanic or neutral mobs (endermen, piglins...), and keeps away from creepers' explosions by ignoring
  * them. Its iron gear never drops. Only the guard registered in {@link ShopState} is kept.
  */
 public class ShopGuard extends PathfinderMob {
@@ -49,7 +49,8 @@ public class ShopGuard extends PathfinderMob {
 			.add(Attributes.MOVEMENT_SPEED, 0.3)
 			.add(Attributes.ATTACK_DAMAGE, 5.0)
 			.add(Attributes.FOLLOW_RANGE, 24.0)
-			.add(Attributes.ARMOR, 4.0);
+			.add(Attributes.ARMOR, 12.0)
+			.add(Attributes.ARMOR_TOUGHNESS, 2.0);
 	}
 
 	/** Which mobs the guard attacks: hostile ones only. */
@@ -74,16 +75,35 @@ public class ShopGuard extends PathfinderMob {
 		return super.finalizeSpawn(level, difficulty, reason, groupData);
 	}
 
-	/** Iron armour and sword; none of it drops. */
+	/** Gunmetal plating: armour dyed near-black. */
+	public static final int PLATING = 0x2B2D31;
+
+	/**
+	 * Solar Quarry industrial armour: gunmetal-dyed plates with gold (hazard yellow) sentry trim, and an iron sword.
+	 * The armour value comes from the guard's own attributes; none of it drops.
+	 */
 	public void equip() {
-		this.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET));
-		this.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
-		this.setItemSlot(EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS));
-		this.setItemSlot(EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+		this.setItemSlot(EquipmentSlot.HEAD, plate(Items.LEATHER_HELMET));
+		this.setItemSlot(EquipmentSlot.CHEST, plate(Items.LEATHER_CHESTPLATE));
+		this.setItemSlot(EquipmentSlot.LEGS, plate(Items.LEATHER_LEGGINGS));
+		this.setItemSlot(EquipmentSlot.FEET, plate(Items.LEATHER_BOOTS));
 		this.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_SWORD));
 		for (EquipmentSlot slot : EquipmentSlot.values()) {
 			this.setDropChance(slot, 0.0F);
 		}
+	}
+
+	private ItemStack plate(net.minecraft.world.item.Item item) {
+		ItemStack stack = new ItemStack(item);
+		stack.set(net.minecraft.core.component.DataComponents.DYED_COLOR, new net.minecraft.world.item.component.DyedItemColor(PLATING));
+		var registries = this.level().registryAccess();
+		var material = registries.lookupOrThrow(net.minecraft.core.registries.Registries.TRIM_MATERIAL).get(net.minecraft.world.item.equipment.trim.TrimMaterials.GOLD);
+		var pattern = registries.lookupOrThrow(net.minecraft.core.registries.Registries.TRIM_PATTERN).get(net.minecraft.world.item.equipment.trim.TrimPatterns.SENTRY);
+		if (material.isPresent() && pattern.isPresent()) {
+			stack.set(net.minecraft.core.component.DataComponents.TRIM, new net.minecraft.world.item.equipment.trim.ArmorTrim(material.get(), pattern.get()));
+		}
+
+		return stack;
 	}
 
 	@Override
@@ -95,8 +115,28 @@ public class ShopGuard extends PathfinderMob {
 	public void aiStep() {
 		super.aiStep();
 		this.updateSwingTime();
-		if (this.level() instanceof ServerLevel level && this.tickCount % 20 == 0 && this.shopMember && !ShopManager.isRegisteredGuard(level, this)) {
-			this.discard();
+		if (this.level() instanceof ServerLevel level && this.tickCount % 20 == 0) {
+			if (this.shopMember && !ShopManager.isRegisteredGuard(level, this)) {
+				this.discard();
+				return;
+			}
+
+			this.defendMechanic(level);
+		}
+	}
+
+	/** Whatever hostile mob hurt the Mechanic becomes the guard's target (never a player). */
+	private void defendMechanic(ServerLevel level) {
+		ShopState state = ShopState.get(level.getServer().overworld());
+		if (state.trader().isEmpty() || (this.getTarget() != null && this.getTarget().isAlive())) {
+			return;
+		}
+
+		if (level.getEntity(state.trader().get()) instanceof ShopTrader mechanic && mechanic.distanceToSqr(this) < 32 * 32) {
+			LivingEntity attacker = mechanic.getLastHurtByMob();
+			if (attacker != null && isThreat(attacker)) {
+				this.setTarget(attacker);
+			}
 		}
 	}
 

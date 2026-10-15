@@ -1,0 +1,8 @@
+{
+  "type": "solarquarry:industrial",
+  "biomes": "#solarquarry:has_structure/substation",
+  "step": "surface_structures",
+  "spawn_overrides": {},
+  "terrain_adaptation": "beard_thin",
+  "layout": "substation"
+}

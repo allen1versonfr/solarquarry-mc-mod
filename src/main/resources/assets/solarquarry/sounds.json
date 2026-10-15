@@ -28,5 +28,149 @@
       "solarquarry:wrench"
     ],
     "subtitle": "subtitles.solarquarry.wrench"
+  },
+  "weather.idle_hum": {
+    "sounds": [
+      {
+        "name": "solarquarry:weather/idle_hum",
+        "attenuation_distance": 24
+      }
+    ],
+    "subtitle": "subtitles.solarquarry.weather.idle_hum"
+  },
+  "weather.capacitor_hum": {
+    "sounds": [
+      {
+        "name": "solarquarry:weather/capacitor_hum",
+        "attenuation_distance": 24
+      }
+    ],
+    "subtitle": "subtitles.solarquarry.weather.capacitor_hum"
+  },
+  "weather.power_intake": {
+    "sounds": [
+      {
+        "name": "solarquarry:weather/power_intake",
+        "attenuation_distance": 24
+      }
+    ],
+    "subtitle": "subtitles.solarquarry.weather.power_intake"
+  },
+  "weather.core_charge": {
+    "sounds": [
+      {
+        "name": "solarquarry:weather/core_charge",
+        "attenuation_distance": 24
+      }
+    ],
+    "subtitle": "subtitles.solarquarry.weather.core_charge"
+  },
+  "weather.ring_rotation": {
+    "sounds": [
+      {
+        "name": "solarquarry:weather/ring_rotation",
+        "attenuation_distance": 24
+      }
+    ],
+    "subtitle": "subtitles.solarquarry.weather.ring_rotation"
+  },
+  "weather.servo_lock": {
+    "sounds": [
+      {
+        "name": "solarquarry:weather/servo_lock",
+        "attenuation_distance": 24
+      }
+    ],
+    "subtitle": "subtitles.solarquarry.weather.servo_lock"
+  },
+  "weather.arc": {
+    "sounds": [
+      {
+        "name": "solarquarry:weather/arc",
+        "attenuation_distance": 24
+      }
+    ],
+    "subtitle": "subtitles.solarquarry.weather.arc"
+  },
+  "weather.activation_burst": {
+    "sounds": [
+      {
+        "name": "solarquarry:weather/activation_burst",
+        "attenuation_distance": 24
+      }
+    ],
+    "subtitle": "subtitles.solarquarry.weather.activation_burst"
+  },
+  "weather.field_activate": {
+    "sounds": [
+      {
+        "name": "solarquarry:weather/field_activate",
+        "attenuation_distance": 24
+      }
+    ],
+    "subtitle": "subtitles.solarquarry.weather.field_activate"
+  },
+  "weather.storm_activate": {
+    "sounds": [
+      {
+        "name": "solarquarry:weather/storm_activate",
+        "attenuation_distance": 24
+      }
+    ],
+    "subtitle": "subtitles.solarquarry.weather.storm_activate"
+  },
+  "weather.time_activate": {
+    "sounds": [
+      {
+        "name": "solarquarry:weather/time_activate",
+        "attenuation_distance": 24
+      }
+    ],
+    "subtitle": "subtitles.solarquarry.weather.time_activate"
+  },
+  "weather.operating_hum": {
+    "sounds": [
+      {
+        "name": "solarquarry:weather/operating_hum",
+        "attenuation_distance": 24
+      }
+    ],
+    "subtitle": "subtitles.solarquarry.weather.operating_hum"
+  },
+  "weather.low_power": {
+    "sounds": [
+      {
+        "name": "solarquarry:weather/low_power",
+        "attenuation_distance": 24
+      }
+    ],
+    "subtitle": "subtitles.solarquarry.weather.low_power"
+  },
+  "weather.shutdown": {
+    "sounds": [
+      {
+        "name": "solarquarry:weather/shutdown",
+        "attenuation_distance": 24
+      }
+    ],
+    "subtitle": "subtitles.solarquarry.weather.shutdown"
+  },
+  "weather.complete": {
+    "sounds": [
+      {
+        "name": "solarquarry:weather/complete",
+        "attenuation_distance": 24
+      }
+    ],
+    "subtitle": "subtitles.solarquarry.weather.complete"
+  },
+  "weather.error": {
+    "sounds": [
+      {
+        "name": "solarquarry:weather/error",
+        "attenuation_distance": 24
+      }
+    ],
+    "subtitle": "subtitles.solarquarry.weather.error"
   }
 }

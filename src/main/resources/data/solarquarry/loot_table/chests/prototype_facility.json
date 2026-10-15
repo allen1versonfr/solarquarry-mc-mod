@@ -1,0 +1,200 @@
+{
+  "type": "minecraft:chest",
+  "pools": [
+    {
+      "rolls": {
+        "type": "minecraft:uniform",
+        "min": 2,
+        "max": 3
+      },
+      "bonus_rolls": 0,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "solarquarry:helionite_ingot",
+          "weight": 8,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 2,
+                "max": 5
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "solarquarry:advanced_circuit",
+          "weight": 8,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 2,
+                "max": 4
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:diamond",
+          "weight": 6,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 2,
+                "max": 5
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "rolls": {
+        "type": "minecraft:uniform",
+        "min": 2,
+        "max": 3
+      },
+      "bonus_rolls": 0,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "solarquarry:prototype_battery",
+          "weight": 6,
+          "functions": [
+            {
+              "function": "minecraft:set_components",
+              "components": {
+                "solarquarry:energy": 500000
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "solarquarry:battery_elite",
+          "weight": 5
+        },
+        {
+          "type": "minecraft:item",
+          "name": "solarquarry:solar_panel_elite",
+          "weight": 5
+        },
+        {
+          "type": "minecraft:item",
+          "name": "solarquarry:laser_turret_advanced",
+          "weight": 5
+        },
+        {
+          "type": "minecraft:item",
+          "name": "solarquarry:helionite_rocket_boots",
+          "weight": 3,
+          "functions": [
+            {
+              "function": "minecraft:set_components",
+              "components": {
+                "solarquarry:energy": 200000
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "solarquarry:diamond_rocket_boots",
+          "weight": 5,
+          "functions": [
+            {
+              "function": "minecraft:set_components",
+              "components": {
+                "solarquarry:energy": 100000
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "solarquarry:advanced_powered_pickaxe",
+          "weight": 4,
+          "functions": [
+            {
+              "function": "minecraft:set_components",
+              "components": {
+                "solarquarry:energy": 80000
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "solarquarry:range_upgrade_2",
+          "weight": 4
+        },
+        {
+          "type": "minecraft:item",
+          "name": "solarquarry:fortune_upgrade",
+          "weight": 4
+        },
+        {
+          "type": "minecraft:item",
+          "name": "solarquarry:chunk_loader_upgrade",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "name": "solarquarry:advanced_mining_scanner",
+          "weight": 4,
+          "functions": [
+            {
+              "function": "minecraft:set_components",
+              "components": {
+                "solarquarry:energy": 50000
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "rolls": {
+        "type": "minecraft:uniform",
+        "min": 0,
+        "max": 1
+      },
+      "bonus_rolls": 0,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "solarquarry:laser_turret_elite",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "name": "solarquarry:super_smelter",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "name": "solarquarry:quarry",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "name": "solarquarry:helionite_block",
+          "weight": 1
+        },
+        {
+          "type": "minecraft:empty",
+          "weight": 4
+        }
+      ]
+    }
+  ],
+  "random_sequence": "solarquarry:chests/prototype_facility"
+}

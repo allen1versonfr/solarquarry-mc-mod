@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "DAD",
+    "APA",
+    "DCD"
+  ],
+  "key": {
+    "D": "minecraft:diamond",
+    "A": "solarquarry:advanced_circuit",
+    "P": "solarquarry:ore_prospector",
+    "C": "solarquarry:portable_power_cell"
+  },
+  "result": {
+    "id": "solarquarry:advanced_mining_scanner",
+    "count": 1
+  }
+}

@@ -390,9 +390,11 @@ public final class SelfTest {
 	}
 
 	private static void verifyData(MinecraftServer server) {
-		// Ores and raw helionite are found, not crafted; everything else has exactly one crafting recipe named after it.
+		// Ores and raw helionite are found, not crafted, and two rare structure finds (the Prototype Battery and the
+		// one-use Emergency Energy Injector) have no recipe on purpose; everything else has exactly one crafting recipe.
 		java.util.Set<Item> natural = java.util.Set.of(com.solarquarry.registry.ModGear.HELIONITE_ORE.asItem(),
-			com.solarquarry.registry.ModGear.DEEPSLATE_HELIONITE_ORE.asItem(), com.solarquarry.registry.ModGear.RAW_HELIONITE);
+			com.solarquarry.registry.ModGear.DEEPSLATE_HELIONITE_ORE.asItem(), com.solarquarry.registry.ModGear.RAW_HELIONITE,
+			ModItems.PROTOTYPE_BATTERY, ModItems.EMERGENCY_ENERGY_INJECTOR);
 		long recipes = server.getRecipeManager().getRecipes().stream()
 			.filter(holder -> holder.id().identifier().getNamespace().equals(SolarQuarry.MOD_ID))
 			.filter(holder -> holder.value() instanceof net.minecraft.world.item.crafting.CraftingRecipe)

@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "solarquarry:block/weather_control_machine"
+  }
+}

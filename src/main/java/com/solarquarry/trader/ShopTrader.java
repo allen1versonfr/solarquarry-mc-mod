@@ -34,12 +34,16 @@ import net.minecraft.world.level.storage.ValueOutput;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The Solar Quarry trader: lives at the shop, never despawns, sells mod parts and buys ores and blocks for emeralds
- * through the vanilla merchant screen (so every trade is validated by the game's own server logic). Stock refills
- * every morning. Only the trader registered in {@link ShopState} is kept; any other copy removes itself.
+ * The Mechanic (entity id {@code solarquarry:trader}, kept from 3.x so existing worlds keep him): builds his house,
+ * then lives there, never despawns, sells every Solar Quarry item and buys ores and blocks for emeralds through the
+ * vanilla merchant screen (so every trade is validated by the game's own server logic). Sell offers never run out;
+ * buy offers refill every morning. Only the Mechanic registered in {@link ShopState} is kept; any other copy removes
+ * itself.
  */
 public class ShopTrader extends AbstractVillager {
 	private long lastRestockDay = -1;
+	/** Version of the price list this Mechanic has; an older list is rebuilt ({@link MechanicTrades#VERSION}). */
+	private int tradeVersion;
 	/** Set for the trader the shop spawned; any other copy of a shop trader removes itself. */
 	private boolean shopMember;
 
@@ -100,7 +104,8 @@ public class ShopTrader extends AbstractVillager {
 	@Override
 	protected void updateTrades(ServerLevel level) {
 		MerchantOffers offers = this.getOffers();
-		offers.addAll(ShopTrades.offers());
+		offers.addAll(MechanicTrades.offers(level));
+		this.tradeVersion = MechanicTrades.VERSION;
 	}
 
 	@Override
@@ -110,6 +115,11 @@ public class ShopTrader extends AbstractVillager {
 			if (this.shopMember && !ShopManager.isRegisteredTrader(level, this)) {
 				this.discard(); // an extra copy (old save, chunk restore): the shop has exactly one trader
 				return;
+			}
+
+			if (this.tradeVersion != MechanicTrades.VERSION && !this.isTrading()) {
+				this.getOffers().clear(); // a list from an older version: every item, unlimited stock
+				this.updateTrades(level);
 			}
 
 			long day = Math.floorDiv(level.getOverworldClockTime(), 24000L);
@@ -146,6 +156,7 @@ public class ShopTrader extends AbstractVillager {
 	protected void addAdditionalSaveData(ValueOutput output) {
 		super.addAdditionalSaveData(output);
 		output.putLong("RestockDay", this.lastRestockDay);
+		output.putInt("TradeVersion", this.tradeVersion);
 		output.putBoolean("ShopMember", this.shopMember);
 	}
 
@@ -153,6 +164,7 @@ public class ShopTrader extends AbstractVillager {
 	protected void readAdditionalSaveData(ValueInput input) {
 		super.readAdditionalSaveData(input);
 		this.lastRestockDay = input.getLongOr("RestockDay", -1L);
+		this.tradeVersion = input.getIntOr("TradeVersion", 0);
 		this.shopMember = input.getBooleanOr("ShopMember", false);
 	}
 

@@ -33,7 +33,7 @@ See [UPGRADE-AUDIT.md](UPGRADE-AUDIT.md). Baseline 3.0.0: 302/302 self-test chec
 | Tree Farm "does nothing" — root cause | Fixed: it only planted where the spot was pure air with air above it, so grass, flowers or snow on a spot made it unusable and the farm showed Idle with no reason; it also only looked one block up or down. Now it clears wild plants, searches 2 up / 3 down for ground, and reports **No ground**, **Construction blocked** (with coordinates) and **Building** |
 | Tree Farm: builds a mast and four corner posts first, then plants, grows and fells on grassy ground powered through a cable | VERIFIED (self-test: 11 frame blocks, plants through grass and flowers, fells trees, power through a cable) |
 | Tree Farm: construction progress / blocked position in the GUI | IMPLEMENTED — NOT VERIFIED (client test screenshot `19_tree_farm_construction`) |
-| Kelp Farm / Mechanic's house use the same framework | NOT STARTED (Checkpoints F, G) |
+| Kelp Farm / Mechanic's house use the same framework | Done (Checkpoints F, G) |
 | Multiplayer | Not tested by agreement (solo play); all construction runs on the server |
 
 Results: 326/326 self-test checks (302 existing + 24 new), 62/62 unit tests, packaged jar loads from a mods folder and passes the 4.0 scenarios.
@@ -109,7 +109,113 @@ grow and every piece of bone meal went to it: the farm looked busy (Growing) and
 | GUI: status LCD, construction progress / blocked position, kelp count, harvest total, growth gauge, energy | IMPLEMENTED — NOT VERIFIED (client test) |
 | Multiplayer | Not tested by agreement |
 
-## Later checkpoints
-G Mechanic, trades, guard, house ·
-H Charging Station, powered tools, crouch-to-fly boots · I Liquid Remover pockets · J Laser Turrets · K structures and loot ·
-Weather Control Machine · L release audit — all NOT STARTED.
+## Checkpoint G — the Mechanic, his trades, his guard and his house
+
+| Requirement | Status |
+|---|---|
+| The trader becomes the Mechanic (name, greeting, starter kit unchanged) | VERIFIED (self-test: phase 4 scenarios still pass) |
+| House: trading hall, living room, workshop; a 13 × 11 blueprint built through the shared construction framework | VERIFIED (self-test: every block of the plan in place, bench, beds, door, slab floor, light inside) |
+| Site search: flat, open, near spawn; strict search, then a relaxed one, then a fallback | VERIFIED (site found and started in the flat test world); other terrain: by design |
+| Built step by step, Mechanic walks to the work holding a wrench, puts it away when done | VERIFIED (self-test) |
+| Never replaces a player's block; pauses with the position, resumes after it is cleared | VERIFIED (self-test: OBSTRUCTED, block left in place, house finished afterwards) |
+| Construction survives a restart (saved per server) | VERIFIED (self-test: saved site reloaded with the same plan and progress) |
+| A finished house is not maintained (cannot be farmed for blocks) | VERIFIED (self-test: a removed anvil stays removed) |
+| Supply chest stocked once, sign written | VERIFIED (self-test) |
+| Sells every Solar Quarry item except ores, spawn eggs and loot-only items | VERIFIED (self-test: 79 offers, none missing; 867 construction steps) |
+| Prices from the recipe (crafting value × 1.5), never below value; expensive items in emerald blocks over both price slots | VERIFIED (self-test). Found in this round: the Weather Control Machine was capped at 64 emerald blocks (576 emeralds, below its value of 719); the second price slot now carries the rest |
+| Unlimited stock, fixed prices; buy offers restock every morning | VERIFIED (self-test: 500 purchases, prices unchanged; restock scenario) |
+| Guard: dark dyed leather with a gold sentry trim, armour 12, defends the Mechanic, hostile mobs only | VERIFIED (equipment and trim checked); combat: the phase 4 guard scenario |
+| Existing worlds: an old shop keeps working; new worlds get the house | By design (`ShopState.house` defaults to the old shop); not separately tested |
+| House screenshot | IMPLEMENTED — NOT VERIFIED (client test `18_trader_shop`, `19_trader_trades`) |
+
+## Checkpoint H — Charging Station, powered tools, crouch-to-fly boots
+
+| Requirement | Status |
+|---|---|
+| Charging Station: 200k E, up to 1,000 E/t, input/output slots, statuses, energy conserved | VERIFIED (self-test: energy into the item = energy out of the station, rate limit, no damage or enchantment changes, save/load, half-charged item keeps its charge, full items move out, no power stops it) |
+| Station GUI | IMPLEMENTED — NOT VERIFIED (client test `22_charging_station`) |
+| Rocket Boots: hold crouch in the air to fly (server-side, no key binding or packet); energy per tick; faster and longer per tier; fall absorption kept | VERIFIED (self-test: empty pair does nothing, no thrust without crouching, crouching on the ground only sneaks, exact thrust and cost, no free flight when nearly empty, fall damage absorbed and paid, taking them off ends everything, tiers ordered) |
+| Ore Prospector on energy (20k E, 400 E per scan) instead of durability | VERIFIED (self-test: refuses when empty, exact cost, cooldown costs nothing) |
+| Liquid Prospector | VERIFIED (self-test: 3 water + 1 lava sources and the nearest of each, exact cost) |
+| Slime Prospector | VERIFIED (self-test: matches an independent copy of the game's slime-chunk rule over 441 chunks; direction) |
+| Scanner Helmet: light rule, 2 E/t, off when empty | VERIFIED (self-test: dark enclosed spot allows spawns, a torch makes it safe; drain) |
+| Scanner Helmet HUD | IMPLEMENTED — NOT VERIFIED (client) |
+| Batteries charge any powered item | VERIFIED (self-test) |
+
+## Checkpoint I — Liquid Remover pockets
+
+| Requirement | Status |
+|---|---|
+| Finds the whole connected liquid pocket the drill opens (bounded: 8,192 cells, 1,024 mapped per tick) | VERIFIED (unit test `LiquidPocketTest`, self-test flooded cavern) |
+| Drains top layer first, budget scales with Speed upgrades, flowing liquid costs a fifth of a source | VERIFIED (self-test: cavern drained and mined, ground under the water mined too) |
+| Inflow back-off (600 ticks) and at most 4 passes | VERIFIED (unit test; self-test pass count) |
+| Pocket progress in the quarry screen; saved with the quarry | Save/load VERIFIED; screen IMPLEMENTED — NOT VERIFIED (client) |
+
+## Checkpoint J — Laser Turrets
+
+| Requirement | Status |
+|---|---|
+| Three tiers (range 12/18/24, damage 4/7/12, 20/14/10 ticks per shot, 150/400/1,000 E per shot) | VERIFIED (unit-level values; self-test with the Basic turret) |
+| Hostile mobs only: never villagers, wolves, iron golems, the Mechanic's Guard; creepers only in all-hostiles mode | VERIFIED (self-test) |
+| Range and line of sight respected | VERIFIED (self-test: husk at 20 blocks and husk behind a wall untouched). Found in this round: the sight line started inside the turret's own block, so it never fired; it now starts at the edge |
+| Every shot paid, nothing else uses energy; no energy → No power; off → no shots; wrecked structure turret never fires | VERIFIED (self-test: 750 E for 5 shots) |
+| Settings, energy and shot count survive save/load | VERIFIED (self-test) |
+| Beam rendering, GUI | IMPLEMENTED — NOT VERIFIED (client test `23_laser_turret`) |
+
+## Checkpoint K — equipment and industrial structures
+
+| Requirement | Status |
+|---|---|
+| Portable Power Cell: charges powered gear in the inventory, never other cells, energy conserved | VERIFIED (self-test) |
+| Industrial Repair Kit: repairs the most worn Solar Quarry item by 300, used up, vanilla tools untouched | VERIFIED (self-test) |
+| Emergency Energy Injector: +20k E into the emptiest powered item, used up (loot only) | VERIFIED (self-test) |
+| Mining Helmet: Haste below y=50 only | VERIFIED (self-test) |
+| Night-Vision Goggles: Night Vision only while charged, 3 E/t | VERIFIED (self-test) |
+| Advanced Powered Pickaxe: area mode toggle, 3 × 3 facing the player, 100 E per extra block, never bedrock or harder blocks, normal pickaxe without energy | VERIFIED (self-test) |
+| Industrial Power Hammer, Reinforced Mining Pickaxe, Advanced Mining Scanner | Registered with recipes (recipe self-test); scanner use: IMPLEMENTED — NOT VERIFIED |
+| Prototype Battery (1M E, loot only) | Registered, in loot tables (loot self-test) |
+| Industrial Shield | NOT DONE: a working shield needs a custom shield renderer and model on the client; left out rather than shipped broken |
+| Security Drone Controller | NOT DONE: security drones are part of the quarry (Security Upgrade, paid by the quarry); a free-roaming controller would need a separate drone owner and power source |
+| Ten structures (Mining Facility, Power Station, Research Laboratory, Automated Factory, Tree Farm, Supply Bunker, Substation, Prototype Facility, Train Depot, Solar Array), code-driven pieces, deterministic per origin | VERIFIED (self-test: all ten built chunk by chunk like world generation, 658–4,010 blocks each) |
+| Registered from the data pack (structure, structure set, biome tag for each) | VERIFIED (self-test: 10/10) |
+| Themed loot: 11 loot tables load; every container filled and rolled exactly once; no unknown items | VERIFIED (self-test: 36 containers incl. the freight-car minecart) |
+| Guarded structures have Laser Turrets, wrecked or with finite energy | VERIFIED (self-test: Mining Facility, Power Station, Research Laboratory, Prototype Facility) |
+| Generates through the game's own structure code | VERIFIED (self-test: the Substation finds a site and is placed with its chest) |
+| Spacing, rarity and look in a real world | IMPLEMENTED — NOT VERIFIED (needs exploring a world on the PC) |
+
+## Weather Control Machine
+
+| Requirement | Status |
+|---|---|
+| Clear / rain / thunderstorm through the server's own weather; startup sequence before the sky changes | VERIFIED (self-test: real thunderstorm in the server weather data after the sequence) |
+| One-time change, then shutdown; busy machine refuses a second request at no cost | VERIFIED (self-test) |
+| Without enough energy nothing starts and nothing is taken | VERIFIED (self-test) |
+| Clearing costs ×1.5 against rain, ×2 against a thunderstorm | VERIFIED (self-test). Found in this round: the check read the sky's fade-in level, which lags seconds behind; it now reads the server's weather state |
+| Dimensions without weather are refused | VERIFIED (self-test: the End). Found in this round: the End has sky light in 26.2, so the old sky-light test let it through; it now uses the game's own `canHaveWeather()` |
+| Sustained weather (5–40 min) with upkeep every tick; survives save/load | VERIFIED (self-test: exact upkeep over 40 ticks; copy holds stage, operation, remaining time, energy) |
+| Out of energy: controlled shutdown with the reason | VERIFIED (self-test: POWER_LOST) |
+| Time preset jumps the world clock; total game time untouched; exact cost | VERIFIED (self-test) |
+| Gradual time change, step by step, paid per step | VERIFIED (self-test). Found in this round: the last step landed on the target and the clock's own tick moved it one past, so the machine chased it forever; it now finishes on the step that lands |
+| Energy scale: 5M E buffer, 8,192 E/t input; start costs 200k–2M E, upkeep 200–2,000 E/t | Scaled to the mod's energy (the plan's numbers assumed another mod's energy unit); see README |
+| Recipe needs Helionite, Elite panel and battery, Advanced Circuit, Super Smelter, Machine Frame | VERIFIED (unit test `ProgressionTest`, now also covering the Elite Laser Turret and this machine) |
+| 16 original sounds (synthesised, generator script in `docs/weather-sounds-gen.py`), subtitles | Registered (the server starts with all 16 sound events); how they sound and the loops on the client: NOT VERIFIED |
+| Animated renderer (rings, core, beam), GUI with presets and manual time | IMPLEMENTED — NOT VERIFIED (client test `24_weather_machine_gui`, `25_weather_machine_charging`, `26_weather_machine_storm`) |
+| Multiplayer | Not tested by agreement |
+
+## Checkpoint L — release audit (4.0.0-beta.3)
+
+| Item | Status |
+|---|---|
+| Full dedicated-server self-test in the cloud workspace | VERIFIED: 474/474 checks (363 from beta.2 plus 111 new for G–K and the Weather Control Machine) |
+| Unit tests | 71/71 |
+| No Nether materials in any recipe; Helionite in every tier 4 recipe | VERIFIED (unit tests) |
+| Every item in the creative tab exactly once, has a recipe (except the two loot-only items), model, texture and name | VERIFIED (self-test data checks) |
+| Packaged jar `release/solarquarry-4.0.0-beta.3.jar` | VERIFIED: loaded from a mods folder, 474/474 self-test checks pass from the jar (the test copy only had `"java": ">=21"` for the workspace; the release jar keeps `>=25`). Classes are compiled for Java 21, which Java 25 runs; the Gradle build on the PC replaces this with a Java 25 jar |
+| Gradle build on the PC (`2-build.bat`) | NOT RUN — needs the PC |
+| Client game test with screenshots (`5-clienttest.bat`), now also covering the Charging Station, Laser Turret and Weather Control Machine | NOT RUN — needs the PC |
+| Run alongside the Fabulously Optimized modpack | NOT RUN — needs the PC |
+| Multiplayer | Not tested by agreement (solo play) |
+
+**What `!run.bat` on the PC should do next:** build with Gradle (Java 25), run `3-selftest.bat` to confirm the cloud
+result on the real toolchain, run `5-clienttest.bat` and look at screenshots 18–26, then load the jar in the
+Fabulously Optimized instance on a copy of a world.

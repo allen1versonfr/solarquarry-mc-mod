@@ -1,0 +1,43 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_the_recipe": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "solarquarry:scanner_helmet"
+      }
+    },
+    "has_advanced_circuit": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "solarquarry:advanced_circuit"
+          }
+        ]
+      }
+    },
+    "has_iron_helmet": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "minecraft:iron_helmet"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_advanced_circuit",
+      "has_iron_helmet"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "solarquarry:scanner_helmet"
+    ]
+  }
+}

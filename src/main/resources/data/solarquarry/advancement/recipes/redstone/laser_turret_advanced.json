@@ -1,0 +1,43 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_the_recipe": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "solarquarry:laser_turret_advanced"
+      }
+    },
+    "has_laser_turret_basic": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "solarquarry:laser_turret_basic"
+          }
+        ]
+      }
+    },
+    "has_battery_advanced": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "solarquarry:battery_advanced"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_laser_turret_basic",
+      "has_battery_advanced"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "solarquarry:laser_turret_advanced"
+    ]
+  }
+}

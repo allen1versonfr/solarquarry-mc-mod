@@ -19,21 +19,9 @@ import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
 
 public class SolarQuarryClient implements ClientModInitializer {
-	private static boolean rocketJumpHeld;
-
 	@Override
 	public void onInitializeClient() {
 		MenuScreens.register(ModMenus.QUARRY, QuarryScreen::new);
-		// Rocket Boots: crouch + jump asks the server for a rocket jump (the server checks and launches).
-		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(client -> {
-			boolean jump = client.options.keyJump.isDown();
-			if (jump && !rocketJumpHeld && client.player != null && client.gui.screen() == null && client.player.isShiftKeyDown()
-				&& !com.solarquarry.boots.RocketBootsItem.worn(client.player).isEmpty()) {
-				ClientPlayNetworking.send(new com.solarquarry.boots.RocketBoots.JumpPayload());
-			}
-
-			rocketJumpHeld = jump;
-		});
 		MenuScreens.register(ModMenus.FILTER_PIPE, FilterPipeScreen::new);
 		MenuScreens.register(ModMenus.FABRICATION_BENCH, com.solarquarry.client.screen.FabricationBenchScreen::new);
 		MenuScreens.register(ModMenus.STORAGE_TERMINAL, com.solarquarry.client.screen.StorageTerminalScreen::new);
@@ -42,6 +30,11 @@ public class SolarQuarryClient implements ClientModInitializer {
 		MenuScreens.register(ModMenus.TREE_FARM, com.solarquarry.client.screen.TreeFarmScreen::new);
 		MenuScreens.register(ModMenus.CRATE, com.solarquarry.client.screen.CrateScreen::new);
 		MenuScreens.register(ModMenus.SUPER_SMELTER, com.solarquarry.client.screen.SuperSmelterScreen::new);
+		MenuScreens.register(ModMenus.WEATHER_MACHINE, com.solarquarry.client.screen.WeatherMachineScreen::new);
+		com.solarquarry.client.weather.WeatherMachineSounds.register();
+		MenuScreens.register(ModMenus.LASER_TURRET, com.solarquarry.client.screen.LaserTurretScreen::new);
+		MenuScreens.register(ModMenus.CHARGING_STATION, com.solarquarry.client.screen.ChargingStationScreen::new);
+		com.solarquarry.client.ScannerHelmetHud.register();
 		MenuScreens.register(ModMenus.TERMINAL, TerminalScreen::new);
 		MenuScreens.register(ModMenus.SORTING_TERMINAL, com.solarquarry.client.screen.SortingTerminalScreen::new);
 		ItemTooltipCallback.EVENT.register((stack, context, type, lines) -> {
@@ -78,6 +71,7 @@ public class SolarQuarryClient implements ClientModInitializer {
 		net.minecraft.client.renderer.entity.EntityRenderers.register(com.solarquarry.registry.ModEntities.SHOP_TRADER, com.solarquarry.client.render.ShopTraderRenderer::new);
 		net.minecraft.client.renderer.entity.EntityRenderers.register(com.solarquarry.registry.ModEntities.SECURITY_DRONE, com.solarquarry.client.render.SecurityDroneRenderer::new);
 		net.minecraft.client.renderer.entity.EntityRenderers.register(com.solarquarry.registry.ModEntities.SHOP_GUARD, com.solarquarry.client.render.ShopGuardRenderer::new);
+		BlockEntityRenderers.register(ModBlockEntities.WEATHER_MACHINE, com.solarquarry.client.render.WeatherMachineRenderer::new);
 		BlockEntityRenderers.register(ModBlockEntities.TREE_FARM, com.solarquarry.client.render.TreeFarmRenderer::new);
 		BlockEntityRenderers.register(ModBlockEntities.LIQUID_TANK, com.solarquarry.client.render.LiquidTankRenderer::new);
 	}

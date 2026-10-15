@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "ITI",
+    "IHI"
+  ],
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "T": "minecraft:torch",
+    "H": "minecraft:iron_helmet"
+  },
+  "result": {
+    "id": "solarquarry:mining_helmet",
+    "count": 1
+  }
+}

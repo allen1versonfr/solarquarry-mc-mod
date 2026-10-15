@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    "HAH",
+    "ATA",
+    "HBH"
+  ],
+  "key": {
+    "H": "solarquarry:helionite_ingot",
+    "A": "solarquarry:advanced_circuit",
+    "T": "solarquarry:laser_turret_advanced",
+    "B": "solarquarry:battery_elite"
+  },
+  "result": {
+    "id": "solarquarry:laser_turret_elite",
+    "count": 1
+  }
+}
