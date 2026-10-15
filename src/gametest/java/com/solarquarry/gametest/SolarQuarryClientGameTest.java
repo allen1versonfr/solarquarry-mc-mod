@@ -333,6 +333,8 @@ public class SolarQuarryClientGameTest implements FabricClientGameTest {
 					farm.setItem(com.solarquarry.treefarm.TreeFarmBlockEntity.BONE_MEAL_START, new ItemStack(Items.BONE_MEAL, 64));
 					farm.setItem(com.solarquarry.treefarm.TreeFarmBlockEntity.UPGRADE_START, new ItemStack(ModItems.SPEED_UPGRADE, 2));
 					farm.restoreEnergy(50_000L);
+				} else {
+					throw new AssertionError("no tree farm block entity after placing it: " + level.getBlockState(farmPos) + " / " + level.getBlockEntity(farmPos));
 				}
 			});
 			singleplayer.getServer().runCommand("tp @a " + (farmPos.getX() + 10) + " " + (farmPos.getY() + 7) + " " + (farmPos.getZ() - 4));
@@ -343,7 +345,13 @@ public class SolarQuarryClientGameTest implements FabricClientGameTest {
 			singleplayer.getServer().runOnServer(server -> {
 				ServerPlayer player = server.getPlayerList().getPlayers().get(0);
 				if (player.level().getBlockEntity(farmPos) instanceof com.solarquarry.treefarm.TreeFarmBlockEntity farm) {
+					com.solarquarry.SolarQuarry.LOGGER.info("[ClientTest] tree farm: status {}, energy {}, planted {}, felled {}, first spot {} = {}",
+						farm.getStatus(), farm.getEnergy(), farm.getSaplingsPlanted(), farm.getTreesFelled(), farm.plantingSpots().getFirst(),
+						player.level().getBlockState(farm.plantingSpots().getFirst()));
 					player.openMenu(farm);
+				} else {
+					throw new AssertionError("tree farm gone before opening its screen: " + player.level().getBlockState(farmPos) + " / "
+						+ player.level().getBlockEntity(farmPos) + " in " + player.level().dimension() + ", player at " + player.blockPosition());
 				}
 			});
 			context.waitForScreen(com.solarquarry.client.screen.TreeFarmScreen.class);
