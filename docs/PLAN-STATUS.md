@@ -50,9 +50,27 @@ VERIFIED means an automated in-world check (dedicated-server self-test or client
 | 1.9 | Upgrade limits: speed 4, range 2, efficiency 4, capacity 4, fortune 3, silk 1 (exclusive), void 1 | VERIFIED (self-test) |
 | 1.10 | Invalid insertion rejected (GUI slot, duplicate types, automation) | VERIFIED (self-test); shift-click uses the same slot rules |
 | 1.11 | Save/reload, pickup, full output, no power | VERIFIED (2.0/2.1) |
-| 2.x | Energy, pipe tiers, Sorting Terminal | NOT STARTED |
-| 3.x | Auto-Smelter Upgrade, Super Smelter | NOT STARTED |
-| 4.x | Trader, starter kit, shop, guard, trades, replacement | NOT STARTED |
-| 5.x | Tree Farm, drone, upgrades | NOT STARTED |
-| 6.x | Security Upgrade, drones | NOT STARTED |
-| 7.x | Rocket Boots (4 tiers) | NOT STARTED |
+| 1.12 | Quarry lights the pit with torches from a torch slot | VERIFIED (self-test: 8 wall torches, 56 left) |
+| 1.13 | Legs grow to the ground; support under a floating machine | VERIFIED (self-test; client screenshot 12) |
+| 1.14 | Drill stays on the frame after a range change | VERIFIED (client screenshot 11) |
+| 1.15 | Printer-style gantry: bridge on both rails, carriage on the bridge | VERIFIED (client screenshots) |
+| 1.16 | Mining experience collected by the drill, taken with a button | VERIFIED (self-test) |
+| 1.17 | Prospector lists every ore | VERIFIED (self-test) |
+| 2.1 | Energy: solar, batteries, cables, exact accounting | VERIFIED (2.x self-tests, still passing) |
+| 2.2 | Pipe tiers basic / reinforced / advanced | VERIFIED (self-test: timed delivery) |
+| 2.3 | Sorting Terminal: listed/except/fallback, tags, priority, overflow, persistence, recovery | VERIFIED (self-test, client screenshot 10) |
+| 2.4 | Liquid Remover Upgrade, fluid pipe, Liquid Tank (buckets; void deletes) | VERIFIED (self-test: 18 buckets pumped, tank, bucket, void; client screenshots 13-14) |
+| 2.5 | Storage crates 54/108/162 slots | VERIFIED (self-test: paging, automation; client screenshot 15) |
+| 3.1 | Auto-Smelter Upgrade | VERIFIED (self-test: 18 ore -> 18 ingots, stone untouched, XP) |
+| 3.2 | Super Smelter (3 lanes, 4x, 16 E/t per lane, no idle draw) | VERIFIED (self-test: speed, exact energy, no power, full output, sided automation, save/load; screenshot 16) |
+| 3.3 | Fabrication Bench with recipe catalogue | VERIFIED (self-test: catalogue, craft all, tags; screenshot 17) |
+| 3b.1 | Helionite ore (Overworld deepslate), ingot, block | VERIFIED (self-test: tags, smelting, feature registered) |
+| 3b.2 | Helionite tools and armour = netherite stats | VERIFIED (self-test compares durability and attributes) |
+| 3b.3 | No Nether items in any recipe | VERIFIED (unit test scans every recipe) |
+| 4.1 | First-join starter kit, once per player, parcel when full | IMPLEMENTED, NOT VERIFIED |
+| 4.2 | Shop with guard, lighting, sign, bench, supply chest | IMPLEMENTED, NOT VERIFIED |
+| 4.3 | Buy/sell through the vanilla merchant screen, daily restock, no buy-sell loop | IMPLEMENTED, NOT VERIFIED |
+| 4.4 | Death, next-morning replacement, no duplicates | IMPLEMENTED, NOT VERIFIED |
+| 5.x | Tree Farm, drone, growth/harvest upgrades | IMPLEMENTED, NOT VERIFIED |
+| 6.x | Security Upgrade drones; miner drone | NOT STARTED |
+| 7.x | Rocket Boots (leather, iron, diamond, helionite) | NOT STARTED |
