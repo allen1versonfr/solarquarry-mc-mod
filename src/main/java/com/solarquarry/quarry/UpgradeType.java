@@ -12,6 +12,7 @@ public enum UpgradeType {
 	CHUNK_LOADER("chunk_loader", 1, true, false),
 	LIQUID_REMOVER("liquid_remover", 1, true, false),
 	AUTO_SMELTER("auto_smelter", 1, true, false),
+	SECURITY("security", 1, true, false),
 	GROWTH("growth", 2, false, true),
 	HARVEST("harvest", 1, false, true);
 

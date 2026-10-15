@@ -3,6 +3,7 @@ package com.solarquarry;
 import com.solarquarry.block.QuarryBlock;
 import com.solarquarry.blockentity.BatteryBlockEntity;
 import com.solarquarry.blockentity.QuarryBlockEntity;
+import com.solarquarry.quarry.SecurityDrone;
 import com.solarquarry.quarry.MiningPattern;
 import com.solarquarry.quarry.QuarryMode;
 import com.solarquarry.quarry.QuarryStatus;
@@ -102,6 +103,9 @@ final class SelfTestModes {
 		this.scenarios.add(Scenario.timed("chunk loader: an unpowered quarry keeps only its own chunks", this::setupChunkLoaderNoPower, 40, this::releaseForcedChunk));
 		this.scenarios.add(Scenario.timed("chunk loader: waits for power without losing its chunks", s -> { }, 160, this::verifyChunkLoaderNoPower));
 		this.scenarios.add(Scenario.timed("phase 5: tree farm plants, grows and fells trees", this::setupTreeFarm, 900, this::verifyTreeFarm));
+		this.scenarios.add(Scenario.timed("phase 6: the miner drone tunnels to ores after the area is done", this::setupMiner, 500, this::verifyMiner));
+		this.scenarios.add(Scenario.timed("phase 6: security drones fight hostile mobs only", this::setupSecurity, 140, this::verifySecurity));
+		this.scenarios.add(Scenario.timed("phase 6: drones vanish with their quarry", s -> { }, 5, this::verifyDronesGone));
 		this.scenarios.add(Scenario.timed("phase 7: rocket boots launch, absorb falls and charge", s -> { }, 1, this::verifyRocketBoots));
 		this.scenarios.add(Scenario.timed("phase 4: the shop is built once, with its trader and guard", this::setupShop, 40, this::verifyShop));
 		this.scenarios.add(Scenario.timed("phase 4: starter kit once per player, parcel when the inventory is full", s -> { }, 1, this::verifyStarterKit));
@@ -2003,5 +2007,96 @@ final class SelfTestModes {
 		player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
 		level.removeBlock(cell, false);
 		com.solarquarry.boots.RocketBoots.forget(player.getUUID());
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// Phase 6: Security drones
+	// ---------------------------------------------------------------------------------------------
+
+	private final List<net.minecraft.world.entity.LivingEntity> bystanders = new ArrayList<>();
+	private net.minecraft.world.entity.LivingEntity intruder;
+
+	private <T extends net.minecraft.world.entity.Mob> T place(ServerLevel level, net.minecraft.world.entity.EntityType<T> type, double x, double y, double z) {
+		T mob = type.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+		mob.snapTo(x, y, z, 0.0F, 0.0F);
+		mob.setNoAi(true);
+		mob.setNoGravity(true);
+		mob.setPersistenceRequired();
+		level.addFreshEntity(mob);
+		return mob;
+	}
+
+	private void setupSecurity(ServerLevel level) {
+		QuarryBlockEntity quarry = quarry(level);
+		quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS, new ItemStack(com.solarquarry.registry.ModItems.SECURITY_UPGRADE));
+		quarry.restoreEnergy(quarry.getEnergyCapacity());
+		this.intruder = this.place(level, net.minecraft.world.entity.EntityTypes.HUSK, 104.5, 202, 106.5);
+		this.bystanders.clear();
+		this.bystanders.add(this.place(level, net.minecraft.world.entity.EntityTypes.COW, 96.5, 202, 104.5));
+		this.bystanders.add(this.place(level, net.minecraft.world.entity.EntityTypes.VILLAGER, 97.5, 202, 107.5));
+		this.bystanders.add(this.place(level, net.minecraft.world.entity.EntityTypes.WOLF, 103.5, 202, 96.5));
+		this.bystanders.add(this.place(level, net.minecraft.world.entity.EntityTypes.ENDERMAN, 95.5, 202, 99.5));
+	}
+
+	private void verifySecurity(ServerLevel level) {
+		QuarryBlockEntity quarry = quarry(level);
+		SelfTest.check(!this.intruder.isAlive(), "security: the drones destroyed the hostile mob");
+		boolean spared = this.bystanders.stream().allMatch(e -> e.isAlive() && e.getHealth() >= e.getMaxHealth());
+		SelfTest.check(spared, "security: cows, villagers, pets and neutral mobs were left alone");
+		int deployed = quarry.getDroneCount();
+		var drones = level.getEntitiesOfClass(SecurityDrone.class, new net.minecraft.world.phys.AABB(Q).inflate(20));
+		SelfTest.check(deployed >= 1 && deployed <= QuarryBlockEntity.MAX_DRONES && drones.size() == deployed,
+			"security: drones deployed and tracked by the quarry (" + deployed + ")");
+		SelfTest.check(quarry.getEnergy() < quarry.getEnergyCapacity(), "security: drones use the quarry's energy");
+		this.bystanders.forEach(net.minecraft.world.entity.Entity::discard);
+		this.bystanders.clear();
+	}
+
+	private void verifyDronesGone(ServerLevel level) {
+		var drones = level.getEntitiesOfClass(SecurityDrone.class, new net.minecraft.world.phys.AABB(Q).inflate(32));
+		SelfTest.check(drones.isEmpty(), "security: replacing the quarry removed its drones (" + drones.size() + " left)");
+	}
+
+	private static final BlockPos BURIED_ORE = new BlockPos(104, 197, 108);
+
+	private void setupMiner(ServerLevel level) {
+		fill(level, 94, 195, 98, 107, 199, 112, Blocks.STONE.defaultBlockState());
+		level.setBlock(BURIED_ORE, Blocks.DIAMOND_ORE.defaultBlockState(), Block.UPDATE_CLIENTS);
+		QuarryBlockEntity quarry = quarry(level);
+		quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS, new ItemStack(com.solarquarry.registry.ModItems.SPEED_UPGRADE, 4));
+		quarry.setItem(QuarryBlockEntity.DRONE_SLOT, new ItemStack(com.solarquarry.registry.ModItems.MINER_DRONE));
+		configure(quarry, QuarryMode.STRIP_MINE, 3, 3, 1, 198);
+		quarry.resetProgress();
+		quarry.start();
+	}
+
+	private void verifyMiner(ServerLevel level) {
+		QuarryBlockEntity quarry = quarry(level);
+		int diamonds = 0;
+		List<ItemStack> collected = new ArrayList<>();
+		for (int i = 0; i < QuarryBlockEntity.BUFFER_SLOTS; i++) {
+			collected.add(quarry.getItem(i));
+		}
+
+		if (level.getBlockEntity(Q.above()) instanceof Container chest) {
+			for (int i = 0; i < chest.getContainerSize(); i++) {
+				collected.add(chest.getItem(i));
+			}
+		}
+
+		for (ItemStack stack : collected) {
+			if (stack.is(Items.DIAMOND)) {
+				diamonds += stack.getCount();
+			}
+		}
+
+		SolarQuarry.LOGGER.info("[SelfTest] miner drone at {}, status {}, done {}", quarry.getMinerPos(), quarry.getStatus(), quarry.isMinerDone());
+		SelfTest.check(quarry.isFinished() && level.getBlockState(BURIED_ORE).isAir() && diamonds >= 1,
+			"miner drone: reached the buried ore outside the area and collected it (" + diamonds + " diamonds)");
+		SelfTest.check(quarry.isMinerDone() && quarry.getStatus() == QuarryStatus.COMPLETE, "miner drone: stops when no ores are left in range");
+		SelfTest.check(level.getBlockState(new BlockPos(95, 197, 110)).is(Blocks.STONE) && level.getBlockState(new BlockPos(106, 196, 99)).is(Blocks.STONE),
+			"miner drone: digs a tunnel, not the whole area");
+		quarry.setItem(QuarryBlockEntity.DRONE_SLOT, ItemStack.EMPTY);
+		quarry.setItem(QuarryBlockEntity.BUFFER_SLOTS, ItemStack.EMPTY);
 	}
 }

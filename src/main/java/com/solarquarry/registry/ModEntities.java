@@ -17,6 +17,9 @@ public final class ModEntities {
 	public static final EntityType<ShopGuard> SHOP_GUARD = register("guard",
 		EntityType.Builder.of(ShopGuard::new, MobCategory.CREATURE).sized(0.6F, 1.95F).eyeHeight(1.62F).clientTrackingRange(10));
 
+	public static final EntityType<com.solarquarry.quarry.SecurityDrone> SECURITY_DRONE = register("security_drone",
+		EntityType.Builder.of(com.solarquarry.quarry.SecurityDrone::new, MobCategory.MISC).sized(0.7F, 0.4F).clientTrackingRange(8).noSave());
+
 	private ModEntities() {
 	}
 
@@ -28,5 +31,6 @@ public final class ModEntities {
 	public static void init() {
 		FabricDefaultAttributeRegistry.register(SHOP_TRADER, ShopTrader.createAttributes());
 		FabricDefaultAttributeRegistry.register(SHOP_GUARD, ShopGuard.createAttributes());
+		FabricDefaultAttributeRegistry.register(SECURITY_DRONE, com.solarquarry.quarry.SecurityDrone.createAttributes());
 	}
 }

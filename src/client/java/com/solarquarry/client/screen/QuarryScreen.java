@@ -81,7 +81,7 @@ public class QuarryScreen extends AbstractContainerScreen<QuarryMenu> {
 		this.resumeButton.setTooltip(Tooltip.create(Component.translatable("gui.solarquarry.resume.tooltip")));
 		this.configButton = this.addRenderableWidget(new IndustrialButton(bx, y + 88, BUTTON_W, 18, Component.translatable("gui.solarquarry.config"),
 			input -> this.toggleConfig()).accent(0xFF47A7E0));
-		this.xpButton = this.addRenderableWidget(new IndustrialButton(x + QuarryMenu.TORCH_X + 20, y + QuarryMenu.TORCH_Y, 34, 18, Component.translatable("gui.solarquarry.xp"),
+		this.xpButton = this.addRenderableWidget(new IndustrialButton(x + QuarryMenu.TORCH_X + 19, y + QuarryMenu.TORCH_Y, 18, 18, Component.translatable("gui.solarquarry.xp"),
 			input -> this.pressButton(QuarryMenu.BUTTON_COLLECT_XP)).accent(0xFF7CE04B));
 
 		// Configuration page.
@@ -254,6 +254,7 @@ public class QuarryScreen extends AbstractContainerScreen<QuarryMenu> {
 			}
 
 			GuiDraw.slot(g, x + QuarryMenu.TORCH_X, y + QuarryMenu.TORCH_Y);
+			GuiDraw.slot(g, x + QuarryMenu.DRONE_X, y + QuarryMenu.TORCH_Y);
 		}
 
 		for (Slot slot : this.menu.slots) {
@@ -447,6 +448,15 @@ public class QuarryScreen extends AbstractContainerScreen<QuarryMenu> {
 
 		if (this.menu.hasVoidUpgrade()) {
 			lines.add(Component.translatable("gui.solarquarry.upgrades.void"));
+		}
+
+		if (this.menu.slots.get(QuarryMenu.DRONE_SLOT_INDEX).hasItem()) {
+			lines.add(Component.translatable("gui.solarquarry.upgrades.miner_drone", com.solarquarry.blockentity.QuarryBlockEntity.MINER_RANGE).withStyle(ChatFormatting.GOLD));
+		}
+
+		if (this.menu.hasSecurity()) {
+			lines.add(Component.translatable("gui.solarquarry.upgrades.security", this.menu.getDroneCount(),
+				com.solarquarry.blockentity.QuarryBlockEntity.MAX_DRONES, com.solarquarry.blockentity.QuarryBlockEntity.SECURITY_RADIUS).withStyle(ChatFormatting.RED));
 		}
 
 		if (this.menu.hasAutoSmelter()) {

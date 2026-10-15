@@ -119,6 +119,15 @@ public class QuarryRenderer implements BlockEntityRenderer<QuarryBlockEntity, Qu
 		}
 
 		this.extractPump(be, state, frame, origin, fwd, lat, dt);
+		BlockPos miner = be.getMinerPos();
+		if (miner != null && be.isFinished() && !be.isMinerDone() && state.status.isWorking()) {
+			state.minerX = miner.getX() - origin.getX() + 0.5F;
+			state.minerY = miner.getY() - origin.getY() + 0.3F;
+			state.minerZ = miner.getZ() - origin.getZ() + 0.5F;
+		} else {
+			state.minerX = Float.NaN;
+		}
+
 		state.headX = be.clientHeadX;
 		state.headY = be.clientHeadY;
 		state.headZ = be.clientHeadZ;
@@ -211,6 +220,7 @@ public class QuarryRenderer implements BlockEntityRenderer<QuarryBlockEntity, Qu
 	@Override
 	public void submit(QuarryRenderState state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState camera) {
 		this.submitRotor(state, poseStack, collector);
+		this.submitMiner(state, poseStack, collector);
 		if (!state.showGantry) {
 			return;
 		}
@@ -323,6 +333,28 @@ public class QuarryRenderer implements BlockEntityRenderer<QuarryBlockEntity, Qu
 			BoxBuilder.box(pose, vc, -0.2F, 0.05F, -0.2F, 0.2F, 0.25F, 0.2F, -1, headLight);
 			BoxBuilder.box(pose, vc, -0.08F, -0.15F, -0.08F, 0.08F, 0.05F, 0.08F, -1, headLight);
 			BoxBuilder.box(pose, vc, -0.42F, 0.3F, -0.06F, 0.42F, 0.4F, 0.06F, -1, headLight);
+		});
+		poseStack.popPose();
+	}
+
+	/** The Miner Drone: a compact tracked borer with a spinning drill, drawn where it is tunnelling. */
+	private void submitMiner(QuarryRenderState state, PoseStack poseStack, SubmitNodeCollector collector) {
+		if (Float.isNaN(state.minerX)) {
+			return;
+		}
+
+		int light = LightCoordsUtil.FULL_BRIGHT;
+		poseStack.pushPose();
+		poseStack.translate(state.minerX, state.minerY, state.minerZ);
+		collector.submitCustomGeometry(poseStack, RenderTypes.entityCutout(STEEL), (pose, vc) -> {
+			BoxBuilder.box(pose, vc, -0.3F, 0.0F, -0.3F, 0.3F, 0.35F, 0.3F, -1, light);
+			BoxBuilder.box(pose, vc, -0.35F, -0.05F, -0.32F, -0.25F, 0.1F, 0.32F, 0xFF22262B, light);
+			BoxBuilder.box(pose, vc, 0.25F, -0.05F, -0.32F, 0.35F, 0.1F, 0.32F, 0xFF22262B, light);
+		});
+		poseStack.mulPose(Axis.YP.rotationDegrees(state.drillAngle * 2.0F));
+		collector.submitCustomGeometry(poseStack, RenderTypes.entityCutout(DRILL), (pose, vc) -> {
+			BoxBuilder.box(pose, vc, -0.12F, 0.35F, -0.12F, 0.12F, 0.5F, 0.12F, -1, light);
+			BoxBuilder.box(pose, vc, -0.06F, 0.5F, -0.06F, 0.06F, 0.62F, 0.06F, 0xFFFFC040, light);
 		});
 		poseStack.popPose();
 	}

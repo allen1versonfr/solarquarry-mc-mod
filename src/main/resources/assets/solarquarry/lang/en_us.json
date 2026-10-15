@@ -379,5 +379,12 @@
   "tooltip.solarquarry.rocket_boots.fall": "Absorbs %s%% of fall damage (%s E per point)",
   "tooltip.solarquarry.rocket_boots.use": "Crouch and jump to fire. Charge: hold them and use a Solar Quarry battery.",
   "solarquarry.rocket_boots.empty": "Rocket Boots are out of energy",
-  "solarquarry.rocket_boots.charged": "Rocket Boots charged: %s / %s E"
+  "solarquarry.rocket_boots.charged": "Rocket Boots charged: %s / %s E",
+  "item.solarquarry.security_upgrade": "Security Upgrade",
+  "upgrade.solarquarry.security": "Security",
+  "tooltip.solarquarry.upgrade.security": "Deploys up to 3 attack drones against hostile mobs within 16 blocks of the quarry (8 E/t per drone, 60 E per hit). Never targets players, pets, villagers or neutral mobs.",
+  "gui.solarquarry.upgrades.security": "Security: %s / %s drones deployed, %s block radius",
+  "entity.solarquarry.security_drone": "Security Drone",
+  "item.solarquarry.miner_drone": "Miner Drone",
+  "gui.solarquarry.upgrades.miner_drone": "Miner Drone: after the area is done, tunnels to ores within %s blocks"
 }

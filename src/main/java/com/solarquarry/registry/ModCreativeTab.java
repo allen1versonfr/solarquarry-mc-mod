@@ -31,7 +31,7 @@ public final class ModCreativeTab {
 		"crate_basic", "crate_reinforced", "crate_advanced", "fluid_pipe", "liquid_tank",
 		// Quarry upgrades
 		"speed_upgrade", "energy_capacity_upgrade", "energy_efficiency_upgrade", "fortune_upgrade", "silk_touch_upgrade",
-		"range_upgrade", "range_upgrade_2", "void_upgrade", "chunk_loader_upgrade", "liquid_remover_upgrade", "auto_smelter_upgrade", "security_upgrade",
+		"range_upgrade", "range_upgrade_2", "void_upgrade", "chunk_loader_upgrade", "liquid_remover_upgrade", "auto_smelter_upgrade", "security_upgrade", "miner_drone",
 		// Smelting
 		"super_smelter",
 		// Tree farming

@@ -18,6 +18,7 @@ import com.solarquarry.quarry.QuarryProtection;
 import com.solarquarry.quarry.QuarryStatus;
 import com.solarquarry.quarry.QuarryUpgrades;
 import com.solarquarry.quarry.UpgradeType;
+import com.solarquarry.quarry.SecurityDrone;
 import com.solarquarry.registry.ModBlockEntities;
 import com.solarquarry.registry.ModSounds;
 import com.solarquarry.registry.ModTags;
@@ -87,11 +88,18 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	public static final int UPGRADE_END = BUFFER_SLOTS + UPGRADE_SLOTS;
 	/** Torches the quarry uses to light the pit walls as it digs. */
 	public static final int TORCH_SLOT = UPGRADE_END;
-	public static final int TOTAL_SLOTS = TORCH_SLOT + 1;
+	/** Miner Drone slot: with a drone inside, a finished quarry keeps working by tunnelling to nearby ores. */
+	public static final int DRONE_SLOT = TORCH_SLOT + 1;
+	public static final int TOTAL_SLOTS = DRONE_SLOT + 1;
 	/** Light the walls every this many layers (strip modes) or blocks of tunnel. */
 	public static final int TORCH_SPACING = 4;
 	public static final int MAX_STORED_XP = 1_000_000;
-	public static final int DATA_COUNT = 32;
+	public static final int DATA_COUNT = 33;
+	/** Security Upgrade: defence radius around the quarry, drones at most, energy per drone per tick and per hit. */
+	public static final int SECURITY_RADIUS = 16;
+	public static final int MAX_DRONES = 3;
+	public static final long DRONE_UPKEEP = 8;
+	public static final long DRONE_ATTACK_COST = 60;
 	/** Fluid the Liquid Remover holds before it is pushed down the fluid pipe. */
 	public static final long PUMP_CAPACITY = 16 * FluidConstants.BUCKET;
 	/** Fluid pushed into the pipe network per push (every {@link #FLUID_PUSH_INTERVAL} ticks). */
@@ -185,6 +193,14 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		}
 	};
 	private long fluidPumped;
+	/** Miner Drone: where it is, the ores it knows about, how far its scan got, and whether it has run out of ores. */
+	private @Nullable BlockPos minerPos;
+	private final LongArrayList minerOres = new LongArrayList();
+	private long minerScan;
+	private boolean minerDone;
+	/** Security drones this quarry has deployed (never saved: drones are not saved either). */
+	private final List<UUID> drones = new ArrayList<>();
+	private int calmTicks;
 	/** Fraction of a point of smelting experience not yet stored. */
 	private float smeltXpRemainder;
 	/** Where the pump arm last worked (synced for the renderer). */
@@ -281,6 +297,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 				case 29 -> (q.storedXp >>> 16) & 0xFFFF;
 				case 30 -> (q.upgrades.liquidRemover() ? 1 : 0) | (q.fluidPipeConnected ? 2 : 0) | (q.upgrades.voiding() ? 4 : 0) | (q.upgrades.autoSmelter() ? 8 : 0);
 				case 31 -> (int) Math.min(q.pumpTank.amount * 10 / FluidConstants.BUCKET, 0x7FFF);
+				case 32 -> (q.hasUpgrade(UpgradeType.SECURITY) ? 0x100 : 0) | q.drones.size();
 				default -> 0;
 			};
 		}
@@ -362,6 +379,9 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		QuarryStatus next;
 		if (this.mode == Mode.IDLE) {
 			next = QuarryStatus.IDLE;
+		} else if (this.finished && this.mode == Mode.RUNNING && this.items.get(DRONE_SLOT).is(com.solarquarry.registry.ModItems.MINER_DRONE)
+			&& !this.minerDone) {
+			next = this.runMinerDrone(level);
 		} else if (this.finished) {
 			next = QuarryStatus.COMPLETE;
 		} else if (this.mode == Mode.PAUSED) {
@@ -375,6 +395,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		}
 
 		this.tickPump(level);
+		this.tickSecurity(level);
 		if (this.ticks % FLUID_PUSH_INTERVAL == 0) {
 			this.pushFluid(level);
 		}
@@ -1044,6 +1065,10 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		this.lastTarget = null;
 		this.sweepCursor = 0;
 		this.sweepFound = false;
+		this.minerPos = null;
+		this.minerOres.clear();
+		this.minerScan = 0;
+		this.minerDone = false;
 		this.invalidatePattern();
 		this.markConfigChanged();
 	}
@@ -1419,6 +1444,10 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 			return itemStack.is(Items.TORCH);
 		}
 
+		if (slot == DRONE_SLOT) {
+			return itemStack.is(com.solarquarry.registry.ModItems.MINER_DRONE);
+		}
+
 		return this.canInstallUpgrade(slot, itemStack);
 	}
 
@@ -1573,6 +1602,11 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		input.child("PumpTank").ifPresent(tank -> SingleVariantStorage.readValue(this.pumpTank, FluidVariant.CODEC, FluidVariant::blank, tank));
 		this.pumpTank.amount = Math.clamp(this.pumpTank.amount, 0, PUMP_CAPACITY);
 		this.fluidPumped = Math.max(0, input.getLongOr("FluidPumped", 0L));
+		this.minerScan = Math.max(0, input.getLongOr("MinerScan", 0L));
+		this.minerDone = input.getBooleanOr("MinerDone", false);
+		this.minerOres.clear();
+		input.read("MinerOres", Codec.LONG.listOf()).ifPresent(list -> list.stream().limit(MINER_ORE_LIMIT).forEach(this.minerOres::add));
+		this.minerPos = input.getLong("MinerPos").map(BlockPos::of).orElse(null);
 		this.smeltXpRemainder = Math.clamp(input.getFloatOr("SmeltXp", 0.0F), 0.0F, 1.0F);
 		this.clientPump = input.getBooleanOr("Pump", false);
 		this.pumpTarget = input.getLong("PumpTarget").map(BlockPos::of).orElse(null);
@@ -1808,6 +1842,243 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		return this.clientPump;
 	}
 
+	// ---- miner drone ----
+
+	/** How far from the pit (horizontally) the Miner Drone looks for ores and digs. */
+	public static final int MINER_RANGE = 24;
+	public static final int MINER_ORE_LIMIT = 512;
+
+	/**
+	 * Miner Drone: once the quarry's own volume is done, the drone starts at the bottom of the pit, finds ores around it
+	 * (scanned a slice at a time) and bores a 1 x 2 tunnel straight to the nearest one, mining every block on the way
+	 * through the quarry itself, so upgrades, energy, protection and the output buffer all apply.
+	 */
+	private QuarryStatus runMinerDrone(ServerLevel level) {
+		if (this.cooldown > 0) {
+			this.cooldown--;
+			return QuarryStatus.RUNNING;
+		}
+
+		MiningPattern pattern = this.pattern();
+		BlockPos pitBottom = this.toWorld(new MiningPattern.Cell(pattern.width() / 2, pattern.minDy(), pattern.length() / 2 + 1), pattern);
+		if (this.minerPos == null) {
+			this.minerPos = pitBottom;
+		}
+
+		int minX = pitBottom.getX() - MINER_RANGE;
+		int minZ = pitBottom.getZ() - MINER_RANGE;
+		int minY = Math.max(level.getMinY() + 1, pitBottom.getY() - 16);
+		int maxY = pitBottom.getY() + 8;
+		int size = MINER_RANGE * 2 + 1;
+		long total = (long) size * size * (maxY - minY + 1);
+		// Scan a slice of the surrounding volume for ores (bounded per tick).
+		for (int i = 0; i < ORE_SCAN_BUDGET && this.minerScan < total && this.minerOres.size() < MINER_ORE_LIMIT; i++, this.minerScan++) {
+			long n = this.minerScan;
+			int x = minX + (int) (n % size);
+			int z = minZ + (int) ((n / size) % size);
+			int y = maxY - (int) (n / ((long) size * size));
+			BlockPos pos = new BlockPos(x, y, z);
+			if (!level.isLoaded(pos)) {
+				continue;
+			}
+
+			BlockState state = level.getBlockState(pos);
+			if (this.isPriorityOre(state) && !this.shouldSkip(level, pos, state)) {
+				this.minerOres.add(pos.asLong());
+			}
+		}
+
+		if (this.minerOres.isEmpty()) {
+			if (this.minerScan >= total) {
+				this.minerDone = true;
+				this.setChanged();
+				return QuarryStatus.COMPLETE;
+			}
+
+			return QuarryStatus.SCANNING;
+		}
+
+		// Nearest ore to the drone.
+		int best = 0;
+		double bestDistance = Double.MAX_VALUE;
+		for (int i = 0; i < this.minerOres.size(); i++) {
+			double d = BlockPos.of(this.minerOres.getLong(i)).distSqr(this.minerPos);
+			if (d < bestDistance) {
+				bestDistance = d;
+				best = i;
+			}
+		}
+
+		BlockPos ore = BlockPos.of(this.minerOres.getLong(best));
+		if (!this.isPriorityOre(level.getBlockState(ore))) {
+			this.minerOres.removeLong(best); // already gone
+			return QuarryStatus.RUNNING;
+		}
+
+		// One step toward the ore along the longest axis; the step cell and the cell above are dug out.
+		BlockPos next;
+		if (this.minerPos.distManhattan(ore) <= 1) {
+			next = ore;
+		} else {
+			int dx = ore.getX() - this.minerPos.getX();
+			int dy = ore.getY() - this.minerPos.getY();
+			int dz = ore.getZ() - this.minerPos.getZ();
+			if (Math.abs(dx) >= Math.abs(dz) && Math.abs(dx) >= Math.abs(dy)) {
+				next = this.minerPos.offset(Integer.signum(dx), 0, 0);
+			} else if (Math.abs(dz) >= Math.abs(dy)) {
+				next = this.minerPos.offset(0, 0, Integer.signum(dz));
+			} else {
+				next = this.minerPos.offset(0, Integer.signum(dy), 0);
+			}
+		}
+
+		for (BlockPos cell : next.equals(ore) ? List.of(ore) : List.of(next, next.above())) {
+			BlockState state = level.getBlockState(cell);
+			if (state.isAir()) {
+				continue;
+			}
+
+			StepResult result = this.tryMine(level, cell);
+			switch (result) {
+				case MINED -> {
+					this.cooldown = this.upgrades.ticksPerOperation() - 1;
+					this.syncDirty = true;
+					return QuarryStatus.RUNNING;
+				}
+				case NO_ENERGY -> {
+					return QuarryStatus.WAITING_FOR_POWER;
+				}
+				case FULL -> {
+					return QuarryStatus.OUTPUT_BLOCKED;
+				}
+				case UNLOADED -> {
+					return QuarryStatus.WAITING_FOR_CHUNK;
+				}
+				default -> {
+					// Unbreakable or protected: this ore cannot be reached on this path.
+					this.minerOres.removeLong(best);
+					return QuarryStatus.RUNNING;
+				}
+			}
+		}
+
+		if (next.equals(ore)) {
+			this.minerOres.removeLong(best);
+		} else {
+			this.minerPos = next.immutable();
+		}
+
+		this.syncDirty = true;
+		this.setChanged();
+		return QuarryStatus.RUNNING;
+	}
+
+	public @Nullable BlockPos getMinerPos() {
+		return this.minerPos;
+	}
+
+	public boolean isMinerDone() {
+		return this.minerDone;
+	}
+
+	// ---- security drones ----
+
+	public boolean hasUpgrade(UpgradeType type) {
+		for (int i = BUFFER_SLOTS; i < UPGRADE_END; i++) {
+			if (this.items.get(i).getItem() instanceof UpgradeItem upgrade && upgrade.type() == type) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Security Upgrade: when hostile mobs come within {@link #SECURITY_RADIUS}, deploy up to one drone per threat
+	 * (at most {@link #MAX_DRONES}); each costs {@link #DRONE_UPKEEP} E/t plus {@link #DRONE_ATTACK_COST} per hit.
+	 * Drones are recalled after 5 quiet seconds, without power, or when the upgrade is removed.
+	 */
+	private void tickSecurity(ServerLevel level) {
+		if (this.drones.isEmpty() && (this.ticks % 10 != 0 || !this.hasUpgrade(UpgradeType.SECURITY))) {
+			return;
+		}
+
+		long upkeep = DRONE_UPKEEP * this.drones.size();
+		if (upkeep > 0) {
+			if (this.energy < upkeep) {
+				this.recallDrones(level);
+				return;
+			}
+
+			this.useEnergy(upkeep);
+		}
+
+		if (this.ticks % 10 != 0) {
+			return;
+		}
+
+		this.drones.removeIf(id -> !(level.getEntity(id) instanceof SecurityDrone drone) || !drone.isAlive());
+		if (!this.hasUpgrade(UpgradeType.SECURITY)) {
+			this.recallDrones(level);
+			return;
+		}
+
+		net.minecraft.world.phys.AABB area = new net.minecraft.world.phys.AABB(this.worldPosition).inflate(SECURITY_RADIUS);
+		int threats = level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, area,
+			e -> SecurityDrone.isTarget(e) && e.position().distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(this.worldPosition)) <= SECURITY_RADIUS * SECURITY_RADIUS).size();
+		if (threats == 0) {
+			this.calmTicks += 10;
+			if (this.calmTicks >= 100) {
+				this.recallDrones(level);
+			}
+
+			return;
+		}
+
+		this.calmTicks = 0;
+		if (this.drones.size() < Math.min(MAX_DRONES, threats) && this.energy >= DRONE_UPKEEP * 20) {
+			SecurityDrone drone = com.solarquarry.registry.ModEntities.SECURITY_DRONE.create(level, net.minecraft.world.entity.EntitySpawnReason.MOB_SUMMONED);
+			if (drone != null) {
+				drone.setHome(this.worldPosition);
+				drone.snapTo(this.worldPosition.getX() + 0.5, this.worldPosition.getY() + 1.5, this.worldPosition.getZ() + 0.5, 0.0F, 0.0F);
+				this.drones.add(drone.getUUID());
+				level.addFreshEntity(drone);
+				level.playSound(null, this.worldPosition, net.minecraft.sounds.SoundEvents.BEACON_ACTIVATE, net.minecraft.sounds.SoundSource.BLOCKS, 0.5F, 1.8F);
+				this.syncDirty = true;
+			}
+		}
+	}
+
+	private void recallDrones(ServerLevel level) {
+		for (UUID id : this.drones) {
+			if (level.getEntity(id) instanceof SecurityDrone drone) {
+				level.sendParticles(net.minecraft.core.particles.ParticleTypes.POOF, drone.getX(), drone.getY(), drone.getZ(), 5, 0.1, 0.1, 0.1, 0.01);
+				drone.discard();
+			}
+		}
+
+		this.drones.clear();
+		this.calmTicks = 0;
+	}
+
+	/** Whether this quarry still wants the drone (it was deployed by this quarry and the upgrade is in place). */
+	public boolean ownsDrone(SecurityDrone drone) {
+		return this.drones.contains(drone.getUUID()) && !this.isRemoved();
+	}
+
+	public boolean payForDroneAttack() {
+		if (this.energy < DRONE_ATTACK_COST) {
+			return false;
+		}
+
+		this.useEnergy(DRONE_ATTACK_COST);
+		return true;
+	}
+
+	public int getDroneCount() {
+		return this.drones.size();
+	}
+
 	// ---- auto-smelter ----
 
 	public long smeltCostPerItem() {
@@ -2037,6 +2308,10 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 
 	@Override
 	public void setRemoved() {
+		if (this.level instanceof ServerLevel server) {
+			this.recallDrones(server);
+		}
+
 		if (this.level != null) {
 			QuarryFrames.remove(this.level, this.worldPosition.asLong());
 		}
@@ -2090,6 +2365,14 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		output.putInt("StoredXp", this.storedXp);
 		SingleVariantStorage.writeValue(this.pumpTank, FluidVariant.CODEC, output.child("PumpTank"));
 		output.putLong("FluidPumped", this.fluidPumped);
+		output.putLong("MinerScan", this.minerScan);
+		output.putBoolean("MinerDone", this.minerDone);
+		List<Long> minerOres = new ArrayList<>(this.minerOres.size());
+		for (int i = 0; i < this.minerOres.size(); i++) {
+			minerOres.add(this.minerOres.getLong(i));
+		}
+
+		output.store("MinerOres", Codec.LONG.listOf(), minerOres);
 		output.putFloat("SmeltXp", this.smeltXpRemainder);
 		output.putInt("Cooldown", this.cooldown);
 		output.putLong("ScanStep", this.scanStep);
@@ -2119,6 +2402,10 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		output.putString("Status", this.status.getSerializedName());
 		if (this.lastTarget != null) {
 			output.putLong("LastTarget", this.lastTarget.asLong());
+		}
+
+		if (this.minerPos != null) {
+			output.putLong("MinerPos", this.minerPos.asLong());
 		}
 
 		output.putBoolean("Pump", this.upgrades.liquidRemover());

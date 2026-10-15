@@ -48,6 +48,8 @@ public final class ModItems {
 	public static final Item AUTO_SMELTER_UPGRADE = upgrade("auto_smelter_upgrade", UpgradeType.AUTO_SMELTER, 0, Rarity.RARE);
 	public static final Item GROWTH_UPGRADE = upgrade("growth_upgrade", UpgradeType.GROWTH, 0, Rarity.UNCOMMON);
 	public static final Item HARVEST_UPGRADE = upgrade("harvest_upgrade", UpgradeType.HARVEST, 0, Rarity.UNCOMMON);
+	public static final Item SECURITY_UPGRADE = upgrade("security_upgrade", UpgradeType.SECURITY, 0, Rarity.RARE);
+	public static final Item MINER_DRONE = register("miner_drone", Item::new, new Item.Properties().stacksTo(1).rarity(Rarity.RARE));
 	public static final Item LIQUID_REMOVER_UPGRADE = upgrade("liquid_remover_upgrade", UpgradeType.LIQUID_REMOVER, 0, Rarity.UNCOMMON);
 
 	public static final Item LEATHER_ROCKET_BOOTS = boots(com.solarquarry.boots.RocketTier.LEATHER, Rarity.COMMON);

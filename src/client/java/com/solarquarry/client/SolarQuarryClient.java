@@ -68,6 +68,7 @@ public class SolarQuarryClient implements ClientModInitializer {
 		BlockEntityRenderers.register(ModBlockEntities.QUARRY, QuarryRenderer::new);
 		BlockEntityRenderers.register(ModBlockEntities.ITEM_PIPE, ItemPipeRenderer::new);
 		net.minecraft.client.renderer.entity.EntityRenderers.register(com.solarquarry.registry.ModEntities.SHOP_TRADER, com.solarquarry.client.render.ShopTraderRenderer::new);
+		net.minecraft.client.renderer.entity.EntityRenderers.register(com.solarquarry.registry.ModEntities.SECURITY_DRONE, com.solarquarry.client.render.SecurityDroneRenderer::new);
 		net.minecraft.client.renderer.entity.EntityRenderers.register(com.solarquarry.registry.ModEntities.SHOP_GUARD, com.solarquarry.client.render.ShopGuardRenderer::new);
 		BlockEntityRenderers.register(ModBlockEntities.TREE_FARM, com.solarquarry.client.render.TreeFarmRenderer::new);
 		BlockEntityRenderers.register(ModBlockEntities.LIQUID_TANK, com.solarquarry.client.render.LiquidTankRenderer::new);

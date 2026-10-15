@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "IAI",
+    "DHD",
+    "IBI"
+  ],
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "A": "solarquarry:advanced_circuit",
+    "D": "minecraft:diamond",
+    "H": "solarquarry:drill_head",
+    "B": "solarquarry:battery_basic"
+  },
+  "result": {
+    "id": "solarquarry:miner_drone",
+    "count": 1
+  }
+}

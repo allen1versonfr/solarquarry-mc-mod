@@ -45,7 +45,7 @@ public record QuarryUpgrades(int speed, int capacity, int efficiency, int fortun
 				case CHUNK_LOADER -> chunkLoader = true;
 				case LIQUID_REMOVER -> liquid = true;
 				case AUTO_SMELTER -> smelter = true;
-				case GROWTH, HARVEST -> {
+				case GROWTH, HARVEST, SECURITY -> {
 				}
 			}
 		}

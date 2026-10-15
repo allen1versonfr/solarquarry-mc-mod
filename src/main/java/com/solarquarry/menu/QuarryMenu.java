@@ -38,6 +38,8 @@ public class QuarryMenu extends AbstractContainerMenu {
 	public static final int UPGRADE_X = 188;
 	public static final int UPGRADE_Y = 34;
 	public static final int TORCH_SLOT_INDEX = QuarryBlockEntity.TORCH_SLOT;
+	public static final int DRONE_SLOT_INDEX = QuarryBlockEntity.DRONE_SLOT;
+	public static final int DRONE_X = 226;
 	public static final int TORCH_X = 188;
 	public static final int TORCH_Y = 80;
 	public static final int LIST_X = 188;
@@ -93,6 +95,19 @@ public class QuarryMenu extends AbstractContainerMenu {
 		TorchSlot torchSlot = new TorchSlot(container, QuarryBlockEntity.TORCH_SLOT, TORCH_X, TORCH_Y);
 		torchSlot.setActiveCondition(() -> !this.configPage);
 		this.addSlot(torchSlot);
+		ToggleableSlot droneSlot = new ToggleableSlot(container, QuarryBlockEntity.DRONE_SLOT, DRONE_X, TORCH_Y) {
+			@Override
+			public boolean mayPlace(ItemStack stack) {
+				return stack.is(com.solarquarry.registry.ModItems.MINER_DRONE);
+			}
+
+			@Override
+			public int getMaxStackSize() {
+				return 1;
+			}
+		};
+		droneSlot.setActiveCondition(() -> !this.configPage);
+		this.addSlot(droneSlot);
 
 		QuarryBlockEntity.ListKind[] kinds = QuarryBlockEntity.ListKind.values();
 		for (int k = 0; k < kinds.length; k++) {
@@ -286,6 +301,14 @@ public class QuarryMenu extends AbstractContainerMenu {
 		return (this.data.get(30) & 1) != 0;
 	}
 
+	public boolean hasSecurity() {
+		return (this.data.get(32) & 0x100) != 0;
+	}
+
+	public int getDroneCount() {
+		return this.data.get(32) & 0xFF;
+	}
+
 	public boolean hasAutoSmelter() {
 		return (this.data.get(30) & 8) != 0;
 	}
@@ -387,7 +410,9 @@ public class QuarryMenu extends AbstractContainerMenu {
 		} else if (stack.getItem() instanceof UpgradeItem && this.moveItemStackTo(stack, UPGRADE_START, TORCH_SLOT_INDEX, false)) {
 			// moved into an upgrade slot
 		} else if (stack.is(net.minecraft.world.item.Items.TORCH) && slotIndex >= PLAYER_START && this.moveItemStackTo(stack, TORCH_SLOT_INDEX, TORCH_SLOT_INDEX + 1, false)) {
-			// moved into an upgrade slot
+			// moved into the torch slot
+		} else if (stack.is(com.solarquarry.registry.ModItems.MINER_DRONE) && slotIndex >= PLAYER_START && this.moveItemStackTo(stack, DRONE_SLOT_INDEX, DRONE_SLOT_INDEX + 1, false)) {
+			// moved into the drone slot
 		} else if (slotIndex < PLAYER_START + 27) {
 			if (!this.moveItemStackTo(stack, PLAYER_START + 27, PLAYER_END, false)) {
 				return ItemStack.EMPTY;

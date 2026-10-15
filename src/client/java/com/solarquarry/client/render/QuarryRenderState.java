@@ -25,6 +25,10 @@ public class QuarryRenderState extends BlockEntityRenderState {
 	public float railLeft;
 	public float railRight;
 	/** Liquid Remover arm: shown when the upgrade is installed; position in local (lateral, forward) units and y. */
+	/** Miner Drone position relative to the machine (NaN when it is not out). */
+	public float minerX = Float.NaN;
+	public float minerY;
+	public float minerZ;
 	public boolean pump;
 	public float pumpL;
 	public float pumpF;
