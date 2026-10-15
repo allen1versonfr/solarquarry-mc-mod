@@ -3,13 +3,14 @@
   "category": "redstone",
   "pattern": [
     "SDS",
-    "DAD",
+    "HAH",
     "SDS"
   ],
   "key": {
     "S": "solarquarry:solar_panel_advanced",
     "D": "minecraft:diamond",
-    "A": "solarquarry:advanced_circuit"
+    "A": "solarquarry:advanced_circuit",
+    "H": "solarquarry:helionite_ingot"
   },
   "result": {
     "id": "solarquarry:solar_panel_elite",

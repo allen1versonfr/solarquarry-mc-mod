@@ -4,12 +4,13 @@
   "pattern": [
     "DBD",
     "BAB",
-    "DBD"
+    "HBH"
   ],
   "key": {
     "D": "minecraft:diamond",
     "B": "solarquarry:battery_advanced",
-    "A": "solarquarry:advanced_circuit"
+    "A": "solarquarry:advanced_circuit",
+    "H": "solarquarry:helionite_ingot"
   },
   "result": {
     "id": "solarquarry:battery_elite",
