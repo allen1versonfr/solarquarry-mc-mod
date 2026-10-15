@@ -60,6 +60,9 @@ public class SortingTerminalScreen extends AbstractContainerScreen<SortingTermin
 		super.init();
 		int x = this.leftPos;
 		int y = this.topPos;
+		IndustrialButton storage = this.addRenderableWidget(new IndustrialButton(x + WIDTH - 54, y + 2, 48, 12, Component.translatable("gui.solarquarry.storage.view"),
+			input -> ClientPlayNetworking.send(new SortingActionPayload(this.menu.getPos(), SortingActionPayload.OPEN_STORAGE, this.menu.getPos(), 0, ""))).accent(0xFF4CE06A));
+		storage.setTooltip(Tooltip.create(Component.translatable("gui.solarquarry.storage.view.tooltip")));
 		this.registerButton = this.addRenderableWidget(new IndustrialButton(x + PANEL_X, y + 47, 116, 14, Component.translatable("gui.solarquarry.sorting.register"),
 			input -> this.send(this.isRegistered() ? SortingActionPayload.UNREGISTER : SortingActionPayload.REGISTER, 0, "")));
 		this.modeButton = this.addRenderableWidget(new IndustrialButton(x + PANEL_X, y + 63, 116, 14, Component.empty(),

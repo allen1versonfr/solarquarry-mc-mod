@@ -36,7 +36,9 @@ public class SolarQuarryClient implements ClientModInitializer {
 		});
 		MenuScreens.register(ModMenus.FILTER_PIPE, FilterPipeScreen::new);
 		MenuScreens.register(ModMenus.FABRICATION_BENCH, com.solarquarry.client.screen.FabricationBenchScreen::new);
+		MenuScreens.register(ModMenus.STORAGE_TERMINAL, com.solarquarry.client.screen.StorageTerminalScreen::new);
 		MenuScreens.register(ModMenus.FILTERED_SPLITTER, com.solarquarry.client.screen.FilteredSplitterScreen::new);
+		MenuScreens.register(ModMenus.KELP_FARM, com.solarquarry.client.screen.KelpFarmScreen::new);
 		MenuScreens.register(ModMenus.TREE_FARM, com.solarquarry.client.screen.TreeFarmScreen::new);
 		MenuScreens.register(ModMenus.CRATE, com.solarquarry.client.screen.CrateScreen::new);
 		MenuScreens.register(ModMenus.SUPER_SMELTER, com.solarquarry.client.screen.SuperSmelterScreen::new);
@@ -56,6 +58,11 @@ public class SolarQuarryClient implements ClientModInitializer {
 			com.solarquarry.client.screen.FabricationBenchScreen.catalogue = java.util.List.copyOf(payload.entries());
 			if (context.client().gui.screen() instanceof com.solarquarry.client.screen.FabricationBenchScreen screen) {
 				screen.refresh();
+			}
+		});
+		ClientPlayNetworking.registerGlobalReceiver(com.solarquarry.network.StorageSnapshotPayload.TYPE, (payload, context) -> {
+			if (context.client().gui.screen() instanceof com.solarquarry.client.screen.StorageTerminalScreen screen) {
+				screen.accept(payload);
 			}
 		});
 		ClientPlayNetworking.registerGlobalReceiver(com.solarquarry.network.SortingSnapshotPayload.TYPE, (payload, context) -> {

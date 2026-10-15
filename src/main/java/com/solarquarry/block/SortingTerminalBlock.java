@@ -77,7 +77,7 @@ public class SortingTerminalBlock extends MachineBlock implements ItemConnectabl
 	@Override
 	protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
 		if (!level.isClientSide() && level.getBlockEntity(pos) instanceof SortingTerminalBlockEntity terminal) {
-			player.openMenu(terminal);
+			player.openMenu(com.solarquarry.storage.StorageTerminalMenu.provider(terminal));
 		}
 
 		return InteractionResult.SUCCESS;

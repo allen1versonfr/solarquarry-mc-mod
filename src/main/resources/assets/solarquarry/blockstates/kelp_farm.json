@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "solarquarry:block/kelp_farm",
+      "y": 180
+    },
+    "facing=east": {
+      "model": "solarquarry:block/kelp_farm",
+      "y": 270
+    },
+    "facing=south": {
+      "model": "solarquarry:block/kelp_farm"
+    },
+    "facing=west": {
+      "model": "solarquarry:block/kelp_farm",
+      "y": 90
+    }
+  }
+}

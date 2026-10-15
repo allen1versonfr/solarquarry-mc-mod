@@ -113,6 +113,11 @@ final class SelfTestModes {
 		this.scenarios.add(Scenario.timed("4.0 splitter: fed through a pipe", l -> { SelfTestLogistics.setupSplitter(l); SelfTestLogistics.feedSplitter(l); }, 20, SelfTestLogistics::feedMore));
 		this.scenarios.add(Scenario.timed("4.0 splitter: routes matching and other items", s -> { }, 300, SelfTestLogistics::verifySplitter));
 		this.scenarios.add(Scenario.timed("4.0 splitter: recovers when outputs free up", s -> { }, 40, SelfTestLogistics::verifySplitterRecovered));
+		this.scenarios.add(Scenario.timed("4.0 storage terminal: one inventory, withdraw, deposit, sorting rules", SelfTestLogistics::setupStorage, 5, SelfTestLogistics::verifyStorage));
+		this.scenarios.add(Scenario.timed("4.0 kelp farm: builds its basin", SelfTestFarms::setupKelp, 200, SelfTestFarms::verifyKelpBuilt));
+		this.scenarios.add(Scenario.timed("4.0 kelp farm: fills, plants and harvests", s -> { }, 1400, SelfTestFarms::verifyKelpFarming));
+		this.scenarios.add(Scenario.timed("4.0 kelp farm: full output", s -> { }, 400, SelfTestFarms::verifyKelpFull));
+		this.scenarios.add(Scenario.timed("4.0 kelp farm: resumes, then removed", s -> { }, 300, SelfTestFarms::verifyKelpPushed));
 		this.scenarios.add(Scenario.timed("phase 6: the miner drone tunnels to ores after the area is done", this::setupMiner, 500, this::verifyMiner));
 		this.scenarios.add(Scenario.timed("phase 6: security drones fight hostile mobs only", this::setupSecurity, 140, this::verifySecurity));
 		this.scenarios.add(Scenario.timed("phase 6: drones vanish with their quarry", s -> { }, 5, this::verifyDronesGone));

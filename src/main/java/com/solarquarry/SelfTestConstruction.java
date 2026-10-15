@@ -217,6 +217,16 @@ final class SelfTestConstruction {
 			+ saplings + " standing)");
 		SelfTest.check(farm.getStatus() != TreeFarmBlockEntity.Status.IDLE && farm.getStatus() != TreeFarmBlockEntity.Status.NO_GROUND
 			&& farm.getStatus() != TreeFarmBlockEntity.Status.BUILD_BLOCKED, "tree farm: working, not idle (" + farm.getStatus() + ")");
+		if (farm.getTreesFelled() == 0) { // DIAG
+			for (BlockPos spot : farm.plantingSpots()) {
+				StringBuilder sb = new StringBuilder();
+				for (int dy = -3; dy <= 6; dy++) {
+					sb.append(dy).append('=').append(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level.getBlockState(spot.above(dy)).getBlock()).getPath()).append(' ');
+				}
+				SolarQuarry.LOGGER.info("[SelfTest] DIAG spot {} : {}", spot, sb);
+			}
+			SolarQuarry.LOGGER.info("[SelfTest] DIAG energy {} bonemeal {} saplings {}", farm.getEnergy(), farm.getItem(TreeFarmBlockEntity.BONE_MEAL_START), farm.getItem(0));
+		}
 		SelfTest.check(farm.getTreesFelled() >= 1, "tree farm: grows and fells a tree on natural ground (" + farm.getTreesFelled() + " felled)");
 		farm.clearContent();
 		level.removeBlock(TF, false);

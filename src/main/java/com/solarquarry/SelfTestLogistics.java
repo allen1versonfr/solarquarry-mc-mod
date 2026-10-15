@@ -29,6 +29,13 @@ final class SelfTestLogistics {
 	static final BlockPos SPLIT2_MATCH = SPLIT2.north();
 	static final BlockPos SPLIT2_OTHER = SPLIT2.east();
 
+	// Storage Terminal on a pipe line with chests, a crate and a double chest above it.
+	static final BlockPos TERM = new BlockPos(230, 200, 230);
+	static final BlockPos CHEST_A = new BlockPos(231, 201, 230);
+	static final BlockPos CHEST_B = new BlockPos(232, 201, 230);
+	static final BlockPos CRATE = new BlockPos(233, 201, 230);
+	static final BlockPos DOUBLE_1 = new BlockPos(234, 201, 230);
+
 	private SelfTestLogistics() {
 	}
 
@@ -187,5 +194,109 @@ final class SelfTestLogistics {
 		SelfTest.check(s2.isEmpty() && count(level, SPLIT2_MATCH, Items.RAW_IRON) == 5 && count(level, SPLIT2_OTHER, Items.COBBLESTONE) == 16,
 			"splitter: resumes when there is room again, nothing lost");
 		SelfTest.check(s2.matchState() != OutputState.FULL && s2.otherState() != OutputState.DISCONNECTED, "splitter: status clears after recovery");
+	}
+
+	// ---- Storage Terminal ----
+
+	private static com.solarquarry.blockentity.SortingTerminalBlockEntity terminal(ServerLevel level) {
+		return level.getBlockEntity(TERM) instanceof com.solarquarry.blockentity.SortingTerminalBlockEntity t ? t : null;
+	}
+
+	private static void fill(ServerLevel level, BlockPos pos, ItemStack... stacks) {
+		if (level.getBlockEntity(pos) instanceof Container container) {
+			for (int i = 0; i < stacks.length; i++) {
+				container.setItem(i, stacks[i]);
+			}
+		}
+	}
+
+	static void setupStorage(ServerLevel level) {
+		force(level, 225, 225, 240, 235);
+		clear(level, 228, 199, 228, 238, 203, 232);
+		level.setBlock(TERM, ModBlocks.SORTING_TERMINAL.defaultBlockState(), Block.UPDATE_ALL);
+		for (int x = 231; x <= 235; x++) {
+			level.setBlock(new BlockPos(x, 200, 230), ModBlocks.ITEM_PIPE.defaultBlockState(), Block.UPDATE_ALL);
+		}
+
+		level.setBlock(CHEST_A, Blocks.CHEST.defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(CHEST_B, Blocks.BARREL.defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(CRATE, ModBlocks.CRATE_BASIC.defaultBlockState(), Block.UPDATE_ALL);
+		var left = Blocks.CHEST.defaultBlockState().setValue(net.minecraft.world.level.block.ChestBlock.FACING, Direction.NORTH)
+			.setValue(net.minecraft.world.level.block.ChestBlock.TYPE, net.minecraft.world.level.block.state.properties.ChestType.LEFT);
+		BlockPos double2 = DOUBLE_1.relative(net.minecraft.world.level.block.ChestBlock.getConnectedDirection(left));
+		level.setBlock(DOUBLE_1, left, Block.UPDATE_ALL);
+		level.setBlock(double2, left.setValue(net.minecraft.world.level.block.ChestBlock.TYPE, net.minecraft.world.level.block.state.properties.ChestType.RIGHT), Block.UPDATE_ALL);
+		fill(level, CHEST_A, new ItemStack(Items.COBBLESTONE, 40), new ItemStack(Items.RAW_IRON, 10));
+		fill(level, CHEST_B, new ItemStack(Items.COBBLESTONE, 20));
+		fill(level, double2, new ItemStack(Items.DIAMOND, 5));
+	}
+
+	static void verifyStorage(ServerLevel level) {
+		var t = terminal(level);
+		var player = net.fabricmc.fabric.api.entity.FakePlayer.get(level);
+		player.getInventory().clearContent();
+		var menu = new com.solarquarry.storage.StorageTerminalMenu(0, player.getInventory(), t);
+		var snapshot = com.solarquarry.storage.StorageTerminalMenu.snapshot(t);
+		long cobble = amount(snapshot, Items.COBBLESTONE);
+		long diamonds = amount(snapshot, Items.DIAMOND);
+		SolarQuarry.LOGGER.info("[SelfTest] storage: {} inventories, cobble {}, iron {}, diamonds {}, slots {}/{}",
+			snapshot.inventories(), cobble, amount(snapshot, Items.RAW_IRON), diamonds, snapshot.usedSlots(), snapshot.totalSlots());
+		SelfTest.check(snapshot.inventories() == 4 && cobble == 60 && amount(snapshot, Items.RAW_IRON) == 10,
+			"storage terminal: lists the chest, barrel, crate and double chest as one inventory (" + snapshot.inventories() + " inventories, " + cobble + " cobblestone)");
+		SelfTest.check(diamonds == 5 && snapshot.totalSlots() == 27 + 27 + 54 + 54, "storage terminal: a double chest counts once and in full (" + diamonds + " diamonds, " + snapshot.totalSlots() + " slots)");
+		SelfTest.check(snapshot.entries().getFirst().stack().is(Items.COBBLESTONE), "storage terminal: largest amounts first");
+
+		// Withdraw: one stack into the inventory, taken from both containers; exactly what was there.
+		menu.perform(player, com.solarquarry.network.StorageActionPayload.WITHDRAW_TO_INVENTORY, new ItemStack(Items.COBBLESTONE), 64);
+		int inInventory = player.getInventory().countItem(Items.COBBLESTONE);
+		var after = com.solarquarry.storage.StorageTerminalMenu.snapshot(t);
+		SelfTest.check(inInventory == 60 && amount(after, Items.COBBLESTONE) == 0, "storage terminal: withdraws from several chests into the inventory, nothing duplicated (" + inInventory + ")");
+		menu.perform(player, com.solarquarry.network.StorageActionPayload.WITHDRAW_TO_CURSOR, new ItemStack(Items.RAW_IRON), 3);
+		SelfTest.check(menu.getCarried().is(Items.RAW_IRON) && menu.getCarried().getCount() == 3 && count(level, CHEST_A, Items.RAW_IRON) == 7,
+			"storage terminal: takes a chosen amount onto the cursor");
+		menu.perform(player, com.solarquarry.network.StorageActionPayload.WITHDRAW_TO_CURSOR, new ItemStack(Items.EMERALD), 5);
+		SelfTest.check(menu.getCarried().is(Items.RAW_IRON) && menu.getCarried().getCount() == 3, "storage terminal: asking for an item the network lacks changes nothing");
+		menu.perform(player, com.solarquarry.network.StorageActionPayload.DEPOSIT_CURSOR, ItemStack.EMPTY, 0);
+		SelfTest.check(menu.getCarried().isEmpty() && amount(com.solarquarry.storage.StorageTerminalMenu.snapshot(t), Items.RAW_IRON) == 10, "storage terminal: stores the cursor stack");
+
+		// Without rules, a deposit goes to storage that already has the item.
+		player.getInventory().setItem(9, new ItemStack(Items.RAW_IRON, 6));
+		menu.quickMoveStack(player, 0);
+		SelfTest.check(player.getInventory().getItem(9).isEmpty() && count(level, CHEST_A, Items.RAW_IRON) == 16,
+			"storage terminal: shift-click stores items next to the same items (" + count(level, CHEST_A, Items.RAW_IRON) + " in the first chest)");
+
+		// With rules: listed items to their chest, the rest to the fallback, unregistered storage untouched.
+		t.register(CHEST_A);
+		t.getRule(CHEST_A).setItem(0, "minecraft:raw_iron");
+		t.register(CHEST_B);
+		t.getRule(CHEST_B).setMode(com.solarquarry.pipe.SortRule.Mode.FALLBACK);
+		t.changed();
+		player.getInventory().clearContent();
+		player.getInventory().setItem(10, new ItemStack(Items.RAW_IRON, 5));
+		player.getInventory().setItem(11, new ItemStack(Items.GRAVEL, 7));
+		player.getInventory().setItem(0, new ItemStack(Items.TORCH, 8)); // hotbar stays
+		menu.perform(player, com.solarquarry.network.StorageActionPayload.DEPOSIT_INVENTORY, ItemStack.EMPTY, 0);
+		SelfTest.check(count(level, CHEST_A, Items.RAW_IRON) == 21 && count(level, CHEST_B, Items.GRAVEL) == 7 && count(level, CRATE, Items.GRAVEL) == 0
+			&& player.getInventory().getItem(0).is(Items.TORCH), "storage terminal: 'Store' sorts by the rules (iron to its chest, the rest to the fallback, hotbar kept)");
+
+		// No fallback: an unlisted item is refused and stays with the player.
+		t.unregister(CHEST_B);
+		player.getInventory().setItem(12, new ItemStack(Items.SAND, 9));
+		menu.quickMoveStack(player, 3);
+		SelfTest.check(player.getInventory().getItem(12).is(Items.SAND) && player.getInventory().getItem(12).getCount() == 9,
+			"storage terminal: an item no rule accepts is not stored and not lost");
+		t.unregister(CHEST_A);
+		player.getInventory().clearContent();
+	}
+
+	private static long amount(com.solarquarry.network.StorageSnapshotPayload snapshot, Item item) {
+		long n = 0;
+		for (var entry : snapshot.entries()) {
+			if (entry.stack().is(item)) {
+				n += entry.amount();
+			}
+		}
+
+		return n;
 	}
 }

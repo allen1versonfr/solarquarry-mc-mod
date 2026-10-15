@@ -44,4 +44,9 @@ public enum UpgradeType {
 	public boolean fitsTreeFarm() {
 		return this.treeFarm;
 	}
+
+	/** Kelp Farm: speed, energy capacity, efficiency and growth. */
+	public boolean fitsKelpFarm() {
+		return this == SPEED || this == ENERGY_CAPACITY || this == ENERGY_EFFICIENCY || this == GROWTH;
+	}
 }

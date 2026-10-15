@@ -61,7 +61,55 @@ Results: 326/326 self-test checks (302 existing + 24 new), 62/62 unit tests, pac
 | Bounded work (16 items per output every 4 ticks), so loops cannot cause unbounded processing | By design |
 | GUI: 18 filter slots, 2 tag boxes, mode, sides, top-down diagram, search panel, clear/reset, status line, tooltips | IMPLEMENTED — NOT VERIFIED (needs the client test) |
 
+## Checkpoint E — Storage Terminal (4.0.0-beta.2)
+
+The Sorting Terminal is now the **Storage Terminal** (same block and id, so existing worlds keep it). Right-click opens
+the storage view; **Rules** switches to the sorting rules screen and **Storage** switches back.
+
+| Requirement | Status |
+|---|---|
+| Unified access: every chest, barrel, shulker box and crate on the pipe network as one list with totals | VERIFIED (self-test: chest + barrel + crate + double chest, 60 cobblestone across two) |
+| Search by name, largest amounts first, slot usage line | Search: IMPLEMENTED — NOT VERIFIED (client); ordering and totals VERIFIED |
+| Withdraw (stack to cursor, half, shift to inventory) and deposit (cursor, shift-click, Store button) | VERIFIED (self-test drives the server side with a fake player) |
+| Double chests counted once and in full | VERIFIED (self-test) |
+| Hands-free sorting: deposits follow the rules (listed → its chest, rest → fallback, priorities), same as pipe routing | VERIFIED (self-test); pipe routing unchanged (3.0 self-tests still pass) |
+| Unassigned items without a fallback are refused with a message, never lost | VERIFIED (self-test) |
+| Duplication safety: amounts decided on the server, one transaction per action | VERIFIED (self-test: withdraw exactly what existed; unknown item request changes nothing) |
+| Disconnected/unloaded containers skipped; bounded network (1024 pipes, 128 inventories) | By design |
+| Open one specific chest's own screen remotely | Not done: vanilla chest screens close when the player is out of reach; the combined list covers the use |
+| No terminal per chest needed; one terminal serves the whole network | Yes |
+
+## Tree Farm — second root cause (found in this round)
+
+The 3.x farm fed **all** its bone meal to the first sapling in its list. In 4.0.0-beta.1 the corner posts stood
+diagonally next to the four corner planting spots, inside the space an oak needs, so the first sapling could never
+grow and every piece of bone meal went to it: the farm looked busy (Growing) and produced nothing. Fixed:
+
+| Change | Status |
+|---|---|
+| Corner posts one block outside the planting area | VERIFIED (self-test: 11–16 trees felled per run, was 0–1) |
+| Bone meal goes round-robin over all saplings | VERIFIED (same runs) |
+| A sapling that takes 8 successful bone meals without growing is skipped; if all are stuck the farm says **No room to grow** | IMPLEMENTED — NOT VERIFIED (status path; the growth path is verified) |
+| The drone clears up to 8 leaves per operation (each still paid), so a big oak no longer takes minutes | VERIFIED (self-test) |
+
+## Checkpoint F — Kelp Farm
+
+| Requirement | Status |
+|---|---|
+| Self-building through the shared framework: glass basin (6 high around a 5 × 5 water area), frame corners, frame floor only where the ground is not solid | VERIFIED (self-test: 144 wall blocks, COMPLETED) |
+| Never overwrites player blocks; reports the blocked position | VERIFIED (self-test: cobblestone in the wall stays, status Construction blocked) |
+| Fills the basin with water from the bottom up after the walls stand; nothing leaks | VERIFIED (self-test: 150 water cells, 0 outside) |
+| Plants kelp from its kelp slots in every column | VERIFIED (self-test: 25 columns) |
+| Real growth only: vanilla random ticks, bone meal (1 block each), Growth Upgrade = extra random ticks (one per level every 3 s, paid) | VERIFIED (harvest totals come only from grown blocks) |
+| Harvests a column when it reaches the top layer or stops growing; the bottom block stays and regrows; real drops into the output | VERIFIED (self-test: 109 kelp in 70 s with 64 bone meal and two Growth upgrades, output = harvested, nothing dropped in the world) |
+| Energy for building, water, planting, harvesting, bone meal and growth | VERIFIED (energy consumed) |
+| Full output: harvesting stops, nothing lost; resumes and pushes into an adjacent chest or pipe | VERIFIED (self-test) |
+| Save/load (construction, totals, upgrades) | VERIFIED (self-test) |
+| Breaking the farm removes basin, water and kelp (no flooding) | VERIFIED (self-test) |
+| GUI: status LCD, construction progress / blocked position, kelp count, harvest total, growth gauge, energy | IMPLEMENTED — NOT VERIFIED (client test) |
+| Multiplayer | Not tested by agreement |
+
 ## Later checkpoints
-E Storage Terminal · F Kelp Farm · G Mechanic, trades, guard, house ·
+G Mechanic, trades, guard, house ·
 H Charging Station, powered tools, crouch-to-fly boots · I Liquid Remover pockets · J Laser Turrets · K structures and loot ·
 Weather Control Machine · L release audit — all NOT STARTED.

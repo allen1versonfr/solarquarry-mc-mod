@@ -21,6 +21,8 @@ public record SortingActionPayload(BlockPos terminal, int action, BlockPos targe
 	public static final int NEXT_MODE = 3;
 	public static final int PRIORITY = 4;
 	public static final int TAG = 5;
+	/** Switch to the storage view (no target needed). */
+	public static final int OPEN_STORAGE = 6;
 
 	public static final CustomPacketPayload.Type<SortingActionPayload> TYPE = new CustomPacketPayload.Type<>(SolarQuarry.id("sorting_action"));
 	public static final StreamCodec<ByteBuf, SortingActionPayload> STREAM_CODEC = StreamCodec.composite(
@@ -44,6 +46,11 @@ public record SortingActionPayload(BlockPos terminal, int action, BlockPos targe
 		}
 
 		if (!(player.level().getBlockEntity(payload.terminal()) instanceof SortingTerminalBlockEntity terminal)) {
+			return;
+		}
+
+		if (payload.action() == OPEN_STORAGE) {
+			player.openMenu(com.solarquarry.storage.StorageTerminalMenu.provider(terminal));
 			return;
 		}
 

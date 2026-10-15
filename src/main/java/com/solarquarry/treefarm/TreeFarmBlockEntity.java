@@ -94,8 +94,13 @@ public class TreeFarmBlockEntity extends BlockEntity implements WorldlyContainer
 		/** Construction is waiting: a block is in the way, or its chunk is not loaded. */
 		BUILD_BLOCKED,
 		/** No spot in the area has plantable ground (dirt, grass, moss...) within reach of the machine's height. */
-		NO_GROUND
+		NO_GROUND,
+		/** Every sapling took bone meal many times without growing: something above them leaves no room for a tree. */
+		NO_ROOM
 	}
+
+	/** Bone meal a stage-1 sapling may take without turning into a tree before the farm stops feeding it. */
+	public static final int GROW_ATTEMPTS = 8;
 
 	private final NonNullList<ItemStack> items = NonNullList.withSize(TOTAL_SLOTS, ItemStack.EMPTY);
 	private long energy;
@@ -107,6 +112,10 @@ public class TreeFarmBlockEntity extends BlockEntity implements WorldlyContainer
 	/** Tree being felled: remaining blocks, logs first from the top. */
 	private final List<BlockPos> felling = new ArrayList<>();
 	private int fellingTotal;
+	/** Round-robin position for bone meal, so one sapling that cannot grow never eats all of it. */
+	private int boneMealCursor;
+	/** Grow attempts per sapling position that did not produce a tree (not saved; a reload simply retries). */
+	private final java.util.Map<BlockPos, Integer> failedGrowth = new java.util.HashMap<>();
 	/** Where the drone is working (synced for the renderer). */
 	private @Nullable BlockPos droneTarget;
 	private int scanCursor;
@@ -370,7 +379,9 @@ public class TreeFarmBlockEntity extends BlockEntity implements WorldlyContainer
 
 		BlockPos c = this.areaCenter();
 		int r = this.radius();
-		for (int[] corner : new int[][] {{-r, -r}, {-r, r}, {r, -r}, {r, r}}) {
+		// One block outside the area: a post diagonal to a corner sapling would leave the tree no room to grow.
+		int p = r + 1;
+		for (int[] corner : new int[][] {{-p, -p}, {-p, p}, {p, -p}, {p, p}}) {
 			BlockPos column = c.offset(corner[0], 0, corner[1]);
 			if (!level.isLoaded(column)) {
 				return null;
@@ -527,7 +538,11 @@ public class TreeFarmBlockEntity extends BlockEntity implements WorldlyContainer
 		return TreeScan.Kind.BUILT;
 	}
 
+	/** Leaves the drone clears in one operation (each still paid for); logs are cut one per operation. */
+	public static final int LEAVES_PER_OPERATION = 8;
+
 	private Status fellNext(ServerLevel level) {
+		int leavesCut = 0;
 		while (!this.felling.isEmpty()) {
 			BlockPos pos = this.felling.getFirst();
 			BlockState state = level.getBlockState(pos);
@@ -568,6 +583,10 @@ public class TreeFarmBlockEntity extends BlockEntity implements WorldlyContainer
 			}
 
 			this.setChanged();
+			if (!log && ++leavesCut < LEAVES_PER_OPERATION && !this.felling.isEmpty()) {
+				continue;
+			}
+
 			return Status.HARVESTING;
 		}
 
@@ -691,37 +710,58 @@ public class TreeFarmBlockEntity extends BlockEntity implements WorldlyContainer
 			}
 		}
 
+		List<BlockPos> spots = this.plantingSpots();
 		boolean anySapling = false;
-		for (BlockPos spot : this.plantingSpots()) {
-			BlockPos plant = this.plantAt(level, spot);
-			for (BlockPos pos : plant == null ? java.util.List.<BlockPos>of() : java.util.List.of(plant)) {
-				BlockState state = level.getBlockState(pos);
-				if (!(state.getBlock() instanceof SaplingBlock sapling)) {
-					continue;
-				}
-
-				anySapling = true;
-				if (slot < 0 || !sapling.isValidBonemealTarget(level, pos, state)) {
-					continue;
-				}
-
-				long c = this.cost(BONE_MEAL_COST);
-				if (this.energy < c) {
-					return Status.NO_POWER;
-				}
-
-				this.energy -= c;
-				this.items.get(slot).shrink(1);
-				if (sapling.isBonemealSuccess(level, level.getRandom(), pos, state)) {
-					sapling.performBonemeal(level, level.getRandom(), pos, state);
-				}
-
-				level.levelEvent(net.minecraft.world.level.block.LevelEvent.PARTICLES_AND_SOUND_PLANT_GROWTH, pos, 15);
-				this.droneTarget = pos.immutable();
-				this.syncDirty = true;
-				this.setChanged();
-				return Status.GROWING;
+		boolean anyGrowable = false;
+		int n = spots.size();
+		for (int k = 0; k < n; k++) {
+			int index = (this.boneMealCursor + k) % n;
+			BlockPos plant = this.plantAt(level, spots.get(index));
+			if (plant == null) {
+				continue;
 			}
+
+			BlockState state = level.getBlockState(plant);
+			if (!(state.getBlock() instanceof SaplingBlock sapling)) {
+				this.failedGrowth.remove(plant);
+				continue;
+			}
+
+			anySapling = true;
+			if (this.failedGrowth.getOrDefault(plant, 0) >= GROW_ATTEMPTS) {
+				continue; // no room for a tree here; random ticks may still grow a smaller one
+			}
+
+			anyGrowable = true;
+			if (slot < 0 || !sapling.isValidBonemealTarget(level, plant, state)) {
+				continue;
+			}
+
+			long c = this.cost(BONE_MEAL_COST);
+			if (this.energy < c) {
+				return Status.NO_POWER;
+			}
+
+			this.energy -= c;
+			this.items.get(slot).shrink(1);
+			if (sapling.isBonemealSuccess(level, level.getRandom(), plant, state)) {
+				boolean ripe = state.getValue(SaplingBlock.STAGE) > 0;
+				sapling.performBonemeal(level, level.getRandom(), plant, state);
+				if (ripe && level.getBlockState(plant).getBlock() instanceof SaplingBlock) {
+					this.failedGrowth.merge(plant.immutable(), 1, Integer::sum); // the tree did not fit
+				}
+			}
+
+			this.boneMealCursor = (index + 1) % n;
+			level.levelEvent(net.minecraft.world.level.block.LevelEvent.PARTICLES_AND_SOUND_PLANT_GROWTH, plant, 15);
+			this.droneTarget = plant.immutable();
+			this.syncDirty = true;
+			this.setChanged();
+			return Status.GROWING;
+		}
+
+		if (anySapling && !anyGrowable) {
+			return Status.NO_ROOM;
 		}
 
 		return anySapling ? Status.GROWING : Status.IDLE;

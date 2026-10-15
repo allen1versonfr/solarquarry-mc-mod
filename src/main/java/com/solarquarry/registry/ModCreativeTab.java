@@ -36,6 +36,8 @@ public final class ModCreativeTab {
 		"super_smelter",
 		// Tree farming
 		"tree_farm", "growth_upgrade", "harvest_upgrade",
+		// Kelp farming
+		"kelp_farm",
 		// Trader
 		"trader_spawn_egg", "guard_spawn_egg",
 		// Security

@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    "GBG",
+    "KMK",
+    "ICI"
+  ],
+  "key": {
+    "G": "minecraft:glass",
+    "B": "minecraft:water_bucket",
+    "K": "minecraft:kelp",
+    "M": "solarquarry:machine_frame",
+    "I": "minecraft:iron_ingot",
+    "C": "solarquarry:circuit_board"
+  },
+  "result": {
+    "id": "solarquarry:kelp_farm",
+    "count": 1
+  }
+}

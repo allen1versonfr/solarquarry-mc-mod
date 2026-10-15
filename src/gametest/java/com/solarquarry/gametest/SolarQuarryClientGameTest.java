@@ -201,6 +201,35 @@ public class SolarQuarryClientGameTest implements FabricClientGameTest {
 			context.runOnClient(client -> client.player.closeContainer());
 			context.waitTicks(5);
 
+			// 4.0: the same terminal's storage view (all items on the network) and a Filtered Splitter screen.
+			singleplayer.getServer().runOnServer(server -> {
+				ServerPlayer player = server.getPlayerList().getPlayers().get(0);
+				if (player.level().getBlockEntity(quarryPos.east().north()) instanceof com.solarquarry.blockentity.SortingTerminalBlockEntity terminal) {
+					player.openMenu(com.solarquarry.storage.StorageTerminalMenu.provider(terminal));
+				}
+			});
+			context.waitForScreen(com.solarquarry.client.screen.StorageTerminalScreen.class);
+			context.waitTicks(40);
+			context.takeScreenshot("10b_storage_terminal");
+			context.runOnClient(client -> client.player.closeContainer());
+			context.waitTicks(5);
+			singleplayer.getServer().runOnServer(server -> {
+				ServerPlayer player = server.getPlayerList().getPlayers().get(0);
+				BlockPos splitterPos = quarryPos.east().north().above();
+				player.level().setBlock(splitterPos, ModBlocks.FILTERED_SPLITTER.defaultBlockState(), Block.UPDATE_ALL);
+				if (player.level().getBlockEntity(splitterPos) instanceof com.solarquarry.splitter.FilteredSplitterBlockEntity splitter) {
+					splitter.orient(Direction.NORTH);
+					splitter.getFilter().setItem(0, new ItemStack(net.minecraft.world.item.Items.RAW_IRON));
+					splitter.setTag(0, "#minecraft:logs");
+					player.openMenu(splitter);
+				}
+			});
+			context.waitForScreen(com.solarquarry.client.screen.FilteredSplitterScreen.class);
+			context.waitTicks(20);
+			context.takeScreenshot("10c_filtered_splitter");
+			context.runOnClient(client -> client.player.closeContainer());
+			context.waitTicks(5);
+
 			// A quarry placed in the air with a Range II upgrade: legs reach the ground, the drill stays on the frame.
 			singleplayer.getServer().runOnServer(server -> {
 				ServerPlayer player = server.getPlayerList().getPlayers().get(0);

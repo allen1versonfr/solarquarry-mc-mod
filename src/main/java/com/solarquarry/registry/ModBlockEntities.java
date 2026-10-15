@@ -40,6 +40,9 @@ public final class ModBlockEntities {
 	public static final BlockEntityType<com.solarquarry.treefarm.TreeFarmBlockEntity> TREE_FARM = register("tree_farm",
 		FabricBlockEntityTypeBuilder.create(com.solarquarry.treefarm.TreeFarmBlockEntity::new, ModBlocks.TREE_FARM).build());
 
+	public static final BlockEntityType<com.solarquarry.kelpfarm.KelpFarmBlockEntity> KELP_FARM = register("kelp_farm",
+		FabricBlockEntityTypeBuilder.create(com.solarquarry.kelpfarm.KelpFarmBlockEntity::new, ModBlocks.KELP_FARM).build());
+
 	public static final BlockEntityType<TerminalBlockEntity> TERMINAL = register("remote_terminal",
 		FabricBlockEntityTypeBuilder.create(TerminalBlockEntity::new, ModBlocks.REMOTE_TERMINAL).build());
 

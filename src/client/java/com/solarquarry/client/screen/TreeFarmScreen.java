@@ -34,7 +34,7 @@ public class TreeFarmScreen extends AbstractContainerScreen<TreeFarmMenu> {
 			case IDLE -> 0xFF8A9199;
 			case PLANTING, GROWING, HARVESTING -> 0xFF4CE06A;
 			case BUILDING -> 0xFF4CE0C8;
-			case NO_SAPLINGS, NO_GROUND -> 0xFFE0B341;
+			case NO_SAPLINGS, NO_GROUND, NO_ROOM -> 0xFFE0B341;
 			case NO_POWER -> 0xFFE04B3A;
 			case OUTPUT_FULL, BUILD_BLOCKED -> 0xFFE07A2E;
 		};

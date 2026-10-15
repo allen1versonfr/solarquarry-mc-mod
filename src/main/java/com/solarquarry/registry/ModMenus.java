@@ -24,6 +24,9 @@ public final class ModMenus {
 	public static final ExtendedMenuType<com.solarquarry.treefarm.TreeFarmMenu, BlockPos> TREE_FARM = Registry.register(
 		BuiltInRegistries.MENU, SolarQuarry.id("tree_farm"), new ExtendedMenuType<>(com.solarquarry.treefarm.TreeFarmMenu::new, BlockPos.STREAM_CODEC)
 	);
+	public static final ExtendedMenuType<com.solarquarry.kelpfarm.KelpFarmMenu, BlockPos> KELP_FARM = Registry.register(
+		BuiltInRegistries.MENU, SolarQuarry.id("kelp_farm"), new ExtendedMenuType<>(com.solarquarry.kelpfarm.KelpFarmMenu::new, BlockPos.STREAM_CODEC)
+	);
 	public static final ExtendedMenuType<FilterPipeMenu, BlockPos> FILTER_PIPE = Registry.register(
 		BuiltInRegistries.MENU, SolarQuarry.id("filter_pipe"), new ExtendedMenuType<>(FilterPipeMenu::new, BlockPos.STREAM_CODEC)
 	);
@@ -34,6 +37,10 @@ public final class ModMenus {
 
 	public static final ExtendedMenuType<TerminalMenu, BlockPos> TERMINAL = Registry.register(
 		BuiltInRegistries.MENU, SolarQuarry.id("remote_terminal"), new ExtendedMenuType<>(TerminalMenu::new, BlockPos.STREAM_CODEC)
+	);
+
+	public static final ExtendedMenuType<com.solarquarry.storage.StorageTerminalMenu, BlockPos> STORAGE_TERMINAL = Registry.register(
+		BuiltInRegistries.MENU, SolarQuarry.id("storage_terminal"), new ExtendedMenuType<>(com.solarquarry.storage.StorageTerminalMenu::new, BlockPos.STREAM_CODEC)
 	);
 
 	public static final ExtendedMenuType<SortingTerminalMenu, BlockPos> SORTING_TERMINAL = Registry.register(
