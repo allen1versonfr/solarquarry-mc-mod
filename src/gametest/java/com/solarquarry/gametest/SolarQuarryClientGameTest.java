@@ -320,6 +320,42 @@ public class SolarQuarryClientGameTest implements FabricClientGameTest {
 			context.runOnClient(client -> client.player.closeContainer());
 			context.waitTicks(5);
 
+			// Tree Farm: plants, bone-meals and fells with its drone.
+			BlockPos farmPos = q.offset(0, 0, 40);
+			singleplayer.getServer().runOnServer(server -> {
+				ServerLevel level = server.getPlayerList().getPlayers().get(0).level();
+				BlockPos.betweenClosed(farmPos.offset(-6, 0, -1), farmPos.offset(6, 20, 11)).forEach(p -> level.setBlock(p, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS));
+				BlockPos.betweenClosed(farmPos.offset(-6, -1, -1), farmPos.offset(6, -1, 11)).forEach(p -> level.setBlock(p, Blocks.GRASS_BLOCK.defaultBlockState(), Block.UPDATE_CLIENTS));
+				level.setBlock(farmPos, ModBlocks.TREE_FARM.defaultBlockState().setValue(com.solarquarry.treefarm.TreeFarmBlock.FACING, Direction.SOUTH), Block.UPDATE_ALL);
+				if (level.getBlockEntity(farmPos) instanceof com.solarquarry.treefarm.TreeFarmBlockEntity farm) {
+					farm.setItem(0, new ItemStack(Items.OAK_SAPLING, 16));
+					farm.setItem(1, new ItemStack(Items.BIRCH_SAPLING, 16));
+					farm.setItem(com.solarquarry.treefarm.TreeFarmBlockEntity.BONE_MEAL_START, new ItemStack(Items.BONE_MEAL, 64));
+					farm.setItem(com.solarquarry.treefarm.TreeFarmBlockEntity.UPGRADE_START, new ItemStack(ModItems.SPEED_UPGRADE, 2));
+					farm.restoreEnergy(50_000L);
+				}
+			});
+			singleplayer.getServer().runCommand("tp @a " + (farmPos.getX() + 10) + " " + (farmPos.getY() + 7) + " " + (farmPos.getZ() - 4));
+			context.waitTicks(20);
+			context.getInput().lookAt(farmPos.offset(0, 2, 5));
+			context.waitTicks(260);
+			context.takeScreenshot("20_tree_farm");
+			singleplayer.getServer().runOnServer(server -> {
+				ServerPlayer player = server.getPlayerList().getPlayers().get(0);
+				if (player.level().getBlockEntity(farmPos) instanceof com.solarquarry.treefarm.TreeFarmBlockEntity farm) {
+					if (farm.getSaplingsPlanted() < 4) {
+						throw new AssertionError("tree farm planted only " + farm.getSaplingsPlanted());
+					}
+
+					player.openMenu(farm);
+				}
+			});
+			context.waitForScreen(com.solarquarry.client.screen.TreeFarmScreen.class);
+			context.waitTicks(10);
+			context.takeScreenshot("21_tree_farm_gui");
+			context.runOnClient(client -> client.player.closeContainer());
+			context.waitTicks(5);
+
 			// The trader's shop: in a client world the player joins, so the shop is built and the kit delivered.
 			context.waitTicks(40);
 			singleplayer.getServer().runOnServer(server -> {

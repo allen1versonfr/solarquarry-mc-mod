@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "MBM",
+    "BUB",
+    "MBM"
+  ],
+  "key": {
+    "M": "minecraft:moss_block",
+    "B": "minecraft:bone_block",
+    "U": "solarquarry:upgrade_base"
+  },
+  "result": {
+    "id": "solarquarry:growth_upgrade",
+    "count": 1
+  }
+}

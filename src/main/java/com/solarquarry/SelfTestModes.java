@@ -101,6 +101,7 @@ final class SelfTestModes {
 		this.scenarios.add(Scenario.timed("chunk loader: remembered quarries get their chunks back", this::restoreChunkLoader, 80, this::verifyChunkLoaderRestored));
 		this.scenarios.add(Scenario.timed("chunk loader: an unpowered quarry keeps only its own chunks", this::setupChunkLoaderNoPower, 40, this::releaseForcedChunk));
 		this.scenarios.add(Scenario.timed("chunk loader: waits for power without losing its chunks", s -> { }, 160, this::verifyChunkLoaderNoPower));
+		this.scenarios.add(Scenario.timed("phase 5: tree farm plants, grows and fells trees", this::setupTreeFarm, 900, this::verifyTreeFarm));
 		this.scenarios.add(Scenario.timed("phase 4: the shop is built once, with its trader and guard", this::setupShop, 40, this::verifyShop));
 		this.scenarios.add(Scenario.timed("phase 4: starter kit once per player, parcel when the inventory is full", s -> { }, 1, this::verifyStarterKit));
 		this.scenarios.add(Scenario.timed("phase 4: extra copies of the trader remove themselves", this::spawnDuplicateTrader, 45, this::verifyNoDuplicate));
@@ -1874,5 +1875,90 @@ final class SelfTestModes {
 			&& !com.solarquarry.trader.ShopGuard.isThreat(wolf) && !com.solarquarry.trader.ShopGuard.isThreat(net.fabricmc.fabric.api.entity.FakePlayer.get(level)),
 			"guard: attacks hostile mobs only (not creepers, neutral mobs, villagers, pets or players)");
 		this.forceShopChunks(level, false);
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// Phase 5: Tree Farm
+	// ---------------------------------------------------------------------------------------------
+
+	private static final BlockPos FARM = new BlockPos(130, 200, 100);
+	private static final BlockPos CABIN = new BlockPos(133, 200, 108);
+
+	private com.solarquarry.treefarm.TreeFarmBlockEntity farm(ServerLevel level) {
+		return level.getBlockEntity(FARM) instanceof com.solarquarry.treefarm.TreeFarmBlockEntity f ? f : null;
+	}
+
+	private void setupTreeFarm(ServerLevel level) {
+		for (int x = 122; x <= 138; x++) {
+			for (int z = 97; z <= 114; z++) {
+				level.setChunkForced(x >> 4, z >> 4, true);
+				level.setBlock(new BlockPos(x, 199, z), Blocks.DIRT.defaultBlockState(), Block.UPDATE_CLIENTS);
+				for (int y = 200; y <= 230; y++) {
+					level.setBlock(new BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+				}
+			}
+		}
+
+		// An invalid spot: stone where the centre sapling would go.
+		level.setBlock(new BlockPos(130, 199, 105), Blocks.STONE.defaultBlockState(), Block.UPDATE_CLIENTS);
+		// A "log cabin" corner on a planting spot: logs against planks with player-placed leaves on top.
+		for (int y = 0; y < 3; y++) {
+			level.setBlock(CABIN.above(y), Blocks.OAK_LOG.defaultBlockState(), Block.UPDATE_CLIENTS);
+			level.setBlock(CABIN.above(y).east(), Blocks.OAK_PLANKS.defaultBlockState(), Block.UPDATE_CLIENTS);
+		}
+
+		level.setBlock(CABIN.above(3), Blocks.OAK_LEAVES.defaultBlockState().setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true), Block.UPDATE_CLIENTS);
+		level.setBlock(FARM, com.solarquarry.registry.ModBlocks.TREE_FARM.defaultBlockState()
+			.setValue(com.solarquarry.treefarm.TreeFarmBlock.FACING, Direction.SOUTH), Block.UPDATE_ALL);
+		var farm = this.farm(level);
+		farm.setItem(0, new ItemStack(Items.OAK_SAPLING, 12));
+		farm.setItem(1, new ItemStack(Items.DARK_OAK_SAPLING, 4));
+		farm.setItem(com.solarquarry.treefarm.TreeFarmBlockEntity.BONE_MEAL_START, new ItemStack(Items.BONE_MEAL, 64));
+		farm.setItem(com.solarquarry.treefarm.TreeFarmBlockEntity.UPGRADE_START, new ItemStack(com.solarquarry.registry.ModItems.SPEED_UPGRADE, 4));
+		farm.setItem(com.solarquarry.treefarm.TreeFarmBlockEntity.UPGRADE_START + 1, new ItemStack(com.solarquarry.registry.ModItems.HARVEST_UPGRADE));
+		farm.restoreEnergy(farm.getEnergyCapacity());
+	}
+
+	private void verifyTreeFarm(ServerLevel level) {
+		var farm = this.farm(level);
+		int logs = 0;
+		int saplingsBack = 0;
+		for (int i = 0; i < com.solarquarry.treefarm.TreeFarmBlockEntity.TOTAL_SLOTS; i++) {
+			ItemStack stack = farm.getItem(i);
+			if (stack.is(net.minecraft.tags.ItemTags.LOGS)) {
+				logs += stack.getCount();
+			}
+
+			if (i < com.solarquarry.treefarm.TreeFarmBlockEntity.SAPLING_SLOTS && stack.is(Items.OAK_SAPLING)) {
+				saplingsBack += stack.getCount();
+			}
+		}
+
+		SolarQuarry.LOGGER.info("[SelfTest] tree farm: {} trees felled, {} saplings planted, {} logs collected, status {}",
+			farm.getTreesFelled(), farm.getSaplingsPlanted(), logs, farm.getStatus());
+		SelfTest.check(farm.getSaplingsPlanted() >= 8, "tree farm: planted saplings on the free spots (" + farm.getSaplingsPlanted() + ")");
+		SelfTest.check(farm.getTreesFelled() >= 2 && logs >= 8, "tree farm: grew and felled trees, logs in the buffer (" + farm.getTreesFelled() + " trees, " + logs + " logs)");
+		SelfTest.check(level.getBlockState(new BlockPos(130, 200, 105)).isAir(), "tree farm: nothing planted on stone");
+		SelfTest.check(level.getBlockState(CABIN).is(Blocks.OAK_LOG) && level.getBlockState(CABIN.above(2)).is(Blocks.OAK_LOG)
+			&& level.getBlockState(CABIN.above(3)).is(Blocks.OAK_LEAVES), "tree farm: the log cabin corner was left alone");
+		SelfTest.check(farm.getItem(1).is(Items.DARK_OAK_SAPLING) && farm.getItem(1).getCount() == 4, "tree farm: dark oak (needs 2x2) is not planted alone");
+		SelfTest.check(saplingsBack > 0, "tree farm: saplings from the leaves refill the sapling slots");
+		var fortune = new ItemStack(com.solarquarry.registry.ModItems.FORTUNE_UPGRADE);
+		var growth = new ItemStack(com.solarquarry.registry.ModItems.GROWTH_UPGRADE);
+		int slot = com.solarquarry.treefarm.TreeFarmBlockEntity.UPGRADE_START + 2;
+		SelfTest.check(!farm.canPlaceItem(slot, fortune) && farm.canPlaceItem(slot, growth)
+			&& !QuarryBlockEntity.canInstallUpgrade(quarry(level), QuarryBlockEntity.BUFFER_SLOTS + 5, growth),
+			"tree farm: quarry-only upgrades are refused, tree-farm upgrades do not fit the quarry");
+		CompoundTag tag = farm.saveWithFullMetadata(level.registryAccess());
+		BlockEntity copy = BlockEntity.loadStatic(FARM, level.getBlockState(FARM), tag, level.registryAccess());
+		SelfTest.check(copy instanceof com.solarquarry.treefarm.TreeFarmBlockEntity c && c.getTreesFelled() == farm.getTreesFelled()
+			&& c.getEnergy() == farm.getEnergy() && ItemStack.matches(c.getItem(1), farm.getItem(1)), "tree farm: survives save/load");
+		farm.clearContent();
+		level.removeBlock(FARM, false);
+		for (int x = 122; x <= 138; x++) {
+			for (int z = 97; z <= 114; z++) {
+				level.setChunkForced(x >> 4, z >> 4, false);
+			}
+		}
 	}
 }

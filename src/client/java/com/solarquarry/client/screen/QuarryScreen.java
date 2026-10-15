@@ -484,6 +484,10 @@ public class QuarryScreen extends AbstractContainerScreen<QuarryMenu> {
 
 		lines.add(Component.translatable("gui.solarquarry.upgrades.installed", usedSlots, QuarryBlockEntity.UPGRADE_SLOTS).withStyle(ChatFormatting.GOLD));
 		for (com.solarquarry.quarry.UpgradeType type : com.solarquarry.quarry.UpgradeType.values()) {
+			if (!type.fitsQuarry()) {
+				continue;
+			}
+
 			int n = counts.getOrDefault(type, 0);
 			int max = type == com.solarquarry.quarry.UpgradeType.RANGE ? 2 : type.maxStack();
 			lines.add(Component.translatable("gui.solarquarry.upgrades.count", Component.translatable("upgrade.solarquarry." + type.id()), n, max)

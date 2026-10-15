@@ -1,0 +1,54 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_the_recipe": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "solarquarry:growth_upgrade"
+      }
+    },
+    "has_moss_block": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "minecraft:moss_block"
+          }
+        ]
+      }
+    },
+    "has_bone_block": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "minecraft:bone_block"
+          }
+        ]
+      }
+    },
+    "has_upgrade_base": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "solarquarry:upgrade_base"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_moss_block",
+      "has_bone_block",
+      "has_upgrade_base"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "solarquarry:growth_upgrade"
+    ]
+  }
+}

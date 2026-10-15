@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    "LCL",
+    "AMA",
+    "IRI"
+  ],
+  "key": {
+    "L": "#minecraft:logs",
+    "C": "solarquarry:circuit_board",
+    "A": "minecraft:iron_axe",
+    "M": "solarquarry:machine_frame",
+    "I": "minecraft:iron_ingot",
+    "R": "minecraft:redstone"
+  },
+  "result": {
+    "id": "solarquarry:tree_farm",
+    "count": 1
+  }
+}

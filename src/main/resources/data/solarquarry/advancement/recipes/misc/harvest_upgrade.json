@@ -1,0 +1,65 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_the_recipe": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "solarquarry:harvest_upgrade"
+      }
+    },
+    "has_shears": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "minecraft:shears"
+          }
+        ]
+      }
+    },
+    "has_copper_ingot": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "minecraft:copper_ingot"
+          }
+        ]
+      }
+    },
+    "has_iron_axe": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "minecraft:iron_axe"
+          }
+        ]
+      }
+    },
+    "has_upgrade_base": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "solarquarry:upgrade_base"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_shears",
+      "has_copper_ingot",
+      "has_iron_axe",
+      "has_upgrade_base"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "solarquarry:harvest_upgrade"
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "SCS",
+    "AUA",
+    "SCS"
+  ],
+  "key": {
+    "S": "minecraft:shears",
+    "C": "minecraft:copper_ingot",
+    "A": "minecraft:iron_axe",
+    "U": "solarquarry:upgrade_base"
+  },
+  "result": {
+    "id": "solarquarry:harvest_upgrade",
+    "count": 1
+  }
+}

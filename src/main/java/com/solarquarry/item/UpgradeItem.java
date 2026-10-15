@@ -45,6 +45,8 @@ public class UpgradeItem extends Item implements TooltipLines {
 			builder.accept(Component.translatable("tooltip.solarquarry.upgrade.auto_smelter.filters").withStyle(ChatFormatting.DARK_GRAY));
 		}
 
+		builder.accept(Component.translatable(this.type.fitsQuarry() && this.type.fitsTreeFarm() ? "tooltip.solarquarry.upgrade.fits.both"
+			: this.type.fitsTreeFarm() ? "tooltip.solarquarry.upgrade.fits.tree_farm" : "tooltip.solarquarry.upgrade.fits.quarry").withStyle(ChatFormatting.BLUE));
 		if (this.type.maxStack() > 1) {
 			builder.accept(Component.translatable("tooltip.solarquarry.upgrade.stack", this.type.maxStack()).withStyle(ChatFormatting.DARK_GRAY));
 		}

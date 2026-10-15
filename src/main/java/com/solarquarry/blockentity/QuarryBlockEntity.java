@@ -1429,7 +1429,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 
 	/** Works on the block entity and on the client's mirror container (same slot layout). */
 	public static boolean canInstallUpgrade(Container container, int slot, ItemStack itemStack) {
-		if (!(itemStack.getItem() instanceof UpgradeItem upgrade)) {
+		if (!(itemStack.getItem() instanceof UpgradeItem upgrade) || !upgrade.type().fitsQuarry()) {
 			return false;
 		}
 
@@ -1612,7 +1612,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		this.ownerName = input.getStringOr("OwnerName", this.ownerName);
 		this.lastTarget = input.getLong("LastTarget").map(BlockPos::of).orElse(null);
 		this.invalidatePattern();
-		this.refreshFrame();
+		this.framePattern = null;
 	}
 
 	// ---- liquid remover ----
@@ -1966,12 +1966,14 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	private static float groundBelow(Level level, int x, int z, int startY) {
 		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos(x, startY - 1, z);
 		int floor = Math.max(level.getMinY(), startY - QuarryFrame.MAX_LEG);
-		while (pos.getY() >= floor) {
-			if (!level.isLoaded(pos)) {
-				return 0.0F;
-			}
+		// Never load (or wait for) a chunk from here: this also runs while chunks are being loaded.
+		net.minecraft.world.level.chunk.ChunkAccess chunk = level.getChunk(x >> 4, z >> 4, net.minecraft.world.level.chunk.status.ChunkStatus.FULL, false);
+		if (chunk == null) {
+			return 0.0F;
+		}
 
-			BlockState state = level.getBlockState(pos);
+		while (pos.getY() >= floor) {
+			BlockState state = chunk.getBlockState(pos);
 			if (!state.getCollisionShape(level, pos).isEmpty() || !state.getFluidState().isEmpty()) {
 				return pos.getY() + 1 - startY;
 			}
@@ -1992,9 +1994,10 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 			this.legsCheckedAt = gameTime;
 			if (this.updateLegs()) {
 				this.framePattern = null;
-				this.refreshFrame();
 			}
 		}
+
+		this.refreshFrame();
 	}
 
 	/** Whether the frame is up: the machine was started or has made progress (same rule as the renderer). */
@@ -2027,9 +2030,9 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	@Override
 	public void setLevel(Level level) {
 		super.setLevel(level);
+		// Re-registered on the next tick (server) or frame (client), never during chunk loading.
 		this.framePattern = null;
 		this.frameDirection = null;
-		this.refreshFrame();
 	}
 
 	@Override
@@ -2046,7 +2049,8 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	@Override
 	public void clearRemoved() {
 		super.clearRemoved();
-		this.refreshFrame();
+		this.framePattern = null;
+		this.frameDirection = null;
 	}
 
 	/** Blocks actually mined per second over the last 10 seconds (fluids, skips and failures are not counted). */

@@ -24,6 +24,7 @@ public class SolarQuarryClient implements ClientModInitializer {
 		MenuScreens.register(ModMenus.QUARRY, QuarryScreen::new);
 		MenuScreens.register(ModMenus.FILTER_PIPE, FilterPipeScreen::new);
 		MenuScreens.register(ModMenus.FABRICATION_BENCH, com.solarquarry.client.screen.FabricationBenchScreen::new);
+		MenuScreens.register(ModMenus.TREE_FARM, com.solarquarry.client.screen.TreeFarmScreen::new);
 		MenuScreens.register(ModMenus.CRATE, com.solarquarry.client.screen.CrateScreen::new);
 		MenuScreens.register(ModMenus.SUPER_SMELTER, com.solarquarry.client.screen.SuperSmelterScreen::new);
 		MenuScreens.register(ModMenus.TERMINAL, TerminalScreen::new);
@@ -56,6 +57,7 @@ public class SolarQuarryClient implements ClientModInitializer {
 		BlockEntityRenderers.register(ModBlockEntities.ITEM_PIPE, ItemPipeRenderer::new);
 		net.minecraft.client.renderer.entity.EntityRenderers.register(com.solarquarry.registry.ModEntities.SHOP_TRADER, com.solarquarry.client.render.ShopTraderRenderer::new);
 		net.minecraft.client.renderer.entity.EntityRenderers.register(com.solarquarry.registry.ModEntities.SHOP_GUARD, com.solarquarry.client.render.ShopGuardRenderer::new);
+		BlockEntityRenderers.register(ModBlockEntities.TREE_FARM, com.solarquarry.client.render.TreeFarmRenderer::new);
 		BlockEntityRenderers.register(ModBlockEntities.LIQUID_TANK, com.solarquarry.client.render.LiquidTankRenderer::new);
 	}
 }

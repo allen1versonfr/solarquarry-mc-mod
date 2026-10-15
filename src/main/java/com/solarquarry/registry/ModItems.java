@@ -41,6 +41,8 @@ public final class ModItems {
 	public static final Item VOID_UPGRADE = upgrade("void_upgrade", UpgradeType.VOID, 0, Rarity.UNCOMMON);
 	public static final Item CHUNK_LOADER_UPGRADE = upgrade("chunk_loader_upgrade", UpgradeType.CHUNK_LOADER, 0, Rarity.RARE);
 	public static final Item AUTO_SMELTER_UPGRADE = upgrade("auto_smelter_upgrade", UpgradeType.AUTO_SMELTER, 0, Rarity.RARE);
+	public static final Item GROWTH_UPGRADE = upgrade("growth_upgrade", UpgradeType.GROWTH, 0, Rarity.UNCOMMON);
+	public static final Item HARVEST_UPGRADE = upgrade("harvest_upgrade", UpgradeType.HARVEST, 0, Rarity.UNCOMMON);
 	public static final Item LIQUID_REMOVER_UPGRADE = upgrade("liquid_remover_upgrade", UpgradeType.LIQUID_REMOVER, 0, Rarity.UNCOMMON);
 
 	private ModItems() {

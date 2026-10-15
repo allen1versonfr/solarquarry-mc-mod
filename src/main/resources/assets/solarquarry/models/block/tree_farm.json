@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "solarquarry:block/tree_farm_front",
+    "side": "solarquarry:block/tree_farm_side",
+    "top": "solarquarry:block/tree_farm_top"
+  }
+}

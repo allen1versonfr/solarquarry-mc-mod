@@ -21,6 +21,9 @@ public final class ModMenus {
 		BuiltInRegistries.MENU, SolarQuarry.id("fabrication_bench"),
 		new net.minecraft.world.inventory.MenuType<>(com.solarquarry.crafting.FabricationBenchMenu::new, net.minecraft.world.flag.FeatureFlags.VANILLA_SET)
 	);
+	public static final ExtendedMenuType<com.solarquarry.treefarm.TreeFarmMenu, BlockPos> TREE_FARM = Registry.register(
+		BuiltInRegistries.MENU, SolarQuarry.id("tree_farm"), new ExtendedMenuType<>(com.solarquarry.treefarm.TreeFarmMenu::new, BlockPos.STREAM_CODEC)
+	);
 	public static final ExtendedMenuType<FilterPipeMenu, BlockPos> FILTER_PIPE = Registry.register(
 		BuiltInRegistries.MENU, SolarQuarry.id("filter_pipe"), new ExtendedMenuType<>(FilterPipeMenu::new, BlockPos.STREAM_CODEC)
 	);

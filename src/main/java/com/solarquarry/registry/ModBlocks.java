@@ -86,6 +86,10 @@ public final class ModBlocks {
 		BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(2.5F, 6.0F).sound(SoundType.METAL),
 		"tooltip.solarquarry.fabrication_bench", Rarity.COMMON);
 
+	public static final com.solarquarry.treefarm.TreeFarmBlock TREE_FARM = register("tree_farm", com.solarquarry.treefarm.TreeFarmBlock::new,
+		BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_GREEN).strength(3.5F, 6.0F).sound(SoundType.METAL).requiresCorrectToolForDrops(),
+		"tooltip.solarquarry.tree_farm", Rarity.UNCOMMON);
+
 	public static final TerminalBlock REMOTE_TERMINAL = register("remote_terminal", TerminalBlock::new,
 		BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.5F, 6.0F).sound(SoundType.METAL).requiresCorrectToolForDrops().lightLevel(state -> 4),
 		"tooltip.solarquarry.remote_terminal", Rarity.UNCOMMON);
