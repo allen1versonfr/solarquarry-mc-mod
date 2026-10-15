@@ -43,6 +43,13 @@ VERIFIED means an automated in-world check (dedicated-server self-test or client
 - **Compatibility:** the same self-test (302/302) and client test (21 screenshots) also pass with the 166 mods of the Fabulously Optimized instance (Sodium, Lithium, ModernFix and others).
 - **Jar:** `release/solarquarry-3.0.0-beta.3.jar`.
 
+## Release 3.0.0 (2026-10-15)
+
+- **Covers:** the same code as 3.0.0-beta.3; version number, README (full 3.0 guide and known limitations) and changelog updated.
+- **Results:** clean build; all unit tests; 302/302 self-test checks; client game test passed.
+- **Scope:** built for single-player use on the Fabulously Optimized instance; multiplayer and recipe viewer mods are not tested.
+- **Jar:** `release/solarquarry-3.0.0.jar`.
+
 ## Feature tracker
 
 | # | Requirement | Status |

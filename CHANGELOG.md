@@ -1,6 +1,8 @@
 # Changelog
 
-## 3.0.0-beta.3
+## 3.0.0 (2026-10-15)
+
+First full release of 3.0; the same features as 3.0.0-beta.3 (earlier betas: 3.0.0-beta.1 to beta.3).
 
 ### Quarry
 - **Frame you can bump into:** posts, rails and end beams are solid (no blocks or entities are placed); steel joints, base plates, braces and status lights on the posts.

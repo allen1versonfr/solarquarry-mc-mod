@@ -1,8 +1,8 @@
-# Solar Quarry 3.0 (beta)
+# Solar Quarry 3.0
 
-> **3.0.0 beta:** the latest test build is [`release/solarquarry-3.0.0-beta.3.jar`](release/solarquarry-3.0.0-beta.3.jar). New in 3.0: a solid 3D-printer style frame whose legs reach the ground, torches and XP collection, pipe tiers, the Sorting Terminal, storage crates, the Liquid Remover with fluid pipes and tanks, the Auto-Smelter Upgrade and Super Smelter, the Fabrication Bench recipe catalogue, Helionite ore and gear (netherite stats, no Nether needed), the trader with his shop, guard and starter kit, the Tree Farm with its drone, and Rocket Boots. See [CHANGELOG.md](CHANGELOG.md) for details and [docs/PLAN-STATUS.md](docs/PLAN-STATUS.md) for what is verified. Beta builds can still change; back up your world first. The stable release below is 2.1.0.
+A standalone Fabric mod for Minecraft 26.2: a solar-powered quarry with four mining modes and a 3D-printer style gantry, an energy network (solar panels, batteries, cables), item logistics (pipe tiers, filter pipes, a Sorting Terminal, storage crates), liquid handling, smelting machines, a Tree Farm, security and miner drones, a trader with a shop and starter kit, Helionite gear and Rocket Boots. No other tech mod is needed, and no recipe needs anything from the Nether.
 
-A standalone Fabric mod for Minecraft 26.2: a solar-powered quarry with four mining modes, an energy network (solar panels, batteries, cables), real item logistics (pipes, filter pipes with tags and priorities), an ore prospector, configuration presets and a remote control terminal. No other tech mod is needed.
+See [CHANGELOG.md](CHANGELOG.md) for what changed in each version and [docs/PLAN-STATUS.md](docs/PLAN-STATUS.md) for how each feature was verified. Back up your world before updating from 2.x.
 
 ## Requirements
 
@@ -17,12 +17,7 @@ Nothing else is required. Install the mod on the server **and** on every client.
 
 ## Download
 
-The ready-to-use mod is in this repository at [`release/solarquarry-2.1.0.jar`](release/solarquarry-2.1.0.jar).
-
-## Which file do I want?
-
-- **`solarquarry-2.1.0.jar`**: the mod. Put it in your `mods` folder. That's all you need to play.
-- **This repository** (or `SolarQuarry-2.1.0-source.zip`): the full Gradle project (source code, assets, tests, build scripts). Only needed if you want to build or change the mod.
+The mod is [`release/solarquarry-3.0.0.jar`](release/solarquarry-3.0.0.jar), also attached to the [3.0.0 release](https://github.com/allen1versonfr/solarquarry-mc-mod/releases/tag/v3.0.0). Put it in your `mods` folder; that's all you need to play. The rest of this repository is the Gradle project (source, assets, tests, build scripts), only needed to build or change the mod.
 
 ## Building from source
 
@@ -31,13 +26,13 @@ gradlew.bat build        (Windows)
 ./gradlew build          (Linux / macOS)
 ```
 
-The jar is written to `build/libs/solarquarry-2.1.0.jar`. `build` also runs the unit tests.
+The jar is written to `build/libs/solarquarry-3.0.0.jar`. `build` also runs the unit tests.
 
-Helper scripts (Windows): `0-get-jdk.bat` downloads a portable JDK 25 into `.jdk/` if you don't have Java 25. `2-build.bat` builds and logs to `logs/build.log`. `3-selftest.bat` runs the dedicated-server self-test (about 120 automated in-world checks; results in `logs/selftest.log`). `5-clienttest.bat` runs the client game test, which saves screenshots to `run-clienttest/screenshots`. `4-client.bat` starts a development client with the mod loaded.
+Helper scripts (Windows): `0-get-jdk.bat` downloads a portable JDK 25 into `.jdk/` if you don't have Java 25. `2-build.bat` builds and logs to `logs/build.log`. `3-selftest.bat` runs the dedicated-server self-test (about 300 automated in-world checks; results in `logs/selftest.log`). `5-clienttest.bat` runs the client game test, which saves screenshots to `run-clienttest/screenshots`. `4-client.bat` starts a development client with the mod loaded.
 
 ## Getting started
 
-1. Craft a **Quarry**, a few **Basic Solar Panels**, a **Basic Battery**, **Energy Cables**, **Item Pipes** and a chest. Every recipe appears in the vanilla recipe book once you pick up one of its ingredients.
+1. On your first visit the Solar Quarry trader gives you a starter kit (parts for a first quarry, solar panels, cables, pipes, a chest, torches, a Wrench and a **Fabrication Bench**) and tells you where his shop is. Use the Fabrication Bench to look up and craft everything else: a **Quarry**, **Basic Solar Panels**, a **Basic Battery**, **Energy Cables** and **Item Pipes**. Every recipe also works in a normal crafting table and appears in the vanilla recipe book.
 2. Place the quarry facing you. Its work area starts one block **behind** it (on the side away from you) and is centred on the machine.
 3. Run energy cables from the panels and battery to the quarry. Run item pipes from the quarry to a chest (or put the chest directly against the quarry).
 4. Right-click the quarry, open **Config** to choose a mode and size, then press **Start**.
@@ -64,6 +59,14 @@ Helper scripts (Windows): `0-get-jdk.bat` downloads a portable JDK 25 into `.jdk
 
 **Claims and protection:** before breaking each block, the quarry asks the world whether its owner may break it, whether or not the owner is online. It acts as a Fabric fake player carrying the owner's profile, so vanilla spawn protection applies, and claim mods that use Fabric's standard block-break event (`PlayerBlockBreakEvents.BEFORE`) can refuse the break. Refused blocks are skipped and left alone. A server can turn this off with `respectProtection` (see Server settings).
 
+**Frame and gantry:** while running, the quarry builds a steel frame around the work area. The posts and rails are solid (you and mobs bump into them), but no blocks are placed in the world. A bridge rides both side rails and the drill carriage runs along the bridge, like a 3D printer. A quarry placed in the air grows its legs down to the first solid block (up to 96 blocks).
+
+**Torches:** put torches in the torch slot and the quarry places them on the pit walls every 4 layers (every 4 slices in Tunnel Bore), so the pit stays lit.
+
+**Experience:** XP from mining (and from the Auto-Smelter) is stored in the quarry. Press the **XP** button in its screen to collect it.
+
+**Drone slot:** holds a **Miner Drone** (see Drones).
+
 **Status** is shown in the GUI, on the front lamp and on the Remote Terminal. The bottom-left line of the GUI tells you what to do:
 
 | Status | Meaning |
@@ -73,13 +76,13 @@ Helper scripts (Windows): `0-get-jdk.bat` downloads a portable JDK 25 into `.jdk
 | No Power (red) | Not enough stored energy for the next block. |
 | Output Full (red) | The 27-slot buffer is full. Attach a pipe or chest. |
 | Area Unloaded (red) | The next block is in an unloaded chunk. Without a Chunk Loader Upgrade the quarry waits until a player is nearby. |
-| Complete (blue) | The volume is finished. Start runs it again. |
+| Complete (blue) | The volume is finished (and dry, with a Liquid Remover). Start runs it again. |
 
 **Moving a quarry:** right-click it with the **Wrench**. You get one quarry item that keeps everything: progress, mode, size, depth, energy, buffer, upgrades, lists and run state. Breaking it with a pickaxe instead drops its contents.
 
 ## Upgrades
 
-Put them in the six upgrade slots on the quarry's main page. Hover over the **UPGRADES** label to see their combined effect.
+Put them in the six upgrade slots on the quarry's main page. Hover over the **UPGRADES** label to see their combined effect; the screen shows each as `count/max`.
 
 | Upgrade | Max | Effect |
 |---|---|---|
@@ -91,8 +94,11 @@ Put them in the six upgrade slots on the quarry's main page. Hover over the **UP
 | Range I / Range II | 1 | Area limit 32 × 32 / 64 × 64. |
 | Void | 1 | Enables the Void list. |
 | Chunk Loader | 1 | Keeps the quarry working with nobody nearby (see below). Costs 8 E/t while active. |
+| Liquid Remover | 1 | A second arm pumps water and lava out ahead of the drill (see Liquids). |
+| Auto-Smelter | 1 | Smelts ores and raw metals before they reach the buffer, 50 E per item (less with Efficiency). Fortune still multiplies; Silk Touch ore blocks smelt to one ingot. |
+| Security | 1 | Deploys up to 3 drones against hostile mobs within 16 blocks (see Drones). |
 
-Each upgrade type fits in one slot only.
+Each upgrade type fits in one slot only. The Tree Farm uses Speed, Energy Capacity, Energy Efficiency and Range, plus its own Growth and Harvest upgrades.
 
 **Chunk Loader Upgrade:** while the quarry is running (not paused or finished) and can pay the upkeep, it keeps the 3 × 3 chunks around itself ticking, so solar panels and batteries placed there keep working, and it loads whichever chunk it is mining. The chunk tickets last 5 seconds and are renewed by the running quarry, so everything unloads on its own once the quarry stops, runs out of power, loses the upgrade or is removed. After a server restart, quarries that were loading chunks get their chunks back automatically. Hover over UPGRADES to see whether chunk loading is active. Servers can disable it (`allowChunkLoading`).
 
@@ -126,9 +132,57 @@ Pipes connect automatically to each other, to quarries and to chests, barrels, h
 3. The nearest destination wins.
 4. Remaining ties always go the same way, so routing is deterministic.
 
+## Pipe tiers, Sorting Terminal and crates
+
+| Pipe | Speed | Items per batch |
+|---|---|---|
+| Item Pipe | 1x | 16 |
+| Reinforced Item Pipe | 2x | 32 |
+| Advanced Item Pipe | 5x | 64 |
+
+**Sorting Terminal:** connect it to a pipe network and register the chests on it. For each chest choose what it receives: **only** listed items and tags, **everything except** listed ones, or **fallback** for leftovers and overflow, plus a priority. The screen shows each chest's free space. Settings are saved and come back when a chest is broken and replaced or its chunk reloads.
+
+**Storage Crates:** 54, 108 and 162 slots (use the page buttons). They work with pipes and hoppers, and the Wrench picks them up with everything inside.
+
+## Liquids
+
+With a **Liquid Remover Upgrade**, a pump arm on the gantry clears liquid ahead of the drill into the quarry's 16-bucket pump tank. Connect **Fluid Pipes** from the quarry to a **Liquid Tank** (64 buckets; fill or empty it with buckets, and a comparator reads its level). With a Void Upgrade installed, the liquid is deleted instead. Before reporting Complete, the quarry makes a final pass and removes any liquid that flowed back into the pit.
+
+## Machines
+
+**Super Smelter:** an electric furnace with three lanes, each 4x furnace speed, using 16 E/t per working lane and nothing while idle. Only smeltable items go in. Pipes and hoppers insert from the top and sides and extract from the bottom. You get the XP when you take the results.
+
+**Fabrication Bench:** a searchable catalogue of every Solar Quarry recipe. Pick an item to see what it needs (have / need) and craft it straight from your inventory.
+
+**Tree Farm:** plants saplings every third block in a square in front of it (9 x 9, or 13 x 13 and 17 x 17 with Range upgrades) on grass, dirt, podzol, moss or mud. It uses bone meal only on saplings that can take it, and its drone fells grown trees and collects the real drops. Saplings from the leaves refill its sapling slots. Trees touching built blocks (log cabins, beams) are never cut. **Growth** (max 2) adds growth ticks; **Harvest** cuts the leaves too. Powered by energy cables like the quarry.
+
+## Drones
+
+- **Security drones** (Security Upgrade): when hostile mobs come within 16 blocks of the quarry, it sends out up to 3 drones that fly to them and zap them. They cost 8 E/t each while out plus 60 E per hit, paid by the quarry. They never attack players, pets, villagers, the shop guard or neutral mobs, return when it's calm or power runs out, and disappear with their quarry.
+- **Miner Drone** (drone slot): once the quarry's own area is finished, it tunnels from the bottom of the pit to ores within 24 blocks and sends them through the quarry's output, using the quarry's power and upgrades.
+
+## The trader and his shop
+
+The first time a player joins, the trader greets them and hands over the starter kit once; anything that doesn't fit arrives as soon as there is room. His shop is built once per world near spawn (sign, lanterns, a supply chest and a Fabrication Bench), with a guard who fights hostile mobs only. He sells Solar Quarry parts and buys ores and blocks for emeralds through the normal trading screen, and his stock refills every morning. If the trader or the guard dies, exactly one replacement arrives the next morning.
+
+## Helionite and Rocket Boots
+
+**Helionite** is an Overworld ore found deep in the deepslate. Smelt the raw helionite into ingots for tools and armour with netherite's stats; no Nether trip needed.
+
+**Rocket Boots** (leather, iron, diamond, helionite): crouch and jump to launch. Charge them by using them on a Solar Quarry battery. Each jump costs 400 E, and the boots absorb part of your fall damage using their stored energy.
+
+| Tier | Energy | Fall damage absorbed |
+|---|---|---|
+| Leather | 20k E | 40% |
+| Iron | 50k E | 60% |
+| Diamond | 120k E | 80% |
+| Helionite | 300k E | 100% |
+
+Higher tiers also launch you higher.
+
 ## Ore Prospector
 
-- **Use in the air:** an exact count of the ore blocks in the chunk you're standing in, from your feet down to the world bottom.
+- **Use in the air:** a list of every ore type and an exact count of the ore blocks in the chunk you're standing in, from your feet down to the world bottom.
 - **Use on a quarry:** an exact count of the ores left in the part of its work volume it has not reached yet. Big volumes are scanned over a few ticks (a 64 × 64 quarry down to bedrock takes about a second), and the result arrives in chat. Blocks in unloaded chunks are reported separately, not guessed.
 
 Each use costs 1 durability (128 total; repair with copper ingots in an anvil) and has a 5-second cooldown (server setting).
@@ -167,4 +221,8 @@ Commands: `/solarquarry config` shows the active values to anyone; `/solarquarry
 
 ## Recipe viewers
 
-All recipes are standard crafting-table recipes, so recipe viewers that read vanilla recipes (JEI, REI, EMI) list them without any extra integration. This was not tested with those mods installed.
+All recipes are standard crafting-table recipes, so recipe viewers that read vanilla recipes (JEI, REI, EMI) should list them without any extra integration; the Fabrication Bench shows them all in game anyway.
+
+## Known limitations
+
+Solar Quarry 3.0 is built and tested for single-player use. Automated tests cover every feature in a dedicated-server world and a game client, including a run alongside the Fabulously Optimized modpack (166 mods). Multiplayer servers with several players and recipe viewer mods were not tested.
