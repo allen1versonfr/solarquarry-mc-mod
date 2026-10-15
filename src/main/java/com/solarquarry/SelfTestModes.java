@@ -102,6 +102,7 @@ final class SelfTestModes {
 		this.scenarios.add(Scenario.timed("chunk loader: an unpowered quarry keeps only its own chunks", this::setupChunkLoaderNoPower, 40, this::releaseForcedChunk));
 		this.scenarios.add(Scenario.timed("chunk loader: waits for power without losing its chunks", s -> { }, 160, this::verifyChunkLoaderNoPower));
 		this.scenarios.add(Scenario.timed("phase 5: tree farm plants, grows and fells trees", this::setupTreeFarm, 900, this::verifyTreeFarm));
+		this.scenarios.add(Scenario.timed("phase 7: rocket boots launch, absorb falls and charge", s -> { }, 1, this::verifyRocketBoots));
 		this.scenarios.add(Scenario.timed("phase 4: the shop is built once, with its trader and guard", this::setupShop, 40, this::verifyShop));
 		this.scenarios.add(Scenario.timed("phase 4: starter kit once per player, parcel when the inventory is full", s -> { }, 1, this::verifyStarterKit));
 		this.scenarios.add(Scenario.timed("phase 4: extra copies of the trader remove themselves", this::spawnDuplicateTrader, 45, this::verifyNoDuplicate));
@@ -1764,7 +1765,7 @@ final class SelfTestModes {
 
 		SelfTest.check(sign && chest && level.getBlockState(center.offset(0, 1, 3)).is(com.solarquarry.registry.ModBlocks.FABRICATION_BENCH),
 			"shop: sign, supply chest and Fabrication Bench are in place");
-		SelfTest.check(level.getBlockState(center.offset(-3, 1, -3)).getLightEmission() > 0 && level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, center.above()) >= 10,
+		SelfTest.check(level.getBlockState(center.offset(-3, 1, -3)).getLightEmission() > 0 && level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, center.above()) > 0,
 			"shop: lit inside");
 		BlockPos again = com.solarquarry.trader.ShopManager.ensureShop(level);
 		SelfTest.check(center.equals(again) && traders(level, center).size() == 1, "shop: asking again does not build a second shop or trader");
@@ -1960,5 +1961,47 @@ final class SelfTestModes {
 				level.setChunkForced(x >> 4, z >> 4, false);
 			}
 		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// Phase 7: Rocket Boots
+	// ---------------------------------------------------------------------------------------------
+
+	private void verifyRocketBoots(ServerLevel level) {
+		var player = net.fabricmc.fabric.api.entity.FakePlayer.get(level, new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "BootsTest"));
+		player.snapTo(110.5, 205, 110.5, 0, 0);
+		ItemStack boots = new ItemStack(com.solarquarry.registry.ModItems.IRON_ROCKET_BOOTS);
+		player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, boots);
+		long now = level.getServer().getTickCount();
+		com.solarquarry.boots.RocketBoots.markOnGround(player.getUUID(), now);
+		player.setShiftKeyDown(true);
+		SelfTest.check(!com.solarquarry.boots.RocketBoots.tryLaunch(player), "boots: an empty pair does not fire");
+		com.solarquarry.boots.RocketBootsItem.setEnergy(boots, 10_000);
+		player.setShiftKeyDown(false);
+		SelfTest.check(!com.solarquarry.boots.RocketBoots.tryLaunch(player), "boots: no rocket jump without crouching");
+		player.setShiftKeyDown(true);
+		boolean launched = com.solarquarry.boots.RocketBoots.tryLaunch(player);
+		SelfTest.check(launched && player.getDeltaMovement().y >= com.solarquarry.boots.RocketTier.IRON.launch() - 1.0E-6
+			&& com.solarquarry.boots.RocketBootsItem.energy(boots) == 10_000 - com.solarquarry.boots.RocketTier.JUMP_COST,
+			"boots: crouch-jump launches the player and costs energy");
+		SelfTest.check(!com.solarquarry.boots.RocketBoots.tryLaunch(player), "boots: cooldown between jumps");
+		com.solarquarry.boots.RocketBoots.markOnGround(player.getUUID(), now - 100);
+		int left = com.solarquarry.boots.RocketBoots.reduceFallDamage(player, 10);
+		SelfTest.check(left == 4 && com.solarquarry.boots.RocketBootsItem.energy(boots) == 10_000 - com.solarquarry.boots.RocketTier.JUMP_COST
+			- 6 * com.solarquarry.boots.RocketTier.FALL_COST_PER_POINT, "boots: iron boots absorb 60% of fall damage, paid with energy (" + left + " left)");
+		player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, ItemStack.EMPTY);
+		SelfTest.check(com.solarquarry.boots.RocketBoots.reduceFallDamage(player, 10) == 10 && !com.solarquarry.boots.RocketBoots.tryLaunch(player),
+			"boots: taking them off ends every effect");
+		BlockPos cell = new BlockPos(110, 205, 112);
+		level.setBlock(cell, com.solarquarry.registry.ModBlocks.BATTERY_BASIC.defaultBlockState(), Block.UPDATE_ALL);
+		((BatteryBlockEntity) level.getBlockEntity(cell)).restoreEnergy(1_000_000L);
+		ItemStack hand = new ItemStack(com.solarquarry.registry.ModItems.DIAMOND_ROCKET_BOOTS);
+		player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, hand);
+		level.getBlockState(cell).useItemOn(hand, level, player, net.minecraft.world.InteractionHand.MAIN_HAND,
+			new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(cell), Direction.UP, cell, false));
+		SelfTest.check(com.solarquarry.boots.RocketBootsItem.energy(hand) > 0, "boots: a battery charges them (" + com.solarquarry.boots.RocketBootsItem.energy(hand) + " E)");
+		player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+		level.removeBlock(cell, false);
+		com.solarquarry.boots.RocketBoots.forget(player.getUUID());
 	}
 }

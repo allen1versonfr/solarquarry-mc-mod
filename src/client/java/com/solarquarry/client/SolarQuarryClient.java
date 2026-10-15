@@ -19,9 +19,21 @@ import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
 
 public class SolarQuarryClient implements ClientModInitializer {
+	private static boolean rocketJumpHeld;
+
 	@Override
 	public void onInitializeClient() {
 		MenuScreens.register(ModMenus.QUARRY, QuarryScreen::new);
+		// Rocket Boots: crouch + jump asks the server for a rocket jump (the server checks and launches).
+		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(client -> {
+			boolean jump = client.options.keyJump.isDown();
+			if (jump && !rocketJumpHeld && client.player != null && client.gui.screen() == null && client.player.isShiftKeyDown()
+				&& !com.solarquarry.boots.RocketBootsItem.worn(client.player).isEmpty()) {
+				ClientPlayNetworking.send(new com.solarquarry.boots.RocketBoots.JumpPayload());
+			}
+
+			rocketJumpHeld = jump;
+		});
 		MenuScreens.register(ModMenus.FILTER_PIPE, FilterPipeScreen::new);
 		MenuScreens.register(ModMenus.FABRICATION_BENCH, com.solarquarry.client.screen.FabricationBenchScreen::new);
 		MenuScreens.register(ModMenus.TREE_FARM, com.solarquarry.client.screen.TreeFarmScreen::new);

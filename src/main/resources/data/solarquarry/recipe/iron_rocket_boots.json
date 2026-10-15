@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "IBI",
+    "CFC"
+  ],
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "B": "solarquarry:leather_rocket_boots",
+    "C": "solarquarry:circuit_board",
+    "F": "minecraft:firework_rocket"
+  },
+  "result": {
+    "id": "solarquarry:iron_rocket_boots",
+    "count": 1
+  }
+}

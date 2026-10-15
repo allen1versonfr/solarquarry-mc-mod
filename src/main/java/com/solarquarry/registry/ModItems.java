@@ -19,6 +19,11 @@ import net.minecraft.world.item.Rarity;
 public final class ModItems {
 	public static final List<Item> ITEMS = new ArrayList<>();
 
+	/** Energy stored on an item (Rocket Boots). */
+	public static final net.minecraft.core.component.DataComponentType<Long> ENERGY = Registry.register(BuiltInRegistries.DATA_COMPONENT_TYPE,
+		SolarQuarry.id("energy"), net.minecraft.core.component.DataComponentType.<Long>builder()
+			.persistent(com.mojang.serialization.Codec.LONG).networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.VAR_LONG).build());
+
 	public static final Item WRENCH = register("wrench", WrenchItem::new, new Item.Properties().stacksTo(1));
 	public static final Item CIRCUIT_BOARD = register("circuit_board", Item::new, new Item.Properties());
 	public static final Item ADVANCED_CIRCUIT = register("advanced_circuit", Item::new, new Item.Properties().rarity(Rarity.UNCOMMON));
@@ -44,6 +49,21 @@ public final class ModItems {
 	public static final Item GROWTH_UPGRADE = upgrade("growth_upgrade", UpgradeType.GROWTH, 0, Rarity.UNCOMMON);
 	public static final Item HARVEST_UPGRADE = upgrade("harvest_upgrade", UpgradeType.HARVEST, 0, Rarity.UNCOMMON);
 	public static final Item LIQUID_REMOVER_UPGRADE = upgrade("liquid_remover_upgrade", UpgradeType.LIQUID_REMOVER, 0, Rarity.UNCOMMON);
+
+	public static final Item LEATHER_ROCKET_BOOTS = boots(com.solarquarry.boots.RocketTier.LEATHER, Rarity.COMMON);
+	public static final Item IRON_ROCKET_BOOTS = boots(com.solarquarry.boots.RocketTier.IRON, Rarity.UNCOMMON);
+	public static final Item DIAMOND_ROCKET_BOOTS = boots(com.solarquarry.boots.RocketTier.DIAMOND, Rarity.RARE);
+	public static final Item HELIONITE_ROCKET_BOOTS = boots(com.solarquarry.boots.RocketTier.HELIONITE, Rarity.EPIC);
+
+	private static Item boots(com.solarquarry.boots.RocketTier tier, Rarity rarity) {
+		Item.Properties properties = new Item.Properties().humanoidArmor(tier.material(), net.minecraft.world.item.equipment.ArmorType.BOOTS).rarity(rarity)
+			.component(ENERGY, 0L);
+		if (tier == com.solarquarry.boots.RocketTier.HELIONITE) {
+			properties = properties.fireResistant();
+		}
+
+		return register(tier.id() + "_rocket_boots", p -> new com.solarquarry.boots.RocketBootsItem(tier, p), properties);
+	}
 
 	private ModItems() {
 	}

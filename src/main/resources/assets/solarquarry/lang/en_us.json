@@ -369,5 +369,15 @@
   "gui.solarquarry.tree_farm.output": "Output",
   "gui.solarquarry.tree_farm.costs": "Log 40 E, leaf 8 E, planting 20 E, bone meal 30 E",
   "gui.solarquarry.tree_farm.speed": "One action every %s ticks",
-  "gui.solarquarry.tree_farm.upgrades": "Speed %s, Growth %s, Harvest: %s"
+  "gui.solarquarry.tree_farm.upgrades": "Speed %s, Growth %s, Harvest: %s",
+  "item.solarquarry.leather_rocket_boots": "Leather Rocket Boots",
+  "item.solarquarry.iron_rocket_boots": "Iron Rocket Boots",
+  "item.solarquarry.diamond_rocket_boots": "Diamond Rocket Boots",
+  "item.solarquarry.helionite_rocket_boots": "Helionite Rocket Boots",
+  "tooltip.solarquarry.rocket_boots.energy": "Energy: %s / %s E",
+  "tooltip.solarquarry.rocket_boots.jump": "Rocket jump: about %s blocks high, %s E",
+  "tooltip.solarquarry.rocket_boots.fall": "Absorbs %s%% of fall damage (%s E per point)",
+  "tooltip.solarquarry.rocket_boots.use": "Crouch and jump to fire. Charge: hold them and use a Solar Quarry battery.",
+  "solarquarry.rocket_boots.empty": "Rocket Boots are out of energy",
+  "solarquarry.rocket_boots.charged": "Rocket Boots charged: %s / %s E"
 }

@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "HBH",
+    "AEA",
+    "H H"
+  ],
+  "key": {
+    "H": "solarquarry:helionite_ingot",
+    "B": "solarquarry:diamond_rocket_boots",
+    "A": "solarquarry:advanced_circuit",
+    "E": "solarquarry:battery_advanced"
+  },
+  "result": {
+    "id": "solarquarry:helionite_rocket_boots",
+    "count": 1
+  }
+}

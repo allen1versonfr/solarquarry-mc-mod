@@ -1,0 +1,65 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_the_recipe": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "solarquarry:helionite_rocket_boots"
+      }
+    },
+    "has_helionite_ingot": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "solarquarry:helionite_ingot"
+          }
+        ]
+      }
+    },
+    "has_diamond_rocket_boots": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "solarquarry:diamond_rocket_boots"
+          }
+        ]
+      }
+    },
+    "has_advanced_circuit": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "solarquarry:advanced_circuit"
+          }
+        ]
+      }
+    },
+    "has_battery_advanced": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "solarquarry:battery_advanced"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_helionite_ingot",
+      "has_diamond_rocket_boots",
+      "has_advanced_circuit",
+      "has_battery_advanced"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "solarquarry:helionite_rocket_boots"
+    ]
+  }
+}

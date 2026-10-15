@@ -63,6 +63,9 @@ public class SolarQuarry implements ModInitializer {
 		PayloadTypeRegistry.clientboundPlay().register(com.solarquarry.network.SortingSnapshotPayload.TYPE, com.solarquarry.network.SortingSnapshotPayload.STREAM_CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(com.solarquarry.network.SortingActionPayload.TYPE, com.solarquarry.network.SortingActionPayload.STREAM_CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(com.solarquarry.network.SortingActionPayload.TYPE, com.solarquarry.network.SortingActionPayload::handle);
+		PayloadTypeRegistry.serverboundPlay().register(com.solarquarry.boots.RocketBoots.JumpPayload.TYPE, com.solarquarry.boots.RocketBoots.JumpPayload.STREAM_CODEC);
+		ServerPlayNetworking.registerGlobalReceiver(com.solarquarry.boots.RocketBoots.JumpPayload.TYPE, com.solarquarry.boots.RocketBoots::handle);
+		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> com.solarquarry.boots.RocketBoots.forget(handler.getPlayer().getUUID()));
 		PayloadTypeRegistry.clientboundPlay().register(com.solarquarry.network.BenchCatalogPayload.TYPE, com.solarquarry.network.BenchCatalogPayload.STREAM_CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(com.solarquarry.network.BenchCraftPayload.TYPE, com.solarquarry.network.BenchCraftPayload.STREAM_CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(com.solarquarry.network.BenchCraftPayload.TYPE, com.solarquarry.network.BenchCraftPayload::handle);
@@ -73,6 +76,7 @@ public class SolarQuarry implements ModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
 			ProspectorScans.tick(server);
 			com.solarquarry.trader.ShopManager.tick(server);
+			com.solarquarry.boots.RocketBoots.tick(server);
 			QuarryChunkLoading.prune(server);
 		});
 		// Route caches hold level references: drop them when a server stops.

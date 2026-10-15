@@ -68,6 +68,25 @@ public class BatteryBlock extends MachineBlock implements EnergyConnectable {
 		return level.isClientSide() ? null : createTickerHelper(type, ModBlockEntities.BATTERY, BatteryBlockEntity::serverTick);
 	}
 
+	/** Right-click with Rocket Boots in hand to charge them from the battery. */
+	@Override
+	protected InteractionResult useItemOn(net.minecraft.world.item.ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
+		net.minecraft.world.InteractionHand hand, BlockHitResult hitResult) {
+		if (stack.getItem() instanceof com.solarquarry.boots.RocketBootsItem boots) {
+			if (!level.isClientSide() && level.getBlockEntity(pos) instanceof BatteryBlockEntity battery) {
+				long room = boots.tier().capacity() - com.solarquarry.boots.RocketBootsItem.energy(stack);
+				long moved = battery.extractEnergy(Math.min(room, 50_000L), false);
+				com.solarquarry.boots.RocketBootsItem.setEnergy(stack, com.solarquarry.boots.RocketBootsItem.energy(stack) + moved);
+				player.sendOverlayMessage(Component.translatable("solarquarry.rocket_boots.charged",
+					EnergyFormat.format(com.solarquarry.boots.RocketBootsItem.energy(stack)), EnergyFormat.format(boots.tier().capacity())));
+			}
+
+			return InteractionResult.SUCCESS;
+		}
+
+		return super.useItemOn(stack, state, level, pos, player, hand, hitResult);
+	}
+
 	@Override
 	protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
 		if (!level.isClientSide() && level.getBlockEntity(pos) instanceof BatteryBlockEntity battery) {
