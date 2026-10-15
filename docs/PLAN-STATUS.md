@@ -35,6 +35,13 @@ VERIFIED means an automated in-world check (dedicated-server self-test or client
 - **Jar:** `release/checkpoints/solarquarry-3.0.0-beta.1.jar`.
 - **Known defects:** none found.
 
+## Checkpoint 3.0.0-beta.3 (2026-10-15)
+
+- **Covers:** Phases 2-7 plus the extra requests (torches, XP, legs, printer gantry, Liquid Remover, crates, Fabrication Bench, Helionite, miner drone, Nether-free recipes).
+- **Results:** clean build; all unit tests; 302/302 self-test checks; client game test passed (21 screenshots).
+- **Fixed during testing:** a server freeze when a quarry's chunk loaded (leg check waited on a neighbouring chunk); Tree Farm and shop site search ignored grass (26.2 moved grass out of `#minecraft:dirt`); security drones hovered just out of striking range.
+- **Jar:** `release/solarquarry-3.0.0-beta.3.jar`.
+
 ## Feature tracker
 
 | # | Requirement | Status |
@@ -72,5 +79,5 @@ VERIFIED means an automated in-world check (dedicated-server self-test or client
 | 4.3 | Buy/sell through the vanilla merchant screen, daily restock, no buy-sell loop | VERIFIED (self-test) |
 | 4.4 | Death, next-morning replacement, no duplicates | VERIFIED (self-test) |
 | 5.x | Tree Farm: planting grid, bone meal, Growth/Harvest upgrades, drone, structure-safe tree detection | VERIFIED (self-test: plants, fells, skips stone and a log cabin, no 2x2 saplings, upgrade rules, save/load; unit tests for tree detection) |
-| 6.x | Security Upgrade drones; Miner Drone | IMPLEMENTED, NOT VERIFIED (pending the current test run) |
+| 6.x | Security Upgrade drones; Miner Drone | VERIFIED (self-test: drones kill a hostile mob, spare cows/villagers/pets/endermen, use energy, vanish with the quarry; miner drone tunnels to an ore outside the area) |
 | 7.x | Rocket Boots (leather, iron, diamond, helionite) | VERIFIED (self-test: launch, fall protection, charging) |
