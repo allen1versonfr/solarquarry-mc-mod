@@ -86,8 +86,9 @@ public class SecurityDrone extends Mob {
 
 		Vec3 goal;
 		if (this.target != null) {
-			goal = this.target.position().add(0, this.target.getBbHeight() + 0.6, 0);
-			if (this.distanceToSqr(this.target) < 6.25 && this.attackCooldown == 0 && quarry.payForDroneAttack()) {
+			// Hover just above the target's head and strike from there (within 3 blocks of its feet).
+			goal = this.target.position().add(0, this.target.getBbHeight() + 0.3, 0);
+			if (this.distanceToSqr(this.target) < 9.0 && this.attackCooldown == 0 && quarry.payForDroneAttack()) {
 				this.attackCooldown = ATTACK_INTERVAL;
 				this.target.hurtServer(level, this.damageSources().mobAttack(this), DAMAGE);
 				level.sendParticles(ParticleTypes.ELECTRIC_SPARK, this.target.getX(), this.target.getY() + this.target.getBbHeight() * 0.6, this.target.getZ(),

@@ -91,7 +91,7 @@ public final class ShopBuilder {
 	}
 
 	private static boolean isNaturalGround(BlockState state) {
-		return state.is(BlockTags.DIRT) || state.is(BlockTags.SAND) || state.is(BlockTags.BASE_STONE_OVERWORLD) || state.is(Blocks.GRAVEL)
+		return state.is(BlockTags.SUBSTRATE_OVERWORLD) || state.is(BlockTags.SAND) || state.is(BlockTags.BASE_STONE_OVERWORLD) || state.is(Blocks.GRAVEL)
 			|| state.is(Blocks.SNOW_BLOCK) || state.is(BlockTags.TERRACOTTA) || state.is(Blocks.CLAY);
 	}
 

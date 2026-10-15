@@ -348,6 +348,7 @@ public class SolarQuarryClientGameTest implements FabricClientGameTest {
 					com.solarquarry.SolarQuarry.LOGGER.info("[ClientTest] tree farm: status {}, energy {}, planted {}, felled {}, first spot {} = {}",
 						farm.getStatus(), farm.getEnergy(), farm.getSaplingsPlanted(), farm.getTreesFelled(), farm.plantingSpots().getFirst(),
 						player.level().getBlockState(farm.plantingSpots().getFirst()));
+					player.teleportTo(farmPos.getX() + 0.5, farmPos.getY(), farmPos.getZ() - 1.5);
 					player.openMenu(farm);
 				} else {
 					throw new AssertionError("tree farm gone before opening its screen: " + player.level().getBlockState(farmPos) + " / "

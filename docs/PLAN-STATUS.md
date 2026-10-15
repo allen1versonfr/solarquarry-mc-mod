@@ -67,10 +67,10 @@ VERIFIED means an automated in-world check (dedicated-server self-test or client
 | 3b.1 | Helionite ore (Overworld deepslate), ingot, block | VERIFIED (self-test: tags, smelting, feature registered) |
 | 3b.2 | Helionite tools and armour = netherite stats | VERIFIED (self-test compares durability and attributes) |
 | 3b.3 | No Nether items in any recipe | VERIFIED (unit test scans every recipe) |
-| 4.1 | First-join starter kit, once per player, parcel when full | IMPLEMENTED, NOT VERIFIED |
-| 4.2 | Shop with guard, lighting, sign, bench, supply chest | IMPLEMENTED, NOT VERIFIED |
-| 4.3 | Buy/sell through the vanilla merchant screen, daily restock, no buy-sell loop | IMPLEMENTED, NOT VERIFIED |
-| 4.4 | Death, next-morning replacement, no duplicates | IMPLEMENTED, NOT VERIFIED |
-| 5.x | Tree Farm, drone, growth/harvest upgrades | IMPLEMENTED, NOT VERIFIED |
-| 6.x | Security Upgrade drones; miner drone | NOT STARTED |
-| 7.x | Rocket Boots (leather, iron, diamond, helionite) | NOT STARTED |
+| 4.1 | First-join starter kit, once per player, parcel when full | VERIFIED (self-test) |
+| 4.2 | Shop with guard, lighting, sign, bench, supply chest | VERIFIED (self-test) |
+| 4.3 | Buy/sell through the vanilla merchant screen, daily restock, no buy-sell loop | VERIFIED (self-test) |
+| 4.4 | Death, next-morning replacement, no duplicates | VERIFIED (self-test) |
+| 5.x | Tree Farm: planting grid, bone meal, Growth/Harvest upgrades, drone, structure-safe tree detection | VERIFIED (self-test: plants, fells, skips stone and a log cabin, no 2x2 saplings, upgrade rules, save/load; unit tests for tree detection) |
+| 6.x | Security Upgrade drones; Miner Drone | IMPLEMENTED, NOT VERIFIED (pending the current test run) |
+| 7.x | Rocket Boots (leather, iron, diamond, helionite) | VERIFIED (self-test: launch, fall protection, charging) |

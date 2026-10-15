@@ -200,6 +200,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	private boolean minerDone;
 	/** Security drones this quarry has deployed (never saved: drones are not saved either). */
 	private final List<UUID> drones = new ArrayList<>();
+	private long droneEnergyUsed;
 	private int calmTicks;
 	/** Fraction of a point of smelting experience not yet stored. */
 	private float smeltXpRemainder;
@@ -1605,7 +1606,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		this.minerScan = Math.max(0, input.getLongOr("MinerScan", 0L));
 		this.minerDone = input.getBooleanOr("MinerDone", false);
 		this.minerOres.clear();
-		input.read("MinerOres", Codec.LONG.listOf()).ifPresent(list -> list.stream().limit(MINER_ORE_LIMIT).forEach(this.minerOres::add));
+		input.read("MinerOres", Codec.LONG.listOf()).ifPresent(list -> list.stream().limit(MINER_ORE_LIMIT).forEach(v -> this.minerOres.add(v.longValue())));
 		this.minerPos = input.getLong("MinerPos").map(BlockPos::of).orElse(null);
 		this.smeltXpRemainder = Math.clamp(input.getFloatOr("SmeltXp", 0.0F), 0.0F, 1.0F);
 		this.clientPump = input.getBooleanOr("Pump", false);
@@ -2011,6 +2012,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 			}
 
 			this.useEnergy(upkeep);
+			this.droneEnergyUsed += upkeep;
 		}
 
 		if (this.ticks % 10 != 0) {
@@ -2072,7 +2074,13 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		}
 
 		this.useEnergy(DRONE_ATTACK_COST);
+		this.droneEnergyUsed += DRONE_ATTACK_COST;
 		return true;
+	}
+
+	/** Energy the security drones have used since the quarry was loaded (upkeep and attacks). */
+	public long getDroneEnergyUsed() {
+		return this.droneEnergyUsed;
 	}
 
 	public int getDroneCount() {

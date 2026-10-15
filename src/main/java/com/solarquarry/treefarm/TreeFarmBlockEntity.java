@@ -355,7 +355,7 @@ public class TreeFarmBlockEntity extends BlockEntity implements WorldlyContainer
 			return state.getValue(LeavesBlock.PERSISTENT) ? TreeScan.Kind.PLACED_LEAVES : TreeScan.Kind.NATURAL_LEAVES;
 		}
 
-		if (state.is(BlockTags.DIRT) || state.is(BlockTags.BASE_STONE_OVERWORLD) || state.is(BlockTags.SAND) || state.canBeReplaced()
+		if (state.is(BlockTags.SUBSTRATE_OVERWORLD) || state.is(BlockTags.BASE_STONE_OVERWORLD) || state.is(BlockTags.SAND) || state.canBeReplaced()
 			|| (state.getBlock() instanceof SaplingBlock) || state.is(BlockTags.FLOWERS) || state.is(net.minecraft.world.level.block.Blocks.VINE)
 			|| state.is(net.minecraft.world.level.block.Blocks.COCOA) || state.is(net.minecraft.world.level.block.Blocks.BEE_NEST)
 			|| state.is(net.minecraft.world.level.block.Blocks.GRAVEL) || state.is(net.minecraft.world.level.block.Blocks.SNOW_BLOCK)
@@ -464,7 +464,7 @@ public class TreeFarmBlockEntity extends BlockEntity implements WorldlyContainer
 				return null; // occupied by a tree or sapling
 			}
 
-			if (state.isAir() && level.getBlockState(pos.below()).is(BlockTags.DIRT) && level.getBlockState(pos.above()).isAir()) {
+			if (state.isAir() && level.getBlockState(pos.below()).is(BlockTags.SUBSTRATE_OVERWORLD) && level.getBlockState(pos.above()).isAir()) {
 				return pos;
 			}
 		}
