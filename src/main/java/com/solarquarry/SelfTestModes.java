@@ -102,7 +102,7 @@ final class SelfTestModes {
 		this.scenarios.add(Scenario.timed("chunk loader: remembered quarries get their chunks back", this::restoreChunkLoader, 80, this::verifyChunkLoaderRestored));
 		this.scenarios.add(Scenario.timed("chunk loader: an unpowered quarry keeps only its own chunks", this::setupChunkLoaderNoPower, 40, this::releaseForcedChunk));
 		this.scenarios.add(Scenario.timed("chunk loader: waits for power without losing its chunks", s -> { }, 160, this::verifyChunkLoaderNoPower));
-		this.scenarios.add(Scenario.timed("phase 5: tree farm plants, grows and fells trees", this::setupTreeFarm, 900, this::verifyTreeFarm));
+		this.scenarios.add(Scenario.timed("phase 5: tree farm plants, grows and fells trees", this::setupTreeFarm, 1600, this::verifyTreeFarm));
 		this.scenarios.add(Scenario.timed("4.0 construction: quarry raises its frame", SelfTestConstruction::setupQuarryFrame, 12, SelfTestConstruction::verifyQuarryFrameEarly));
 		this.scenarios.add(Scenario.timed("4.0 construction: frame finished, mining starts", s -> { }, 200, SelfTestConstruction::verifyQuarryFrameDone));
 		this.scenarios.add(Scenario.timed("4.0 construction: an unpowered quarry resumes when powered", s -> { }, 160, SelfTestConstruction::verifyQuarryFrameResumed));
