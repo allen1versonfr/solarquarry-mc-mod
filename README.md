@@ -1,4 +1,6 @@
-# Solar Quarry 2.1
+# Solar Quarry 3.0 (beta)
+
+> **3.0.0 beta:** the latest test build is [`release/solarquarry-3.0.0-beta.3.jar`](release/solarquarry-3.0.0-beta.3.jar). New in 3.0: a solid 3D-printer style frame whose legs reach the ground, torches and XP collection, pipe tiers, the Sorting Terminal, storage crates, the Liquid Remover with fluid pipes and tanks, the Auto-Smelter Upgrade and Super Smelter, the Fabrication Bench recipe catalogue, Helionite ore and gear (netherite stats, no Nether needed), the trader with his shop, guard and starter kit, the Tree Farm with its drone, and Rocket Boots. See [CHANGELOG.md](CHANGELOG.md) for details and [docs/PLAN-STATUS.md](docs/PLAN-STATUS.md) for what is verified. Beta builds can still change; back up your world first. The stable release below is 2.1.0.
 
 A standalone Fabric mod for Minecraft 26.2: a solar-powered quarry with four mining modes, an energy network (solar panels, batteries, cables), real item logistics (pipes, filter pipes with tags and priorities), an ore prospector, configuration presets and a remote control terminal. No other tech mod is needed.
 

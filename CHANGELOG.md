@@ -25,6 +25,20 @@
 - **Super Smelter:** electric furnace with three lanes at 4x furnace speed, 16 E/t per working lane and nothing while idle. Inputs accept only smeltable items; automation inserts from the top and sides and extracts from the bottom.
 - **Fabrication Bench:** a workbench with a searchable catalogue of every Solar Quarry recipe. Pick an item to see what it needs (have / need), then craft it straight from your inventory. The normal crafting table recipes still work too.
 
+- **Tree Farm:** plants saplings on a grid in front of it, uses bone meal (only when a sapling can take it), and a drone fells grown trees and collects the real drops; saplings from the leaves refill its sapling slots. Trees touching built blocks (log cabins, beams) are never cut. Growth Upgrade (extra growth ticks) and Harvest Upgrade (cuts the leaves too); quarry-only upgrades do not fit.
+
+### Trader
+- On a player's first visit the Solar Quarry trader hands over a starter kit (parts for the first quarry, power, pipes, a wrench and a Fabrication Bench) once; if the inventory is full the rest arrives as soon as there is room.
+- His shop (sign, lanterns, supply chest, bench) is built once per world near spawn, with a guard who fights hostile mobs only. He sells parts and buys ores and blocks for emeralds through the normal trading screen; stock refills every morning.
+- If the trader or guard dies, exactly one replacement arrives the next morning.
+
+### Equipment
+- **Helionite:** a new Overworld ore deep in the deepslate; tools and armour with netherite's stats.
+- **Rocket Boots** (leather, iron, diamond, helionite): crouch and jump to fire; each tier jumps higher, stores more energy and absorbs more fall damage. Charge them by using them on a Solar Quarry battery.
+
+### Fixes
+- A quarry whose frame legs reached into a chunk that was still loading could freeze the server; leg checks no longer load chunks.
+
 ### Recipes
 - Nothing from the Nether is needed anywhere: quartz, comparators and ender eyes were replaced (amethyst shards, lapis, repeaters, ender pearls). A unit test checks every recipe.
 
