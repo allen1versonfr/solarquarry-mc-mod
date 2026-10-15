@@ -343,10 +343,6 @@ public class SolarQuarryClientGameTest implements FabricClientGameTest {
 			singleplayer.getServer().runOnServer(server -> {
 				ServerPlayer player = server.getPlayerList().getPlayers().get(0);
 				if (player.level().getBlockEntity(farmPos) instanceof com.solarquarry.treefarm.TreeFarmBlockEntity farm) {
-					if (farm.getSaplingsPlanted() < 4) {
-						throw new AssertionError("tree farm planted only " + farm.getSaplingsPlanted());
-					}
-
 					player.openMenu(farm);
 				}
 			});
@@ -355,6 +351,15 @@ public class SolarQuarryClientGameTest implements FabricClientGameTest {
 			context.takeScreenshot("21_tree_farm_gui");
 			context.runOnClient(client -> client.player.closeContainer());
 			context.waitTicks(5);
+			singleplayer.getServer().runOnServer(server -> {
+				ServerLevel level = server.getPlayerList().getPlayers().get(0).level();
+				if (level.getBlockEntity(farmPos) instanceof com.solarquarry.treefarm.TreeFarmBlockEntity farm && farm.getSaplingsPlanted() < 4) {
+					BlockPos spot = farm.plantingSpots().getFirst();
+					throw new AssertionError("tree farm planted only " + farm.getSaplingsPlanted() + " (status " + farm.getStatus() + ", energy " + farm.getEnergy()
+						+ ", farm " + farmPos + " facing " + level.getBlockState(farmPos) + ", first spot " + spot + " = " + level.getBlockState(spot)
+						+ " on " + level.getBlockState(spot.below()) + ")");
+				}
+			});
 
 			// The trader's shop: in a client world the player joins, so the shop is built and the kit delivered.
 			context.waitTicks(40);
