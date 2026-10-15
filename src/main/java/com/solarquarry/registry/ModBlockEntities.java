@@ -25,6 +25,9 @@ public final class ModBlockEntities {
 	public static final BlockEntityType<com.solarquarry.storage.CrateBlockEntity> CRATE = register("crate",
 		FabricBlockEntityTypeBuilder.create(com.solarquarry.storage.CrateBlockEntity::new, ModBlocks.CRATE_BASIC, ModBlocks.CRATE_REINFORCED, ModBlocks.CRATE_ADVANCED).build());
 
+	public static final BlockEntityType<com.solarquarry.splitter.FilteredSplitterBlockEntity> FILTERED_SPLITTER = register("filtered_splitter",
+		FabricBlockEntityTypeBuilder.create(com.solarquarry.splitter.FilteredSplitterBlockEntity::new, ModBlocks.FILTERED_SPLITTER).build());
+
 	public static final BlockEntityType<com.solarquarry.blockentity.SortingTerminalBlockEntity> SORTING_TERMINAL = register("sorting_terminal",
 		FabricBlockEntityTypeBuilder.create(com.solarquarry.blockentity.SortingTerminalBlockEntity::new, ModBlocks.SORTING_TERMINAL).build());
 

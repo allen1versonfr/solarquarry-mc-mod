@@ -38,7 +38,30 @@ See [UPGRADE-AUDIT.md](UPGRADE-AUDIT.md). Baseline 3.0.0: 302/302 self-test chec
 
 Results: 326/326 self-test checks (302 existing + 24 new), 62/62 unit tests, packaged jar loads from a mods folder and passes the 4.0 scenarios.
 
+## Checkpoint C — creative tab and progression
+
+| Requirement | Status |
+|---|---|
+| Solar Quarry creative tab, every item exactly once, grouped by category, quarry icon | VERIFIED (self-test, unchanged since 3.0) |
+| Progression tiers documented ([PROGRESSION.md](PROGRESSION.md)) | Done |
+| Helionite has a purpose beyond its own gear: Elite Solar Panel and Elite Battery need it | VERIFIED (unit test `ProgressionTest`) |
+| No Nether materials in any recipe | VERIFIED (unit test) |
+
+## Checkpoint D — Filtered Splitter
+
+| Requirement | Status |
+|---|---|
+| New block; Filter Pipe kept and unchanged | VERIFIED (self-test: both) |
+| Takes items from pipes/hoppers/machines on its input side; outputs never accept items | VERIFIED (self-test) |
+| Selected items (item templates or tags) out of the green side, everything else out of the orange side | VERIFIED (self-test: 20 iron + 10 logs vs 30 cobblestone) |
+| Whitelist / blacklist, exact-components option | VERIFIED (self-test: blacklist swaps sides); components: same rule as the Filter Pipe |
+| Input / matching / other faces configurable and never overlapping; block shows the two outputs (green/orange plates) | VERIFIED (unit test `SplitterConfigTest`, self-test block state) |
+| Full output or nothing attached: items wait in the 9-slot buffer, nothing deleted; status reports it; resumes afterwards | VERIFIED (self-test) |
+| Settings persist; wrench pickup keeps settings | VERIFIED (save/load); wrench: by design (Configured flag), not separately tested |
+| Bounded work (16 items per output every 4 ticks), so loops cannot cause unbounded processing | By design |
+| GUI: 18 filter slots, 2 tag boxes, mode, sides, top-down diagram, search panel, clear/reset, status line, tooltips | IMPLEMENTED — NOT VERIFIED (needs the client test) |
+
 ## Later checkpoints
-C creative tab and progression · D Filtered Splitter · E Storage Terminal · F Kelp Farm · G Mechanic, trades, guard, house ·
+E Storage Terminal · F Kelp Farm · G Mechanic, trades, guard, house ·
 H Charging Station, powered tools, crouch-to-fly boots · I Liquid Remover pockets · J Laser Turrets · K structures and loot ·
 Weather Control Machine · L release audit — all NOT STARTED.

@@ -57,6 +57,8 @@ public class SolarQuarry implements ModInitializer {
 		ServerPlayNetworking.registerGlobalReceiver(QuarryConfigPayload.TYPE, QuarryConfigPayload::handle);
 		PayloadTypeRegistry.serverboundPlay().register(FilterConfigPayload.TYPE, FilterConfigPayload.STREAM_CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(FilterConfigPayload.TYPE, FilterConfigPayload::handle);
+		PayloadTypeRegistry.serverboundPlay().register(com.solarquarry.network.SplitterActionPayload.TYPE, com.solarquarry.network.SplitterActionPayload.STREAM_CODEC);
+		ServerPlayNetworking.registerGlobalReceiver(com.solarquarry.network.SplitterActionPayload.TYPE, com.solarquarry.network.SplitterActionPayload::handle);
 		PayloadTypeRegistry.serverboundPlay().register(TerminalActionPayload.TYPE, TerminalActionPayload.STREAM_CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(TerminalActionPayload.TYPE, TerminalActionPayload::handle);
 		PayloadTypeRegistry.clientboundPlay().register(TerminalSnapshotPayload.TYPE, TerminalSnapshotPayload.STREAM_CODEC);

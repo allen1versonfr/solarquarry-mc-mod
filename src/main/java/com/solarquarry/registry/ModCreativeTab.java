@@ -26,7 +26,7 @@ public final class ModCreativeTab {
 		"solar_panel_basic", "solar_panel_advanced", "solar_panel_elite",
 		"battery_basic", "battery_advanced", "battery_elite", "energy_cable",
 		// Pipes and sorting
-		"item_pipe", "reinforced_pipe", "advanced_pipe", "filter_pipe", "sorting_terminal",
+		"item_pipe", "reinforced_pipe", "advanced_pipe", "filter_pipe", "filtered_splitter", "sorting_terminal",
 		// Storage
 		"crate_basic", "crate_reinforced", "crate_advanced", "fluid_pipe", "liquid_tank",
 		// Quarry upgrades

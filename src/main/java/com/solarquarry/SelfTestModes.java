@@ -110,6 +110,9 @@ final class SelfTestModes {
 		this.scenarios.add(Scenario.timed("4.0 tree farm: construction stops at a player block", SelfTestConstruction::setupTreeFarmNatural, 60, SelfTestConstruction::verifyTreeFarmBlocked));
 		this.scenarios.add(Scenario.timed("4.0 tree farm: builds and farms on grassy ground", s -> { }, 1200, SelfTestConstruction::verifyTreeFarmNatural));
 		this.scenarios.add(Scenario.timed("4.0 tree farm: structure removed with the farm", s -> { }, 3, SelfTestConstruction::verifyTreeFarmRemoved));
+		this.scenarios.add(Scenario.timed("4.0 splitter: fed through a pipe", l -> { SelfTestLogistics.setupSplitter(l); SelfTestLogistics.feedSplitter(l); }, 20, SelfTestLogistics::feedMore));
+		this.scenarios.add(Scenario.timed("4.0 splitter: routes matching and other items", s -> { }, 300, SelfTestLogistics::verifySplitter));
+		this.scenarios.add(Scenario.timed("4.0 splitter: recovers when outputs free up", s -> { }, 40, SelfTestLogistics::verifySplitterRecovered));
 		this.scenarios.add(Scenario.timed("phase 6: the miner drone tunnels to ores after the area is done", this::setupMiner, 500, this::verifyMiner));
 		this.scenarios.add(Scenario.timed("phase 6: security drones fight hostile mobs only", this::setupSecurity, 140, this::verifySecurity));
 		this.scenarios.add(Scenario.timed("phase 6: drones vanish with their quarry", s -> { }, 5, this::verifyDronesGone));

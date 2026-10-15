@@ -1,0 +1,115 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "solarquarry:block/filtered_splitter"
+      }
+    },
+    {
+      "when": {
+        "match": "north"
+      },
+      "apply": {
+        "model": "solarquarry:block/filtered_splitter_match"
+      }
+    },
+    {
+      "when": {
+        "match": "east"
+      },
+      "apply": {
+        "model": "solarquarry:block/filtered_splitter_match",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "match": "south"
+      },
+      "apply": {
+        "model": "solarquarry:block/filtered_splitter_match",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "match": "west"
+      },
+      "apply": {
+        "model": "solarquarry:block/filtered_splitter_match",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "match": "up"
+      },
+      "apply": {
+        "model": "solarquarry:block/filtered_splitter_match",
+        "x": 270
+      }
+    },
+    {
+      "when": {
+        "match": "down"
+      },
+      "apply": {
+        "model": "solarquarry:block/filtered_splitter_match",
+        "x": 90
+      }
+    },
+    {
+      "when": {
+        "other": "north"
+      },
+      "apply": {
+        "model": "solarquarry:block/filtered_splitter_other"
+      }
+    },
+    {
+      "when": {
+        "other": "east"
+      },
+      "apply": {
+        "model": "solarquarry:block/filtered_splitter_other",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "other": "south"
+      },
+      "apply": {
+        "model": "solarquarry:block/filtered_splitter_other",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "other": "west"
+      },
+      "apply": {
+        "model": "solarquarry:block/filtered_splitter_other",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "other": "up"
+      },
+      "apply": {
+        "model": "solarquarry:block/filtered_splitter_other",
+        "x": 270
+      }
+    },
+    {
+      "when": {
+        "other": "down"
+      },
+      "apply": {
+        "model": "solarquarry:block/filtered_splitter_other",
+        "x": 90
+      }
+    }
+  ]
+}

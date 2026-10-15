@@ -28,6 +28,10 @@ public final class ModMenus {
 		BuiltInRegistries.MENU, SolarQuarry.id("filter_pipe"), new ExtendedMenuType<>(FilterPipeMenu::new, BlockPos.STREAM_CODEC)
 	);
 
+	public static final ExtendedMenuType<com.solarquarry.splitter.FilteredSplitterMenu, BlockPos> FILTERED_SPLITTER = Registry.register(
+		BuiltInRegistries.MENU, SolarQuarry.id("filtered_splitter"), new ExtendedMenuType<>(com.solarquarry.splitter.FilteredSplitterMenu::new, BlockPos.STREAM_CODEC)
+	);
+
 	public static final ExtendedMenuType<TerminalMenu, BlockPos> TERMINAL = Registry.register(
 		BuiltInRegistries.MENU, SolarQuarry.id("remote_terminal"), new ExtendedMenuType<>(TerminalMenu::new, BlockPos.STREAM_CODEC)
 	);

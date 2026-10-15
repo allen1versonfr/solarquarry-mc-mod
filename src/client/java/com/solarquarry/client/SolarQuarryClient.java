@@ -36,6 +36,7 @@ public class SolarQuarryClient implements ClientModInitializer {
 		});
 		MenuScreens.register(ModMenus.FILTER_PIPE, FilterPipeScreen::new);
 		MenuScreens.register(ModMenus.FABRICATION_BENCH, com.solarquarry.client.screen.FabricationBenchScreen::new);
+		MenuScreens.register(ModMenus.FILTERED_SPLITTER, com.solarquarry.client.screen.FilteredSplitterScreen::new);
 		MenuScreens.register(ModMenus.TREE_FARM, com.solarquarry.client.screen.TreeFarmScreen::new);
 		MenuScreens.register(ModMenus.CRATE, com.solarquarry.client.screen.CrateScreen::new);
 		MenuScreens.register(ModMenus.SUPER_SMELTER, com.solarquarry.client.screen.SuperSmelterScreen::new);

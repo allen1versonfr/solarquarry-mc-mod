@@ -1,0 +1,54 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_the_recipe": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "solarquarry:filtered_splitter"
+      }
+    },
+    "has_item_pipe": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "solarquarry:item_pipe"
+          }
+        ]
+      }
+    },
+    "has_filter_pipe": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "solarquarry:filter_pipe"
+          }
+        ]
+      }
+    },
+    "has_hopper": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "minecraft:hopper"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_item_pipe",
+      "has_filter_pipe",
+      "has_hopper"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "solarquarry:filtered_splitter"
+    ]
+  }
+}

@@ -61,6 +61,10 @@ public final class ModBlocks {
 		BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(2.0F).sound(SoundType.COPPER_GRATE).noOcclusion(),
 		"tooltip.solarquarry.advanced_pipe", Rarity.RARE);
 
+	public static final com.solarquarry.splitter.FilteredSplitterBlock FILTERED_SPLITTER = register("filtered_splitter", com.solarquarry.splitter.FilteredSplitterBlock::new,
+		BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.0F, 6.0F).sound(SoundType.METAL).requiresCorrectToolForDrops(),
+		"tooltip.solarquarry.filtered_splitter", Rarity.UNCOMMON);
+
 	public static final com.solarquarry.block.SortingTerminalBlock SORTING_TERMINAL = register("sorting_terminal", com.solarquarry.block.SortingTerminalBlock::new,
 		BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.5F, 6.0F).sound(SoundType.METAL).requiresCorrectToolForDrops().lightLevel(state -> 4),
 		"tooltip.solarquarry.sorting_terminal", Rarity.UNCOMMON);

@@ -1,0 +1,31 @@
+{
+  "textures": {
+    "plate": "solarquarry:block/filtered_splitter_other",
+    "particle": "solarquarry:block/filtered_splitter_other"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        -0.02
+      ],
+      "to": [
+        16,
+        16,
+        0
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#plate"
+        }
+      }
+    }
+  ]
+}

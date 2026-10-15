@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    "IHI",
+    "PCP",
+    "IRI"
+  ],
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "H": "minecraft:hopper",
+    "P": "solarquarry:item_pipe",
+    "C": "solarquarry:circuit_board",
+    "R": "minecraft:repeater"
+  },
+  "result": {
+    "id": "solarquarry:filtered_splitter",
+    "count": 1
+  }
+}
