@@ -147,6 +147,28 @@ public class TreeFarmMenu extends AbstractContainerMenu {
 		return this.data.get(13);
 	}
 
+	public com.solarquarry.construction.ConstructionState getConstructionState() {
+		return com.solarquarry.construction.ConstructionState.byOrdinal(this.data.get(14));
+	}
+
+	public int getConstructionPercent() {
+		return this.data.get(15);
+	}
+
+	public com.solarquarry.construction.ConstructionProblem getConstructionProblem() {
+		return com.solarquarry.construction.ConstructionProblem.byOrdinal(this.data.get(16));
+	}
+
+	/** Where construction is blocked (world position), or null. */
+	public @org.jspecify.annotations.Nullable BlockPos getBlockedAt() {
+		var problem = this.getConstructionProblem();
+		if (problem != com.solarquarry.construction.ConstructionProblem.OBSTRUCTED && problem != com.solarquarry.construction.ConstructionProblem.UNLOADED) {
+			return null;
+		}
+
+		return this.pos.offset((short) this.data.get(17), (short) this.data.get(18), (short) this.data.get(19));
+	}
+
 	@Override
 	public ItemStack quickMoveStack(Player player, int index) {
 		Slot slot = this.slots.get(index);

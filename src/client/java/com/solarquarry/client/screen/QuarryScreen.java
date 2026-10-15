@@ -383,7 +383,10 @@ public class QuarryScreen extends AbstractContainerScreen<QuarryMenu> {
 	private void drawHint(GuiGraphicsExtractor g, QuarryStatus status) {
 		Component hint;
 		int color;
-		if (status == QuarryStatus.WAITING_FOR_POWER) {
+		if (status == QuarryStatus.CONSTRUCTING) {
+			hint = Component.translatable(status.hintKey(), this.menu.getFramePercent());
+			color = 0xFF4CE0C8;
+		} else if (status == QuarryStatus.WAITING_FOR_POWER) {
 			hint = Component.translatable(status.hintKey(), this.menu.getEnergyPerBlock());
 			color = 0xFFFF8A7A;
 		} else if (status.isProblem()) {

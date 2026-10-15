@@ -33,9 +33,10 @@ public class TreeFarmScreen extends AbstractContainerScreen<TreeFarmMenu> {
 		return switch (status) {
 			case IDLE -> 0xFF8A9199;
 			case PLANTING, GROWING, HARVESTING -> 0xFF4CE06A;
-			case NO_SAPLINGS -> 0xFFE0B341;
+			case BUILDING -> 0xFF4CE0C8;
+			case NO_SAPLINGS, NO_GROUND -> 0xFFE0B341;
 			case NO_POWER -> 0xFFE04B3A;
-			case OUTPUT_FULL -> 0xFFE07A2E;
+			case OUTPUT_FULL, BUILD_BLOCKED -> 0xFFE07A2E;
 		};
 	}
 
@@ -64,9 +65,17 @@ public class TreeFarmScreen extends AbstractContainerScreen<TreeFarmMenu> {
 		g.text(this.font, Component.translatable("gui.solarquarry.tree_farm.status." + status.name().toLowerCase(Locale.ROOT)), LCD_X + 3, LCD_Y + 3, statusColor(status), false);
 		int size = this.menu.getRadius() * 2 + 1;
 		g.text(this.font, Component.translatable("gui.solarquarry.tree_farm.area", size, size, this.menu.getPlanted()), LCD_X + 3, LCD_Y + 14, GuiDraw.LCD_TEXT, false);
-		Component line3 = status == TreeFarmBlockEntity.Status.HARVESTING
-			? Component.translatable("gui.solarquarry.tree_farm.felling", this.menu.getFellingPercent())
-			: Component.translatable("gui.solarquarry.tree_farm.totals", this.menu.getTreesFelled(), this.menu.getSaplingsPlanted());
+		net.minecraft.core.BlockPos blocked = this.menu.getBlockedAt();
+		Component line3;
+		if (blocked != null) {
+			line3 = Component.translatable("gui.solarquarry.construction.blocked_at", blocked.getX(), blocked.getY(), blocked.getZ());
+		} else if (this.menu.getConstructionState() != com.solarquarry.construction.ConstructionState.COMPLETED) {
+			line3 = Component.translatable("gui.solarquarry.construction.progress", this.menu.getConstructionPercent());
+		} else if (status == TreeFarmBlockEntity.Status.HARVESTING) {
+			line3 = Component.translatable("gui.solarquarry.tree_farm.felling", this.menu.getFellingPercent());
+		} else {
+			line3 = Component.translatable("gui.solarquarry.tree_farm.totals", this.menu.getTreesFelled(), this.menu.getSaplingsPlanted());
+		}
 		g.text(this.font, line3, LCD_X + 3, LCD_Y + 25, GuiDraw.LCD_DIM, false);
 		g.text(this.font, Component.translatable("gui.solarquarry.tree_farm.saplings"), TreeFarmMenu.SAPLING_X, TreeFarmMenu.SAPLING_Y - 9, GuiDraw.LABEL, false);
 		g.text(this.font, Component.translatable("gui.solarquarry.tree_farm.output"), TreeFarmMenu.OUTPUT_X, TreeFarmMenu.SAPLING_Y - 9, GuiDraw.LABEL, false);

@@ -42,6 +42,7 @@ public class SolarQuarry implements ModInitializer {
 		SolarQuarryConfig.load(FabricLoader.getInstance().getConfigDir());
 		ModSounds.init();
 		ModBlocks.init();
+		com.solarquarry.construction.ConstructionBlocks.init();
 		ModItems.init();
 		com.solarquarry.registry.ModGear.init();
 		com.solarquarry.registry.ModEntities.init();

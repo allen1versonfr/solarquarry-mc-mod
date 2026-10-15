@@ -445,4 +445,9 @@ public class QuarryMenu extends AbstractContainerMenu {
 		super.removed(player);
 		this.container.stopOpen(player);
 	}
+
+	/** Frame construction progress, 0-100. */
+	public int getFramePercent() {
+		return this.data.get(33);
+	}
 }

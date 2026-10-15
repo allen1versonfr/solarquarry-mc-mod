@@ -94,7 +94,11 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	/** Light the walls every this many layers (strip modes) or blocks of tunnel. */
 	public static final int TORCH_SPACING = 4;
 	public static final int MAX_STORED_XP = 1_000_000;
-	public static final int DATA_COUNT = 33;
+	public static final int DATA_COUNT = 34;
+	/** Construction steps per frame part (a post rises, a rail extends in this many stages). */
+	public static final int FRAME_SEGMENTS = 4;
+	/** Energy per frame construction step. */
+	public static final long FRAME_STEP_COST = 30;
 	/** Security Upgrade: defence radius around the quarry, drones at most, energy per drone per tick and per hit. */
 	public static final int SECURITY_RADIUS = 16;
 	public static final int MAX_DRONES = 3;
@@ -206,6 +210,15 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	private float smeltXpRemainder;
 	/** Where the pump arm last worked (synced for the renderer). */
 	private @Nullable BlockPos pumpTarget;
+	/** The frame is raised step by step (shared construction framework) before mining starts; no blocks are placed. */
+	private final com.solarquarry.construction.ConstructionSite frameSite = new com.solarquarry.construction.ConstructionSite(2, 1);
+	/** Saved before the framework existed with the frame already up: counts as built once the frame size is known. */
+	private boolean frameMigrated;
+	/** Client copy of the frame's construction progress (steps built / total; total 0 = no construction info). */
+	public int clientFrameBuilt;
+	public int clientFrameTotal;
+	/** Client animation: frame steps currently drawn (approaches clientFrameBuilt smoothly). */
+	public float clientFrameShown = Float.NaN;
 
 	// ---- runtime state (recomputed, not authoritative) ----
 	private QuarryUpgrades upgrades = QuarryUpgrades.NONE;
@@ -230,6 +243,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	private int appliedMaxArea = -1;
 	/** Frame registered for collision (see {@link QuarryFrames}); compared to avoid re-registering every tick. */
 	private @Nullable MiningPattern framePattern;
+	private int frameRegisteredParts = Integer.MIN_VALUE;
 	private @Nullable Direction frameDirection;
 	private final RateWindow mineRate = new RateWindow(10);
 	/** Bottom (dy) of each frame leg and of the support under the machine; 0 = standing at the quarry's level. */
@@ -299,6 +313,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 				case 30 -> (q.upgrades.liquidRemover() ? 1 : 0) | (q.fluidPipeConnected ? 2 : 0) | (q.upgrades.voiding() ? 4 : 0) | (q.upgrades.autoSmelter() ? 8 : 0);
 				case 31 -> (int) Math.min(q.pumpTank.amount * 10 / FluidConstants.BUCKET, 0x7FFF);
 				case 32 -> (q.hasUpgrade(UpgradeType.SECURITY) ? 0x100 : 0) | q.drones.size();
+				case 33 -> q.frameSite.percent();
 				default -> 0;
 			};
 		}
@@ -387,6 +402,8 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 			next = QuarryStatus.COMPLETE;
 		} else if (this.mode == Mode.PAUSED) {
 			next = QuarryStatus.PAUSED;
+		} else if (!this.tickFrameConstruction(level)) {
+			next = this.frameSite.problem() == com.solarquarry.construction.ConstructionProblem.NO_POWER ? QuarryStatus.WAITING_FOR_POWER : QuarryStatus.CONSTRUCTING;
 		} else {
 			next = this.runMining(level);
 		}
@@ -1646,6 +1663,14 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		this.owner = input.read("Owner", UUIDUtil.CODEC).orElse(this.owner);
 		this.ownerName = input.getStringOr("OwnerName", this.ownerName);
 		this.lastTarget = input.getLong("LastTarget").map(BlockPos::of).orElse(null);
+		this.clientFrameBuilt = input.getIntOr("FrameBuilt", 0);
+		this.clientFrameTotal = input.getIntOr("FrameTotal", 0);
+		if (!this.frameSite.load(input)) {
+			// Saved before 4.0: a frame that was already up stays up; otherwise it is built when the quarry starts.
+			this.frameSite.reset();
+			this.frameMigrated = this.mode != Mode.IDLE || this.step > 0 || this.scanStep > 0;
+		}
+
 		this.invalidatePattern();
 		this.framePattern = null;
 	}
@@ -2284,6 +2309,86 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		return this.mode != Mode.IDLE || this.step > 0 || this.scanStep > 0;
 	}
 
+	/** Number of frame parts in the current layout (posts, support, rails, end beams). */
+	private int framePartCount() {
+		return new QuarryFrame(this.pattern()).withLegs(this.legBottoms).structure().size();
+	}
+
+	/** Fully built frame parts, or -1 when the whole frame stands (also for frames from before construction existed). */
+	private int builtFrameParts() {
+		if (this.frameSite.isComplete() || this.frameSite.totalSteps() == 0 && !this.frameSite.isUnderConstruction()) {
+			return -1;
+		}
+
+		return this.frameSite.stepsDone() / FRAME_SEGMENTS;
+	}
+
+	/**
+	 * Raises the frame through the shared construction framework: each part (leg, rail, beam) is built in
+	 * {@link #FRAME_SEGMENTS} paid steps, the renderer draws exactly the built steps, and only finished parts are solid.
+	 * Returns true when the frame is complete and mining may run.
+	 */
+	private boolean tickFrameConstruction(ServerLevel level) {
+		int steps = this.framePartCount() * FRAME_SEGMENTS;
+		if (this.frameMigrated) {
+			this.frameMigrated = false;
+			this.frameSite.planVirtual(steps);
+			this.frameSite.markComplete();
+			this.setChanged();
+			return true;
+		}
+
+		this.frameSite.planVirtual(steps);
+		if (this.frameSite.isComplete()) {
+			return true;
+		}
+
+		boolean changed = this.frameSite.tick(level, new com.solarquarry.construction.ConstructionHost() {
+			@Override
+			public boolean payForStep() {
+				long c = Math.max(1L, Math.round(FRAME_STEP_COST * com.solarquarry.config.SolarQuarryConfig.get().energyCostMultiplier()));
+				if (QuarryBlockEntity.this.energy < c) {
+					return false;
+				}
+
+				QuarryBlockEntity.this.useEnergy(c);
+				return true;
+			}
+
+			@Override
+			public void onStepDone(ServerLevel l, @Nullable BlockPos pos) {
+				if (QuarryBlockEntity.this.frameSite.stepsDone() % FRAME_SEGMENTS == 0) {
+					BlockPos at = QuarryBlockEntity.this.worldPosition;
+					l.playSound(null, at, net.minecraft.sounds.SoundEvents.NETHERITE_BLOCK_PLACE, SoundSource.BLOCKS, ModSounds.volume(0.45F), 0.8F + l.getRandom().nextFloat() * 0.3F);
+					l.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.getX() + 0.5, at.getY() + 1.1, at.getZ() + 0.5, 4, 0.3, 0.1, 0.3, 0.04);
+				}
+			}
+
+			@Override
+			public void onCompleted(ServerLevel l) {
+				l.playSound(null, QuarryBlockEntity.this.worldPosition, ModSounds.MACHINE_START, SoundSource.BLOCKS, ModSounds.volume(0.6F), 1.2F);
+			}
+		});
+		if (changed) {
+			this.syncDirty = true;
+			this.setChanged();
+		}
+
+		return this.frameSite.isComplete();
+	}
+
+	public com.solarquarry.construction.ConstructionSite getFrameConstruction() {
+		return this.frameSite;
+	}
+
+	/** Test helper: treats the frame as fully built (used by self-tests that are about mining, not construction). */
+	public void finishFrameConstruction() {
+		this.frameSite.planVirtual(this.framePartCount() * FRAME_SEGMENTS);
+		this.frameSite.markComplete();
+		this.syncDirty = true;
+		this.setChanged();
+	}
+
 	/** Registers the frame's solid boxes for collision when it is shown, and removes them when it is not. */
 	private void refreshFrame() {
 		if (this.level == null || this.isRemoved()) {
@@ -2292,17 +2397,21 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 
 		MiningPattern pattern = this.isFrameVisible() ? this.pattern() : null;
 		Direction direction = pattern == null ? null : this.getAreaDirection();
-		if (java.util.Objects.equals(pattern, this.framePattern) && direction == this.frameDirection) {
+		int built = this.builtFrameParts();
+		if (java.util.Objects.equals(pattern, this.framePattern) && direction == this.frameDirection && built == this.frameRegisteredParts) {
 			return;
 		}
 
 		this.framePattern = pattern;
 		this.frameDirection = direction;
+		this.frameRegisteredParts = built;
 		if (pattern == null) {
 			QuarryFrames.remove(this.level, this.worldPosition.asLong());
 		} else {
 			this.updateLegs();
-			QuarryFrames.put(this.level, this.worldPosition.asLong(), new QuarryFrame(pattern).withLegs(this.legBottoms).worldBoxes(this.worldPosition, direction));
+			List<net.minecraft.world.phys.AABB> boxes = new QuarryFrame(pattern).withLegs(this.legBottoms).worldBoxes(this.worldPosition, direction);
+			// Only the parts that are fully built are solid.
+			QuarryFrames.put(this.level, this.worldPosition.asLong(), built < 0 ? boxes : boxes.subList(0, Math.min(built, boxes.size())));
 		}
 	}
 
@@ -2393,6 +2502,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 		output.store("OreQueue", Codec.LONG.listOf(), queue);
 		output.storeNullable("Owner", UUIDUtil.CODEC, this.owner);
 		output.putString("OwnerName", this.ownerName);
+		this.frameSite.save(output);
 	}
 
 	/** Fields clients need for the renderer and GUI; also part of the saved data. */
@@ -2416,6 +2526,8 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 			output.putLong("MinerPos", this.minerPos.asLong());
 		}
 
+		output.putInt("FrameBuilt", this.frameSite.stepsDone());
+		output.putInt("FrameTotal", this.frameSite.totalSteps());
 		output.putBoolean("Pump", this.upgrades.liquidRemover());
 		if (this.pumpTarget != null && this.upgrades.liquidRemover()) {
 			output.putLong("PumpTarget", this.pumpTarget.asLong());
@@ -2537,6 +2649,7 @@ public class QuarryBlockEntity extends BlockEntity implements WorldlyContainer, 
 	 * so the following block removal cannot drop or duplicate anything.
 	 */
 	public CompoundTag extractForPickup(HolderLookup.Provider registries) {
+		this.frameSite.reset(); // the frame is raised again wherever the quarry goes next
 		CompoundTag tag = this.saveCustomOnly(registries);
 		this.items.clear();
 		this.energy = 0;

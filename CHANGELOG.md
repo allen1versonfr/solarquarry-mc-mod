@@ -1,5 +1,16 @@
 # Changelog
 
+## 4.0.0-beta.1 (in progress)
+
+### Self-building machines (shared construction framework)
+- New construction engine used by every machine that builds a structure: blueprints, visible step-by-step building, pauses when power runs out, when a block is in the way (it is never replaced) or when the chunk is not loaded, resumes after save/load without placing anything twice, and repairs missing blocks.
+- **Quarry:** raises its frame before it starts mining: the legs grow, the rails extend and the end beams span across, paid with energy step by step. Only finished parts are solid. Quarries that were already running keep their frame.
+- New **Industrial Frame** and **Industrial Glass** blocks: placed only by machines, they drop nothing and disappear with the machine that built them.
+
+### Tree Farm fixed
+- **It did nothing on normal ground:** grass, flowers or snow on a planting spot made the spot unusable, so a farm placed on a meadow found nowhere to plant and just showed Idle. It now clears wild plants, finds the ground up to 2 blocks above and 3 below its own height, and tells you when there is no ground, when construction is blocked (with coordinates) or when it is building.
+- The farm first builds a drone mast on top of itself and a post at each corner of its area, then starts planting.
+
 ## 3.0.0 (2026-10-15)
 
 First full release of 3.0; the same features as 3.0.0-beta.3 (earlier betas: 3.0.0-beta.1 to beta.3).

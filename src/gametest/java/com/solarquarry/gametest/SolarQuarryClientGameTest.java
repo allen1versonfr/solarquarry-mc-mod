@@ -47,7 +47,9 @@ public class SolarQuarryClientGameTest implements FabricClientGameTest {
 			singleplayer.getServer().runCommand("tp @a " + (q.getX() + 14) + " " + (q.getY() + 9) + " " + (q.getZ() - 6));
 			context.waitTicks(20);
 			context.getInput().lookAt(q.offset(0, 0, 8));
-			context.waitTicks(120);
+			context.waitTicks(15);
+			context.takeScreenshot("00_quarry_frame_construction");
+			context.waitTicks(105);
 			context.takeScreenshot("01_quarry_running");
 			context.waitTicks(160);
 			context.takeScreenshot("02_quarry_later");
@@ -340,7 +342,9 @@ public class SolarQuarryClientGameTest implements FabricClientGameTest {
 			singleplayer.getServer().runCommand("tp @a " + (farmPos.getX() + 10) + " " + (farmPos.getY() + 7) + " " + (farmPos.getZ() - 4));
 			context.waitTicks(20);
 			context.getInput().lookAt(farmPos.offset(0, 2, 5));
-			context.waitTicks(260);
+			context.waitTicks(10);
+			context.takeScreenshot("19_tree_farm_construction");
+			context.waitTicks(250);
 			context.takeScreenshot("20_tree_farm");
 			singleplayer.getServer().runOnServer(server -> {
 				ServerPlayer player = server.getPlayerList().getPlayers().get(0);

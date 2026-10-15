@@ -19,7 +19,9 @@ public enum QuarryStatus implements StringRepresentable {
 	WAITING_FOR_POWER("waiting_for_power", 0xFFE04B3A),
 	OUTPUT_BLOCKED("output_blocked", 0xFFE07A2E),
 	WAITING_FOR_CHUNK("waiting_for_chunk", 0xFFE07A2E),
-	COMPLETE("complete", 0xFF47A7E0);
+	COMPLETE("complete", 0xFF47A7E0),
+	/** Raising the frame (shared construction framework) before the first block is mined. */
+	CONSTRUCTING("constructing", 0xFF4CE0C8);
 
 	private final String name;
 	private final int color;

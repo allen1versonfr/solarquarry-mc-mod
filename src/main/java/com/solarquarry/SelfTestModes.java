@@ -103,6 +103,13 @@ final class SelfTestModes {
 		this.scenarios.add(Scenario.timed("chunk loader: an unpowered quarry keeps only its own chunks", this::setupChunkLoaderNoPower, 40, this::releaseForcedChunk));
 		this.scenarios.add(Scenario.timed("chunk loader: waits for power without losing its chunks", s -> { }, 160, this::verifyChunkLoaderNoPower));
 		this.scenarios.add(Scenario.timed("phase 5: tree farm plants, grows and fells trees", this::setupTreeFarm, 900, this::verifyTreeFarm));
+		this.scenarios.add(Scenario.timed("4.0 construction: quarry raises its frame", SelfTestConstruction::setupQuarryFrame, 12, SelfTestConstruction::verifyQuarryFrameEarly));
+		this.scenarios.add(Scenario.timed("4.0 construction: frame finished, mining starts", s -> { }, 200, SelfTestConstruction::verifyQuarryFrameDone));
+		this.scenarios.add(Scenario.timed("4.0 construction: an unpowered quarry resumes when powered", s -> { }, 160, SelfTestConstruction::verifyQuarryFrameResumed));
+		this.scenarios.add(Scenario.timed("4.0 construction: quarries from 3.x keep their frame", s -> { }, 5, SelfTestConstruction::verifyQuarryMigration));
+		this.scenarios.add(Scenario.timed("4.0 tree farm: construction stops at a player block", SelfTestConstruction::setupTreeFarmNatural, 60, SelfTestConstruction::verifyTreeFarmBlocked));
+		this.scenarios.add(Scenario.timed("4.0 tree farm: builds and farms on grassy ground", s -> { }, 1200, SelfTestConstruction::verifyTreeFarmNatural));
+		this.scenarios.add(Scenario.timed("4.0 tree farm: structure removed with the farm", s -> { }, 3, SelfTestConstruction::verifyTreeFarmRemoved));
 		this.scenarios.add(Scenario.timed("phase 6: the miner drone tunnels to ores after the area is done", this::setupMiner, 500, this::verifyMiner));
 		this.scenarios.add(Scenario.timed("phase 6: security drones fight hostile mobs only", this::setupSecurity, 140, this::verifySecurity));
 		this.scenarios.add(Scenario.timed("phase 6: drones vanish with their quarry", s -> { }, 5, this::verifyDronesGone));
@@ -113,6 +120,11 @@ final class SelfTestModes {
 		this.scenarios.add(Scenario.timed("phase 4: stock refills the next morning", this::exhaustStock, 45, this::verifyRestock));
 		this.scenarios.add(Scenario.timed("phase 4: trader and guard die", this::killShopkeepers, 30, this::verifyDeathRecorded));
 		this.scenarios.add(Scenario.timed("phase 4: one replacement arrives the next morning", this::nextMorning, 45, this::verifyReplacement));
+		// Development aid: -Dsolarquarry.selftest.only=text keeps only the scenarios whose name contains the text.
+		String only = System.getProperty("solarquarry.selftest.only");
+		if (only != null && !only.isBlank()) {
+			this.scenarios.removeIf(s -> !s.name().contains(only));
+		}
 	}
 
 	static void forceChunks(ServerLevel level) {
@@ -1019,6 +1031,7 @@ final class SelfTestModes {
 
 		configure(quarry, QuarryMode.TUNNEL_BORE, 3, 40, 1, 199);
 		quarry.start();
+		quarry.finishFrameConstruction(); // this scenario is about chunk loading, not about raising the frame
 	}
 
 	private void releaseForcedChunk(ServerLevel level) {
@@ -1397,6 +1410,7 @@ final class SelfTestModes {
 		configure(quarry, QuarryMode.STRIP_MINE, 5, 5, 1, 199);
 		quarry.resetProgress();
 		quarry.start();
+		quarry.finishFrameConstruction(); // this scenario is about the legs, not about raising the frame
 	}
 
 	private void verifyLegs(ServerLevel level) {

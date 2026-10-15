@@ -72,7 +72,12 @@ public class TreeFarmBlockEntity extends BlockEntity implements WorldlyContainer
 	public static final long LEAF_COST = 8;
 	public static final long BONE_MEAL_COST = 30;
 	public static final long GROWTH_COST = 4;
-	public static final int DATA_COUNT = 14;
+	/** Energy per construction step (one frame block). */
+	public static final long BUILD_COST = 25;
+	/** How far above and below the machine's height the farm looks for ground at each spot. */
+	public static final int GROUND_UP = 2;
+	public static final int GROUND_DOWN = 3;
+	public static final int DATA_COUNT = 20;
 	private static final int[] INPUT_FACES = range(0, BONE_MEAL_START + BONE_MEAL_SLOTS);
 	private static final int[] OUTPUT_FACES = range(OUTPUT_START, OUTPUT_START + OUTPUT_SLOTS);
 
@@ -83,7 +88,13 @@ public class TreeFarmBlockEntity extends BlockEntity implements WorldlyContainer
 		HARVESTING,
 		NO_SAPLINGS,
 		NO_POWER,
-		OUTPUT_FULL
+		OUTPUT_FULL,
+		/** Building its mast and corner posts (shared construction framework). */
+		BUILDING,
+		/** Construction is waiting: a block is in the way, or its chunk is not loaded. */
+		BUILD_BLOCKED,
+		/** No spot in the area has plantable ground (dirt, grass, moss...) within reach of the machine's height. */
+		NO_GROUND
 	}
 
 	private final NonNullList<ItemStack> items = NonNullList.withSize(TOTAL_SLOTS, ItemStack.EMPTY);
@@ -101,6 +112,12 @@ public class TreeFarmBlockEntity extends BlockEntity implements WorldlyContainer
 	private int scanCursor;
 	private long energyReceivedThisTick;
 	private boolean syncDirty;
+	/** Mast on the machine and posts at the area's corners, built before the farm starts working. */
+	private final com.solarquarry.construction.ConstructionSite site = new com.solarquarry.construction.ConstructionSite(4, 1);
+	/** Radius the current construction plan was made for (-1 = not planned since loading). */
+	private int plannedRadius = -1;
+	/** Whether the last planting round found any spot with ground (for the "no ground" message). */
+	private boolean anyGround = true;
 
 	// client-side drone animation
 	public float clientDroneX = Float.NaN;
@@ -128,6 +145,12 @@ public class TreeFarmBlockEntity extends BlockEntity implements WorldlyContainer
 				case 11 -> f.upgradeCount(UpgradeType.HARVEST);
 				case 12 -> f.ticksPerOperation();
 				case 13 -> f.countPlanted();
+				case 14 -> f.site.state().ordinal();
+				case 15 -> f.site.percent();
+				case 16 -> f.site.problem().ordinal();
+				case 17 -> f.site.problemPos() == null ? 0 : f.site.problemPos().getX() - f.worldPosition.getX();
+				case 18 -> f.site.problemPos() == null ? 0 : f.site.problemPos().getY() - f.worldPosition.getY();
+				case 19 -> f.site.problemPos() == null ? 0 : f.site.problemPos().getZ() - f.worldPosition.getZ();
 				default -> 0;
 			};
 		}
@@ -226,7 +249,10 @@ public class TreeFarmBlockEntity extends BlockEntity implements WorldlyContainer
 		this.ticks++;
 		this.energyReceivedThisTick = 0;
 		Status next = this.status;
-		if (this.cooldown > 0) {
+		this.planConstruction(level);
+		if (!this.site.isComplete()) {
+			next = this.build(level);
+		} else if (this.cooldown > 0) {
 			this.cooldown--;
 		} else {
 			next = this.work(level);
@@ -235,10 +261,12 @@ public class TreeFarmBlockEntity extends BlockEntity implements WorldlyContainer
 
 		// Growth Upgrade: extra random ticks for planted saplings, paid per sapling.
 		int growth = this.upgradeCount(UpgradeType.GROWTH);
-		if (growth > 0 && this.ticks % 20 == 0) {
+		if (growth > 0 && this.site.isComplete() && this.ticks % 20 == 0) {
 			for (BlockPos spot : this.plantingSpots()) {
-				BlockState state = level.getBlockState(spot);
-				if (state.getBlock() instanceof SaplingBlock && level.isLoaded(spot)) {
+				BlockPos plant = this.plantAt(level, spot);
+				BlockState state = plant == null ? null : level.getBlockState(plant);
+				if (state != null && state.getBlock() instanceof SaplingBlock) {
+					spot = plant;
 					long c = this.cost(GROWTH_COST) * growth;
 					if (this.energy < c) {
 						break;
@@ -287,7 +315,140 @@ public class TreeFarmBlockEntity extends BlockEntity implements WorldlyContainer
 			return planted;
 		}
 
-		return this.boneMealNext(level);
+		Status grown = this.boneMealNext(level);
+		return grown == Status.IDLE && !this.anyGround ? Status.NO_GROUND : grown;
+	}
+
+	// ---- construction (shared framework) ----
+
+	/** (Re)plans the mast and corner posts when the farm is new, was moved or its range changed. */
+	private void planConstruction(ServerLevel level) {
+		int r = this.radius();
+		var plan = this.site.plan();
+		boolean stale = !plan.isEmpty() && plan.getFirst().pos().distManhattan(this.worldPosition) > 2;
+		if (r == this.plannedRadius && !stale && this.site.state() != com.solarquarry.construction.ConstructionState.IDLE) {
+			return;
+		}
+
+		if (stale) {
+			this.site.reset();
+		}
+
+		java.util.List<com.solarquarry.construction.Placement> placements = this.blueprint(level);
+		if (placements == null) {
+			return; // terrain not loaded yet: try again next tick
+		}
+
+		if (this.plannedRadius >= 0 && this.plannedRadius != r) {
+			// Range changed: take down the posts of the old area that are not part of the new plan.
+			java.util.Set<BlockPos> keep = new java.util.HashSet<>();
+			placements.forEach(p -> keep.add(p.pos()));
+			for (com.solarquarry.construction.Placement old : plan) {
+				if (!keep.contains(old.pos()) && level.isLoaded(old.pos())
+					&& com.solarquarry.construction.ConstructionBlocks.isMachineBuilt(level.getBlockState(old.pos()))) {
+					level.setBlock(old.pos(), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+				}
+			}
+		}
+
+		this.plannedRadius = r;
+		this.site.plan(placements);
+		this.syncDirty = true;
+		this.setChanged();
+	}
+
+	/**
+	 * The farm's structure: a three-block mast on top of the machine (the drone's dock) and a two-block post at each
+	 * corner of the work area, standing on the ground there. Returns null while the area is not loaded.
+	 */
+	private java.util.@Nullable List<com.solarquarry.construction.Placement> blueprint(ServerLevel level) {
+		BlockState frame = com.solarquarry.construction.ConstructionBlocks.INDUSTRIAL_FRAME.defaultBlockState();
+		java.util.List<com.solarquarry.construction.Placement> list = new ArrayList<>();
+		for (int i = 1; i <= 3; i++) {
+			list.add(new com.solarquarry.construction.Placement(this.worldPosition.above(i), frame));
+		}
+
+		BlockPos c = this.areaCenter();
+		int r = this.radius();
+		for (int[] corner : new int[][] {{-r, -r}, {-r, r}, {r, -r}, {r, r}}) {
+			BlockPos column = c.offset(corner[0], 0, corner[1]);
+			if (!level.isLoaded(column)) {
+				return null;
+			}
+
+			BlockPos base = this.postBase(level, column);
+			if (base != null) {
+				list.add(new com.solarquarry.construction.Placement(base, frame));
+				list.add(new com.solarquarry.construction.Placement(base.above(), frame));
+			}
+		}
+
+		return list;
+	}
+
+	/** Lowest free (air or plants) block on solid ground in the column near the machine's height, or null. */
+	private @Nullable BlockPos postBase(ServerLevel level, BlockPos column) {
+		for (int dy = GROUND_UP; dy >= -GROUND_DOWN; dy--) {
+			BlockPos pos = column.above(dy);
+			BlockState below = level.getBlockState(pos.below());
+			if (isClearable(level.getBlockState(pos)) && isClearable(level.getBlockState(pos.above()))
+				&& below.isFaceSturdy(level, pos.below(), Direction.UP) && !below.is(BlockTags.LOGS) && !below.is(BlockTags.LEAVES)) {
+				return pos;
+			}
+		}
+
+		return null;
+	}
+
+	/** Air, or a plant/snow layer the farm may clear (never liquids, saplings or anything solid). */
+	static boolean isClearable(BlockState state) {
+		return com.solarquarry.construction.ConstructionHost.isClearable(state);
+	}
+
+	private Status build(ServerLevel level) {
+		com.solarquarry.construction.ConstructionHost host = new com.solarquarry.construction.ConstructionHost() {
+			@Override
+			public boolean payForStep() {
+				long c = TreeFarmBlockEntity.this.cost(BUILD_COST);
+				if (TreeFarmBlockEntity.this.energy < c) {
+					return false;
+				}
+
+				TreeFarmBlockEntity.this.energy -= c;
+				return true;
+			}
+
+			@Override
+			public void onStepDone(ServerLevel l, @Nullable BlockPos pos) {
+				if (pos != null) {
+					TreeFarmBlockEntity.this.droneTarget = pos.immutable();
+					l.sendParticles(net.minecraft.core.particles.ParticleTypes.ELECTRIC_SPARK, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 6, 0.3, 0.3, 0.3, 0.05);
+					l.playSound(null, pos, net.minecraft.sounds.SoundEvents.NETHERITE_BLOCK_PLACE, net.minecraft.sounds.SoundSource.BLOCKS,
+						com.solarquarry.registry.ModSounds.volume(0.5F), 1.2F);
+				}
+			}
+
+			@Override
+			public void onCompleted(ServerLevel l) {
+				l.playSound(null, TreeFarmBlockEntity.this.worldPosition, com.solarquarry.registry.ModSounds.MACHINE_START, net.minecraft.sounds.SoundSource.BLOCKS,
+					com.solarquarry.registry.ModSounds.volume(0.7F), 1.1F);
+			}
+		};
+		if (this.site.tick(level, host)) {
+			this.syncDirty = true;
+			this.setChanged();
+		}
+
+		return switch (this.site.state()) {
+			case COMPLETED -> Status.IDLE;
+			case PAUSED -> this.site.problem() == com.solarquarry.construction.ConstructionProblem.NO_POWER ? Status.NO_POWER : Status.BUILD_BLOCKED;
+			case ERROR -> Status.BUILD_BLOCKED;
+			default -> Status.BUILDING;
+		};
+	}
+
+	public com.solarquarry.construction.ConstructionSite getConstruction() {
+		return this.site;
 	}
 
 	private @Nullable BlockPos findGrownTree(ServerLevel level) {
@@ -296,15 +457,9 @@ public class TreeFarmBlockEntity extends BlockEntity implements WorldlyContainer
 				continue;
 			}
 
-			// The trunk's lowest log, where a sapling was planted (one block up or down allowed).
-			BlockPos base = null;
-			for (int dy = -1; dy <= 1 && base == null; dy++) {
-				if (level.getBlockState(spot.above(dy)).is(BlockTags.LOGS)) {
-					base = spot.above(dy);
-				}
-			}
-
-			if (base == null) {
+			// The trunk's lowest log, where a sapling was planted (within the farm's ground window).
+			BlockPos base = this.plantAt(level, spot);
+			if (base == null || !level.getBlockState(base).is(BlockTags.LOGS)) {
 				continue;
 			}
 
@@ -353,6 +508,10 @@ public class TreeFarmBlockEntity extends BlockEntity implements WorldlyContainer
 
 		if (state.getBlock() instanceof LeavesBlock) {
 			return state.getValue(LeavesBlock.PERSISTENT) ? TreeScan.Kind.PLACED_LEAVES : TreeScan.Kind.NATURAL_LEAVES;
+		}
+
+		if (com.solarquarry.construction.ConstructionBlocks.isMachineBuilt(state)) {
+			return TreeScan.Kind.NATURAL; // the farm's own posts never make a tree count as part of a building
 		}
 
 		if (state.is(BlockTags.SUBSTRATE_OVERWORLD) || state.is(BlockTags.BASE_STONE_OVERWORLD) || state.is(BlockTags.SAND) || state.canBeReplaced()
@@ -419,12 +578,19 @@ public class TreeFarmBlockEntity extends BlockEntity implements WorldlyContainer
 	/** Plants one sapling on a free, valid spot. Returns null when every spot is taken. */
 	private @Nullable Status plantNext(ServerLevel level) {
 		boolean freeSpot = false;
+		boolean ground = false;
 		for (BlockPos spot : this.plantingSpots()) {
+			if (this.plantAt(level, spot) != null) {
+				ground = true;
+				continue;
+			}
+
 			BlockPos target = this.groundSpot(level, spot);
 			if (target == null) {
 				continue;
 			}
 
+			ground = true;
 			freeSpot = true;
 			int slot = this.saplingSlotFor(level, target);
 			if (slot < 0) {
@@ -439,6 +605,14 @@ public class TreeFarmBlockEntity extends BlockEntity implements WorldlyContainer
 			ItemStack stack = this.items.get(slot);
 			BlockState sapling = ((BlockItem) stack.getItem()).getBlock().defaultBlockState();
 			this.energy -= c;
+			if (!level.getBlockState(target).isAir()) {
+				level.destroyBlock(target, false); // grass, flowers or snow on the spot
+			}
+
+			if (!level.getBlockState(target.above()).isAir()) {
+				level.destroyBlock(target.above(), false); // the top half of tall grass
+			}
+
 			level.setBlock(target, sapling, Block.UPDATE_ALL);
 			stack.shrink(1);
 			this.saplingsPlanted++;
@@ -448,23 +622,41 @@ public class TreeFarmBlockEntity extends BlockEntity implements WorldlyContainer
 			return Status.PLANTING;
 		}
 
+		this.anyGround = ground;
 		return freeSpot ? Status.NO_SAPLINGS : null;
 	}
 
-	/** The block a sapling would go in at this spot (air above valid ground, within one block up or down), or null. */
+	/**
+	 * Where a sapling would go at this spot: the first free position (air, grass, flowers, snow) on plantable ground,
+	 * searching from {@link #GROUND_UP} above to {@link #GROUND_DOWN} below the machine's height. Null if there is
+	 * none, or if part of the column is not loaded.
+	 */
 	private @Nullable BlockPos groundSpot(ServerLevel level, BlockPos spot) {
-		for (int dy = 1; dy >= -1; dy--) {
+		for (int dy = GROUND_UP; dy >= -GROUND_DOWN; dy--) {
 			BlockPos pos = spot.above(dy);
 			if (!level.isLoaded(pos)) {
 				return null;
 			}
 
 			BlockState state = level.getBlockState(pos);
-			if (state.is(BlockTags.LOGS) || (state.getBlock() instanceof SaplingBlock)) {
-				return null; // occupied by a tree or sapling
+			if (isClearable(state) && level.getBlockState(pos.below()).is(BlockTags.SUBSTRATE_OVERWORLD) && isClearable(level.getBlockState(pos.above()))) {
+				return pos;
+			}
+		}
+
+		return null;
+	}
+
+	/** The sapling or the trunk's lowest log standing on the ground at this spot (within the ground window), or null. */
+	private @Nullable BlockPos plantAt(Level level, BlockPos spot) {
+		for (int dy = -GROUND_DOWN; dy <= GROUND_UP; dy++) {
+			BlockPos pos = spot.above(dy);
+			if (!level.isLoaded(pos)) {
+				return null;
 			}
 
-			if (state.isAir() && level.getBlockState(pos.below()).is(BlockTags.SUBSTRATE_OVERWORLD) && level.getBlockState(pos.above()).isAir()) {
+			BlockState state = level.getBlockState(pos);
+			if ((state.getBlock() instanceof SaplingBlock || state.is(BlockTags.LOGS)) && level.getBlockState(pos.below()).is(BlockTags.SUBSTRATE_OVERWORLD)) {
 				return pos;
 			}
 		}
@@ -501,8 +693,8 @@ public class TreeFarmBlockEntity extends BlockEntity implements WorldlyContainer
 
 		boolean anySapling = false;
 		for (BlockPos spot : this.plantingSpots()) {
-			for (int dy = 1; dy >= -1; dy--) {
-				BlockPos pos = spot.above(dy);
+			BlockPos plant = this.plantAt(level, spot);
+			for (BlockPos pos : plant == null ? java.util.List.<BlockPos>of() : java.util.List.of(plant)) {
 				BlockState state = level.getBlockState(pos);
 				if (!(state.getBlock() instanceof SaplingBlock sapling)) {
 					continue;
@@ -608,12 +800,8 @@ public class TreeFarmBlockEntity extends BlockEntity implements WorldlyContainer
 
 		int n = 0;
 		for (BlockPos spot : this.plantingSpots()) {
-			for (int dy = 1; dy >= -1; dy--) {
-				BlockState state = this.level.getBlockState(spot.above(dy));
-				if ((state.getBlock() instanceof SaplingBlock) || state.is(BlockTags.LOGS)) {
-					n++;
-					break;
-				}
+			if (this.plantAt(this.level, spot) != null) {
+				n++;
 			}
 		}
 
@@ -814,6 +1002,11 @@ public class TreeFarmBlockEntity extends BlockEntity implements WorldlyContainer
 		this.felling.clear();
 		input.read("Felling", com.mojang.serialization.Codec.LONG.listOf()).ifPresent(list -> list.forEach(l -> this.felling.add(BlockPos.of(l))));
 		this.fellingTotal = Math.max(this.felling.size(), input.getIntOr("FellingTotal", 0));
+		if (!this.site.load(input)) {
+			this.site.reset(); // saved before 4.0: the structure is planned and built on the next tick
+		}
+
+		this.plannedRadius = this.site.plan().isEmpty() ? -1 : input.getIntOr("PlannedRadius", -1);
 	}
 
 	@Override
@@ -828,6 +1021,8 @@ public class TreeFarmBlockEntity extends BlockEntity implements WorldlyContainer
 		this.felling.forEach(p -> felling.add(p.asLong()));
 		output.store("Felling", com.mojang.serialization.Codec.LONG.listOf(), felling);
 		output.putInt("FellingTotal", this.fellingTotal);
+		this.site.save(output);
+		output.putInt("PlannedRadius", this.plannedRadius);
 	}
 
 	private void writeSync(ValueOutput output) {
@@ -849,8 +1044,24 @@ public class TreeFarmBlockEntity extends BlockEntity implements WorldlyContainer
 		return output.buildResult();
 	}
 
+	/** Breaking the farm takes its mast and posts down too (they drop nothing, so nothing is duplicated). */
+	@Override
+	public void preRemoveSideEffects(BlockPos pos, BlockState state) {
+		if (this.level instanceof ServerLevel server) {
+			this.site.dismantle(server, com.solarquarry.construction.ConstructionBlocks::isMachineBuilt);
+		}
+
+		super.preRemoveSideEffects(pos, state);
+	}
+
 	@Override
 	public CompoundTag extractForPickup(HolderLookup.Provider registries) {
+		if (this.level instanceof ServerLevel server) {
+			this.site.dismantle(server, com.solarquarry.construction.ConstructionBlocks::isMachineBuilt);
+		}
+
+		this.site.reset(); // rebuilt wherever the farm is placed next
+		this.plannedRadius = -1;
 		CompoundTag data = this.saveCustomOnly(registries);
 		this.items.clear();
 		this.energy = 0;

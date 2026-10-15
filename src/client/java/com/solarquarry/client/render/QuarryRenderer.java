@@ -56,6 +56,7 @@ public class QuarryRenderer implements BlockEntityRenderer<QuarryBlockEntity, Qu
 
 		QuarryFrame frame = new QuarryFrame(pattern).withLegs(be.getLegBottoms());
 		state.frame = frame.structure();
+		this.extractConstruction(be, state);
 		state.railLeft = frame.railLeft();
 		state.railRight = frame.railRight();
 		state.lMin = frame.lMin();
@@ -143,6 +144,46 @@ public class QuarryRenderer implements BlockEntityRenderer<QuarryBlockEntity, Qu
 			state.headLight = LightCoordsUtil.FULL_BRIGHT;
 			state.frameLight = LightCoordsUtil.FULL_BRIGHT;
 		}
+	}
+
+	/**
+	 * Frame under construction: draws the parts built so far, the part being built growing out of its base (posts
+	 * upward, rails forward, end beams across). The shown progress glides towards the synced server progress.
+	 */
+	private void extractConstruction(QuarryBlockEntity be, QuarryRenderState state) {
+		int total = be.clientFrameTotal;
+		int built = Math.min(be.clientFrameBuilt, total);
+		if (total <= 0 || built >= total) {
+			state.frameComplete = true;
+			be.clientFrameShown = Float.NaN;
+			return;
+		}
+
+		long now = System.nanoTime();
+		if (Float.isNaN(be.clientFrameShown) || be.clientFrameShown > built) {
+			be.clientFrameShown = built;
+		} else {
+			// The server does a step every 2 ticks (10 per second); catch up at that speed.
+			float dt = be.clientLastFrameNanos == 0 ? 0.0F : Math.min(0.1F, (now - be.clientLastFrameNanos) / 1.0E9F);
+			be.clientFrameShown = Math.min(built + 0.99F, be.clientFrameShown + dt * 10.0F);
+		}
+
+		state.frameComplete = false;
+		float shown = be.clientFrameShown / QuarryBlockEntity.FRAME_SEGMENTS;
+		int full = (int) shown;
+		float partial = shown - full;
+		java.util.List<QuarryFrame.Box> all = state.frame;
+		java.util.List<QuarryFrame.Box> visible = new java.util.ArrayList<>(all.subList(0, Math.min(full, all.size())));
+		if (full < all.size() && partial > 0.02F) {
+			QuarryFrame.Box b = all.get(full);
+			visible.add(switch (b.part()) {
+				case POST, SUPPORT -> new QuarryFrame.Box(b.part(), b.l0(), b.l1(), b.y0(), b.y0() + (b.y1() - b.y0()) * partial, b.f0(), b.f1());
+				case RAIL -> new QuarryFrame.Box(b.part(), b.l0(), b.l1(), b.y0(), b.y1(), b.f0(), b.f0() + (b.f1() - b.f0()) * partial);
+				case END_BEAM -> new QuarryFrame.Box(b.part(), b.l0(), b.l0() + (b.l1() - b.l0()) * partial, b.y0(), b.y1(), b.f0(), b.f1());
+			});
+		}
+
+		state.frame = visible;
 	}
 
 	/** The Liquid Remover's arm: parked at the far end of the rails, or over the liquid it is pumping. */
@@ -247,6 +288,10 @@ public class QuarryRenderer implements BlockEntityRenderer<QuarryBlockEntity, Qu
 				this.localBox(pose, vc, forward, lateral, box.l0(), box.l1(), box.y0(), box.y1(), box.f0(), box.f1(), frameLight);
 			}
 		});
+
+		if (!state.frameComplete) {
+			return; // joints, lights and the gantry go on once the frame stands
+		}
 
 		// Steel joints where the posts meet the rails, base plates and mid-height braces.
 		collector.submitCustomGeometry(poseStack, RenderTypes.entityCutout(STEEL), (pose, vc) -> {

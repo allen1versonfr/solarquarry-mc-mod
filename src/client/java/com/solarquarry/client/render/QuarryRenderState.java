@@ -34,4 +34,6 @@ public class QuarryRenderState extends BlockEntityRenderState {
 	public float pumpF;
 	public float pumpY;
 	public java.util.List<com.solarquarry.quarry.QuarryFrame.Box> frame = java.util.List.of();
+	/** False while the frame is still being raised: only the built parts are drawn, without the gantry. */
+	public boolean frameComplete = true;
 }
